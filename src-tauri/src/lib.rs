@@ -1,0 +1,65 @@
+pub mod commands;
+pub mod config;
+pub mod error;
+pub mod models;
+pub mod store;
+
+use std::path::PathBuf;
+
+use tauri::Manager;
+
+/// Global application state managed by Tauri.
+pub struct AppState {
+    pub db: std::sync::Mutex<rusqlite::Connection>,
+    pub config: std::sync::Mutex<models::Settings>,
+    pub config_path: PathBuf,
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .setup(|app| {
+            if cfg!(debug_assertions) {
+                app.handle().plugin(
+                    tauri_plugin_log::Builder::default()
+                        .level(log::LevelFilter::Info)
+                        .build(),
+                )?;
+            }
+
+            // Resolve standard data directory and ensure it exists.
+            let app_data_dir = app.path().app_data_dir()?;
+            std::fs::create_dir_all(&app_data_dir)?;
+
+            // Initialise the SQLite database.
+            let db_path = app_data_dir.join("chatbot.db");
+            let db = store::init(&db_path)?;
+
+            // Load persisted settings (falls back to defaults if absent).
+            let config_path = app_data_dir.join("config.json");
+            let settings = config::load(config_path.clone())?;
+
+            // Inject state so Tauri commands can access it via State<>.
+            app.manage(AppState {
+                db: std::sync::Mutex::new(db),
+                config: std::sync::Mutex::new(settings),
+                config_path,
+            });
+
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            commands::chat::send_message,
+            commands::chat::stop_stream,
+            commands::chat::get_messages,
+            commands::conversation::list_conversations,
+            commands::conversation::create_conversation,
+            commands::conversation::update_conversation,
+            commands::conversation::delete_conversation,
+            commands::settings::get_settings,
+            commands::settings::update_settings,
+            commands::settings::test_connection,
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
