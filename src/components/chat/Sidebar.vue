@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref, nextTick, onMounted, onUnmounted } from 'vue'
 import type { Conversation } from '../../types'
-import { SettingsOutline, PinOutline, Pin } from '@vicons/ionicons5'
+import { SettingsOutline } from '@vicons/ionicons5'
 import { useThemeVars } from 'naive-ui'
 
 const themeVars = useThemeVars()
@@ -22,9 +22,8 @@ const emit = defineEmits<{
 }>()
 
 const hoveredKey = ref<string | null>(null)
-const showRenameModal = ref(false)
-const renameTargetId = ref<string | null>(null)
-const newTitle = ref('')
+const editingId = ref<string | null>(null)
+const editingTitle = ref('')
 const searchQuery = ref('')
 const forceUpdateKey = ref(0)
 
@@ -56,23 +55,31 @@ function handleDelete(id: string) {
   closeContextMenu()
 }
 
-function openRename(id: string) {
+function startEdit(id: string) {
+  closeContextMenu()
   const conv = props.conversations.find(c => c.id === id)
   if (conv) {
-    renameTargetId.value = id
-    newTitle.value = conv.title
-    showRenameModal.value = true
+    editingId.value = id
+    editingTitle.value = conv.title
+    nextTick(() => {
+      const el = document.querySelector('.inline-rename-input') as HTMLInputElement
+      el?.focus()
+      el?.select()
+    })
   }
-  closeContextMenu()
 }
 
-function confirmRename() {
-  if (renameTargetId.value && newTitle.value.trim()) {
-    emit('rename', renameTargetId.value, newTitle.value.trim())
+function confirmEdit() {
+  if (editingId.value && editingTitle.value.trim()) {
+    emit('rename', editingId.value, editingTitle.value.trim())
   }
-  showRenameModal.value = false
-  renameTargetId.value = null
-  newTitle.value = ''
+  editingId.value = null
+  editingTitle.value = ''
+}
+
+function cancelEdit() {
+  editingId.value = null
+  editingTitle.value = ''
 }
 
 function handleTogglePin(id: string) {
@@ -151,26 +158,36 @@ onUnmounted(() => {
           cursor: 'pointer',
           borderRadius: '6px',
           margin: '0 4px',
-          background: conv.id === activeId ? themeVars.hoverColor : 'transparent',
+          background: conv.id === activeId
+            ? themeVars.pressedColor
+            : hoveredKey === conv.id
+              ? themeVars.hoverColor
+              : 'transparent',
         }"
         @click="handleSelect(conv.id)"
         @contextmenu="handleContextMenu($event, conv.id)"
         @mouseenter="hoveredKey = conv.id"
         @mouseleave="hoveredKey = null"
       >
-        <n-icon
-          v-if="conv.pinned"
-          :component="Pin"
-          :size="14"
-          style="margin-right: 4px; color: #4b5563; flex-shrink: 0;"
+        <span v-if="conv.pinned" style="margin-right: 4px; flex-shrink: 0; font-size: 12px; line-height: 1;">📌</span>
+        <n-input
+          v-if="editingId === conv.id"
+          v-model:value="editingTitle"
+          size="small"
+          class="inline-rename-input"
+          style="flex: 1; min-width: 0;"
+          @keyup.enter="confirmEdit"
+          @keyup.escape="cancelEdit"
+          @blur="confirmEdit"
+          @click.stop
         />
         <n-ellipsis
+          v-else
           :line-clamp="1"
           :style="{
             flex: '1',
             minWidth: 0,
-            maxWidth: '120px',
-            fontSize: '14px',
+            fontSize: '13px',
             color: conv.id === activeId ? themeVars.textColor1 : themeVars.textColor2,
           }"
         >
@@ -223,24 +240,12 @@ onUnmounted(() => {
         </n-button>
       </div>
       <div style="padding: 4px 8px;">
-        <n-button text type="warning" style="width: 100%; justify-content: flex-start;" @click="openRename(contextMenuConvId!)">
+        <n-button text type="warning" style="width: 100%; justify-content: flex-start;" @click="startEdit(contextMenuConvId!)">
           重命名
         </n-button>
       </div>
     </div>
   </teleport>
 
-  <n-modal v-model:show="showRenameModal" title="重命名对话" preset="dialog" style="width: 360px;">
-    <n-input
-      v-model:value="newTitle"
-      placeholder="请输入新标题"
-      @keyup.enter="confirmRename"
-    />
-    <template #footer>
-      <n-space justify="end" :size="8">
-        <n-button @click="showRenameModal = false">取消</n-button>
-        <n-button type="primary" @click="confirmRename">确认</n-button>
-      </n-space>
-    </template>
-  </n-modal>
+
 </template>

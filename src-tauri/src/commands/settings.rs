@@ -20,7 +20,14 @@ pub fn update_settings(
     settings: models::Settings,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    log::info!("Rust::commands::settings::update_settings | 更新配置 | model={}", settings.model);
+    let last_active = settings.last_active_conversation_id
+        .as_deref()
+        .unwrap_or("(none)");
+    log::info!(
+        "Rust::commands::settings::update_settings | 更新配置 | model={} last_active={}",
+        settings.model,
+        last_active,
+    );
     {
         let mut config = state.config.lock().map_err(|e| e.to_string())?;
         *config = settings.clone();

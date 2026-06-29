@@ -1,8 +1,9 @@
 import { defineStore } from 'pinia'
-import type { Conversation, Message } from '../types'
+import type { Conversation, Message, Settings } from '../types'
 import * as chatBridge from '../bridge/chat'
 import * as conversationBridge from '../bridge/conversation'
 import { log } from '../bridge/log'
+import { useSettingsStore } from './settingsStore'
 
 export const useChatStore = defineStore('chat', {
   state: () => ({
@@ -16,6 +17,19 @@ export const useChatStore = defineStore('chat', {
   actions: {
     async loadConversations(): Promise<void> {
       this.conversations = await conversationBridge.listConversations()
+      // 尝试恢复最后活跃对话
+      const settingsStore = useSettingsStore()
+      if (settingsStore.last_active_conversation_id) {
+        const exists = this.conversations.some(
+          c => c.id === settingsStore.last_active_conversation_id
+        )
+        if (exists) {
+          await log('info', `前端::chatStore::loadConversations | 恢复最后对话 | id=${settingsStore.last_active_conversation_id}`)
+          await this.switchConversation(settingsStore.last_active_conversation_id)
+        } else {
+          await log('info', `前端::chatStore::loadConversations | 最后对话已不存在，跳过 | id=${settingsStore.last_active_conversation_id}`)
+        }
+      }
     },
 
     async createConversation(): Promise<void> {
@@ -66,6 +80,12 @@ export const useChatStore = defineStore('chat', {
       if (this.activeConversationId === id) return
       this.activeConversationId = id
       this.messages = await chatBridge.getMessages(id)
+      // 持久化最后活跃对话 ID
+      const settingsStore = useSettingsStore()
+      if (settingsStore.last_active_conversation_id !== id) {
+        settingsStore.last_active_conversation_id = id
+        await settingsStore.updateSettings({ ...settingsStore.$state } as Settings)
+      }
     },
 
     async sendMessage(content: string): Promise<void> {

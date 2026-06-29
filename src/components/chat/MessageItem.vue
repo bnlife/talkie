@@ -14,7 +14,7 @@ const props = defineProps<{
   >
     <n-card
       style="max-width: 70%;"
-      :content-style="{ padding: '8px 14px' }"
+      :content-style="{ padding: '6px 12px' }"
       :bordered="props.message.role === 'assistant'"
       :embedded="props.message.role === 'user'"
       size="small"
@@ -23,7 +23,7 @@ const props = defineProps<{
         :type="props.message.role === 'user' ? 'primary' : 'info'"
         size="tiny"
         :bordered="false"
-        style="margin-bottom: 6px;"
+        style="margin-bottom: 4px;"
       >
         {{ props.message.role === 'user' ? '用户' : '助手' }}
       </n-tag>

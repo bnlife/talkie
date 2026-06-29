@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import type { Conversation, Message } from '../types'
+import type { Conversation, Message, Settings } from '../types'
 
 // Mock bridge modules before importing stores
 vi.mock('../bridge/chat')
 vi.mock('../bridge/conversation')
 vi.mock('../bridge/settings')
+vi.mock('../bridge/log')
 
 import { useChatStore } from '../stores/chatStore'
 import { useSettingsStore } from '../stores/settingsStore'
@@ -59,6 +60,49 @@ describe('chatStore', () => {
 
       expect(conversationBridge.listConversations).toHaveBeenCalledOnce()
       expect(store.conversations).toEqual(convs)
+    })
+
+    it('restores last active conversation when last_active_conversation_id exists', async () => {
+      const conv = createConv({ id: 'last-id' })
+      vi.mocked(conversationBridge.listConversations).mockResolvedValue([conv])
+      vi.mocked(chatBridge.getMessages).mockResolvedValue([])
+      vi.mocked(settingsBridge.updateSettings).mockResolvedValue(undefined)
+
+      // Set the saved last_active id
+      const settingsStore = useSettingsStore()
+      settingsStore.last_active_conversation_id = 'last-id'
+
+      const store = useChatStore()
+      await store.loadConversations()
+
+      expect(store.activeConversationId).toBe('last-id')
+      expect(chatBridge.getMessages).toHaveBeenCalledWith('last-id')
+    })
+
+    it('does not restore when last_active_conversation_id is not set', async () => {
+      const convs = [createConv({ id: 'c1' })]
+      vi.mocked(conversationBridge.listConversations).mockResolvedValue(convs)
+
+      const store = useChatStore()
+      await store.loadConversations()
+
+      expect(store.activeConversationId).toBeNull()
+    })
+
+    it('skips restoration when saved conversation no longer exists', async () => {
+      // Only conv-1 exists, but saved id points to deleted-conv
+      vi.mocked(conversationBridge.listConversations).mockResolvedValue([
+        createConv({ id: 'conv-1' }),
+      ])
+
+      const settingsStore = useSettingsStore()
+      settingsStore.last_active_conversation_id = 'deleted-conv'
+
+      const store = useChatStore()
+      await store.loadConversations()
+
+      expect(store.activeConversationId).toBeNull()
+      expect(chatBridge.getMessages).not.toHaveBeenCalled()
     })
   })
 
@@ -124,6 +168,7 @@ describe('chatStore', () => {
     it('switches conversation and loads messages', async () => {
       const msgs = [createMsg()]
       vi.mocked(chatBridge.getMessages).mockResolvedValue(msgs)
+      vi.mocked(settingsBridge.updateSettings).mockResolvedValue(undefined)
 
       const store = useChatStore()
       store.activeConversationId = 'old'
@@ -133,6 +178,34 @@ describe('chatStore', () => {
       expect(store.activeConversationId).toBe('new')
       expect(chatBridge.getMessages).toHaveBeenCalledWith('new')
       expect(store.messages).toEqual(msgs)
+    })
+
+    it('persists last_active_conversation_id when switching', async () => {
+      vi.mocked(chatBridge.getMessages).mockResolvedValue([])
+      vi.mocked(settingsBridge.updateSettings).mockResolvedValue(undefined)
+
+      const store = useChatStore()
+      store.activeConversationId = 'old'
+
+      await store.switchConversation('target-id')
+
+      // settingsStore should have the new id
+      const settingsStore = useSettingsStore()
+      expect(settingsStore.last_active_conversation_id).toBe('target-id')
+
+      // bridge should have been called with full settings including the id
+      expect(settingsBridge.updateSettings).toHaveBeenCalled()
+      const callArg = vi.mocked(settingsBridge.updateSettings).mock.calls[0][0] as Settings
+      expect(callArg.last_active_conversation_id).toBe('target-id')
+    })
+
+    it('does not persist if already on the same conversation', async () => {
+      const store = useChatStore()
+      store.activeConversationId = 'same-id'
+
+      await store.switchConversation('same-id')
+
+      expect(settingsBridge.updateSettings).not.toHaveBeenCalled()
     })
   })
 

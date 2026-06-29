@@ -31,6 +31,8 @@ pub struct Settings {
     pub api_key: String,
     pub model: String,
     pub temperature: f32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub last_active_conversation_id: Option<String>,
 }
 
 impl Default for Settings {
@@ -40,6 +42,7 @@ impl Default for Settings {
             api_key: String::new(),
             model: "deepseek-chat".to_string(),
             temperature: 0.7,
+            last_active_conversation_id: None,
         }
     }
 }

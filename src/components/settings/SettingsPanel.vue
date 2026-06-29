@@ -28,6 +28,7 @@ function handleSave() {
       <n-input
         v-model:value="formState.base_url"
         placeholder="https://api.openai.com/v1"
+        size="small"
       />
     </n-form-item>
     <n-form-item label="API Key" path="api_key">
@@ -36,12 +37,14 @@ function handleSave() {
         type="password"
         placeholder="sk-..."
         show-password-on="click"
+        size="small"
       />
     </n-form-item>
     <n-form-item label="模型" path="model">
       <n-input
         v-model:value="formState.model"
         placeholder="输入模型名称，如 deepseek-chat"
+        size="small"
       />
     </n-form-item>
     <n-form-item label="温度" path="temperature">
@@ -57,11 +60,11 @@ function handleSave() {
       </n-text>
     </n-form-item>
     <n-form-item>
-      <n-space :size="12">
-        <n-button @click="emit('test-connection')">
+      <n-space :size="8">
+        <n-button size="small" @click="emit('test-connection')">
           测试连接
         </n-button>
-        <n-button type="primary" @click="handleSave">
+        <n-button size="small" type="primary" @click="handleSave">
           保存设置
         </n-button>
       </n-space>

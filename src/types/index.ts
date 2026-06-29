@@ -22,4 +22,5 @@ export interface Settings {
   api_key: string
   model: string
   temperature: number
+  last_active_conversation_id?: string
 }

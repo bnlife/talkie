@@ -18,12 +18,12 @@ const emit = defineEmits<{
     <n-empty
       v-if="props.messages.length === 0 && !props.streamingId"
       description="暂无消息"
-      style="margin-top: 80px;"
+      style="margin-top: 48px;"
     />
-    <div v-for="msg in props.messages" :key="msg.id" style="padding: 4px 0;">
+    <div v-for="msg in props.messages" :key="msg.id" style="padding: 3px 0;">
       <MessageItem :message="msg" />
     </div>
-    <div v-if="props.streamingId" style="padding: 4px 0;">
+    <div v-if="props.streamingId" style="padding: 3px 0;">
       <MessageItem
         :message="{
           id: props.streamingId,
