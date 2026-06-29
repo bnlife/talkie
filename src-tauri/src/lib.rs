@@ -76,6 +76,8 @@ pub fn run() {
             commands::conversation::create_conversation,
             commands::conversation::update_conversation,
             commands::conversation::delete_conversation,
+            commands::conversation::pin_conversation,
+            commands::conversation::unpin_conversation,
             commands::settings::get_settings,
             commands::settings::update_settings,
             commands::settings::test_connection,

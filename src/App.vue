@@ -129,8 +129,16 @@ function handleDeleteConversation(id: string) {
   chatStore.deleteConversation(id)
 }
 
-function handleRenameConversation(id: string, title: string) {
-  // TODO: rename logic
+async function handleRenameConversation(id: string, title: string) {
+  await chatStore.renameConversation(id, title)
+}
+
+function handlePinConversation(id: string) {
+  chatStore.pinConversation(id)
+}
+
+function handleUnpinConversation(id: string) {
+  chatStore.unpinConversation(id)
 }
 
 async function handleUpdateSettings(partial: Partial<Settings>) {
@@ -168,6 +176,8 @@ async function handleTestConnection() {
             @create="handleCreateConversation"
             @close="handleDeleteConversation"
             @rename="handleRenameConversation"
+            @pin="handlePinConversation"
+            @unpin="handleUnpinConversation"
             @open-settings="showSettings = true"
           />
         </n-layout-sider>

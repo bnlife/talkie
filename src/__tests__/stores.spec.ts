@@ -24,6 +24,7 @@ function createConv(overrides: Partial<Conversation> = {}): Conversation {
     system_prompt: '',
     created_at: 0,
     updated_at: 0,
+    pinned: false,
     ...overrides,
   }
 }
@@ -132,6 +133,34 @@ describe('chatStore', () => {
       expect(store.activeConversationId).toBe('new')
       expect(chatBridge.getMessages).toHaveBeenCalledWith('new')
       expect(store.messages).toEqual(msgs)
+    })
+  })
+
+  describe('pinConversation', () => {
+    it('calls bridge and updates local pinned to true', async () => {
+      vi.mocked(conversationBridge.pinConversation).mockResolvedValue(undefined)
+
+      const store = useChatStore()
+      store.conversations = [createConv({ id: 'c1', pinned: false })]
+
+      await store.pinConversation('c1')
+
+      expect(conversationBridge.pinConversation).toHaveBeenCalledWith('c1')
+      expect(store.conversations[0].pinned).toBe(true)
+    })
+  })
+
+  describe('unpinConversation', () => {
+    it('calls bridge and updates local pinned to false', async () => {
+      vi.mocked(conversationBridge.unpinConversation).mockResolvedValue(undefined)
+
+      const store = useChatStore()
+      store.conversations = [createConv({ id: 'c1', pinned: true })]
+
+      await store.unpinConversation('c1')
+
+      expect(conversationBridge.unpinConversation).toHaveBeenCalledWith('c1')
+      expect(store.conversations[0].pinned).toBe(false)
     })
   })
 

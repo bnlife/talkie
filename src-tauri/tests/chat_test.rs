@@ -41,6 +41,7 @@ fn insert_conv(conn: &rusqlite::Connection, id: &str) {
         system_prompt: String::new(),
         created_at: 1000,
         updated_at: 1000,
+        pinned: false,
     };
     store::create_conversation(conn, &conv).unwrap();
 }
@@ -188,6 +189,72 @@ fn test_store_message_with_token_count() {
     let messages = store::list_messages_by_conversation(&conn, "conv-tokens").unwrap();
     assert_eq!(messages.len(), 1);
     assert_eq!(messages[0].token_count, Some(42));
+}
+
+// ===========================================================================
+// Pin / Unpin tests
+// ===========================================================================
+
+/// Pinning a conversation sets pinned to 1.
+#[test]
+fn test_store_pin_conversation() {
+    let conn = setup_db();
+    insert_conv(&conn, "conv-pin");
+
+    store::pin_conversation(&conn, "conv-pin").unwrap();
+
+    let conv = store::get_conversation(&conn, "conv-pin")
+        .unwrap()
+        .expect("conversation should exist");
+    assert!(conv.pinned, "conversation should be pinned");
+}
+
+/// Unpinning a conversation sets pinned to 0.
+#[test]
+fn test_store_unpin_conversation() {
+    let conn = setup_db();
+    insert_conv(&conn, "conv-unpin");
+
+    // Pin first, then unpin.
+    store::pin_conversation(&conn, "conv-unpin").unwrap();
+    store::unpin_conversation(&conn, "conv-unpin").unwrap();
+
+    let conv = store::get_conversation(&conn, "conv-unpin")
+        .unwrap()
+        .expect("conversation should exist");
+    assert!(!conv.pinned, "conversation should not be pinned");
+}
+
+/// Pinned conversations appear before unpinned ones in list_conversations.
+#[test]
+fn test_store_list_orders_pinned_first() {
+    let conn = setup_db();
+
+    let now = 2000i64;
+    for i in 0..3 {
+        let conv = Conversation {
+            id: format!("conv-{}", i),
+            title: format!("Conversation {}", i),
+            model: "test".into(),
+            system_prompt: String::new(),
+            created_at: now + i,
+            updated_at: now + i,
+            pinned: false,
+        };
+        store::create_conversation(&conn, &conv).unwrap();
+    }
+
+    // Pin conv-1 (middle one)
+    store::pin_conversation(&conn, "conv-1").unwrap();
+
+    let list = store::list_conversations(&conn).unwrap();
+    assert_eq!(list.len(), 3);
+    // conv-1 (pinned) should be first
+    assert_eq!(list[0].id, "conv-1");
+    assert!(list[0].pinned);
+    // remaining should be in updated_at DESC order
+    assert_eq!(list[1].id, "conv-2");
+    assert_eq!(list[2].id, "conv-0");
 }
 
 // ===========================================================================

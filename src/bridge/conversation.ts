@@ -16,3 +16,11 @@ export async function updateConversation(id: string, title: string): Promise<voi
 export async function deleteConversation(id: string): Promise<void> {
   return invoke<void>('delete_conversation', { id })
 }
+
+export async function pinConversation(id: string): Promise<void> {
+  return invoke<void>('pin_conversation', { id })
+}
+
+export async function unpinConversation(id: string): Promise<void> {
+  return invoke<void>('unpin_conversation', { id })
+}

@@ -14,6 +14,7 @@ export interface Conversation {
   system_prompt: string
   created_at: number
   updated_at: number
+  pinned: boolean
 }
 
 export interface Settings {

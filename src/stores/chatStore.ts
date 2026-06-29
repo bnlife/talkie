@@ -36,6 +36,31 @@ export const useChatStore = defineStore('chat', {
       }
     },
 
+    async renameConversation(id: string, title: string): Promise<void> {
+      await log('info', `前端::chatStore::renameConversation | 重命名对话 | id=${id}`)
+      await conversationBridge.updateConversation(id, title)
+      const conv = this.conversations.find(c => c.id === id)
+      if (conv) conv.title = title
+    },
+
+    async pinConversation(id: string): Promise<void> {
+      await log('info', `前端::chatStore::pinConversation | 置顶对话 | id=${id}`)
+      await conversationBridge.pinConversation(id)
+      const conv = this.conversations.find(c => c.id === id)
+      if (conv) {
+        conv.pinned = true
+      }
+    },
+
+    async unpinConversation(id: string): Promise<void> {
+      await log('info', `前端::chatStore::unpinConversation | 取消置顶 | id=${id}`)
+      await conversationBridge.unpinConversation(id)
+      const conv = this.conversations.find(c => c.id === id)
+      if (conv) {
+        conv.pinned = false
+      }
+    },
+
     async switchConversation(id: string): Promise<void> {
       await log('info', `前端::chatStore::switchConversation | 切换对话 | id=${id}`)
       if (this.activeConversationId === id) return

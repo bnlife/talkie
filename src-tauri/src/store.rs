@@ -23,7 +23,8 @@ pub fn init(db_path: &PathBuf) -> Result<Connection, AppError> {
             model TEXT NOT NULL,
             system_prompt TEXT NOT NULL DEFAULT '',
             created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL
+            updated_at INTEGER NOT NULL,
+            pinned INTEGER NOT NULL DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS messages (
             id TEXT PRIMARY KEY,
@@ -35,6 +36,12 @@ pub fn init(db_path: &PathBuf) -> Result<Connection, AppError> {
             FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
         );",
     )?;
+
+    // 迁移：为旧数据库添加 pinned 列（如已存在则忽略）
+    let _ = conn.execute(
+        "ALTER TABLE conversations ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
 
     log::info!("Rust::store::init | 数据库初始化完成");
     Ok(conn)
@@ -48,8 +55,8 @@ pub fn init(db_path: &PathBuf) -> Result<Connection, AppError> {
 pub fn list_conversations(conn: &Connection) -> Result<Vec<Conversation>, AppError> {
     log::debug!("Rust::store::list_conversations | 查询所有对话");
     let mut stmt = conn.prepare(
-        "SELECT id, title, model, system_prompt, created_at, updated_at \
-         FROM conversations ORDER BY updated_at DESC",
+        "SELECT id, title, model, system_prompt, created_at, updated_at, pinned \
+         FROM conversations ORDER BY pinned DESC, updated_at DESC",
     )?;
     let rows = stmt.query_map([], |row| {
         Ok(Conversation {
@@ -59,6 +66,7 @@ pub fn list_conversations(conn: &Connection) -> Result<Vec<Conversation>, AppErr
             system_prompt: row.get(3)?,
             created_at: row.get(4)?,
             updated_at: row.get(5)?,
+            pinned: row.get::<_, i64>(6)? != 0,
         })
     })?;
     let mut conversations = Vec::new();
@@ -72,8 +80,8 @@ pub fn list_conversations(conn: &Connection) -> Result<Vec<Conversation>, AppErr
 pub fn create_conversation(conn: &Connection, conversation: &Conversation) -> Result<(), AppError> {
     log::info!("Rust::store::create_conversation | 创建对话 | id={}", conversation.id);
     conn.execute(
-        "INSERT INTO conversations (id, title, model, system_prompt, created_at, updated_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT INTO conversations (id, title, model, system_prompt, created_at, updated_at, pinned) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         params![
             conversation.id,
             conversation.title,
@@ -81,6 +89,7 @@ pub fn create_conversation(conn: &Connection, conversation: &Conversation) -> Re
             conversation.system_prompt,
             conversation.created_at,
             conversation.updated_at,
+            conversation.pinned as i64,
         ],
     )?;
     Ok(())
@@ -90,7 +99,7 @@ pub fn create_conversation(conn: &Connection, conversation: &Conversation) -> Re
 pub fn get_conversation(conn: &Connection, id: &str) -> Result<Option<Conversation>, AppError> {
     log::debug!("Rust::store::get_conversation | 查询对话 | id={}", id);
     let mut stmt = conn.prepare(
-        "SELECT id, title, model, system_prompt, created_at, updated_at \
+        "SELECT id, title, model, system_prompt, created_at, updated_at, pinned \
          FROM conversations WHERE id = ?1",
     )?;
     let mut rows = stmt.query_map(params![id], |row| {
@@ -101,6 +110,7 @@ pub fn get_conversation(conn: &Connection, id: &str) -> Result<Option<Conversati
             system_prompt: row.get(3)?,
             created_at: row.get(4)?,
             updated_at: row.get(5)?,
+            pinned: row.get::<_, i64>(6)? != 0,
         })
     })?;
     match rows.next() {
@@ -131,6 +141,26 @@ pub fn update_conversation(conn: &Connection, conversation: &Conversation) -> Re
 pub fn delete_conversation(conn: &Connection, id: &str) -> Result<(), AppError> {
     log::info!("Rust::store::delete_conversation | 删除对话及关联消息 | id={}", id);
     conn.execute("DELETE FROM conversations WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
+/// Pin a conversation (set pinned = 1).
+pub fn pin_conversation(conn: &Connection, id: &str) -> Result<(), AppError> {
+    log::info!("Rust::store::pin_conversation | 置顶对话 | id={}", id);
+    conn.execute(
+        "UPDATE conversations SET pinned = 1 WHERE id = ?1",
+        params![id],
+    )?;
+    Ok(())
+}
+
+/// Unpin a conversation (set pinned = 0).
+pub fn unpin_conversation(conn: &Connection, id: &str) -> Result<(), AppError> {
+    log::info!("Rust::store::unpin_conversation | 取消置顶 | id={}", id);
+    conn.execute(
+        "UPDATE conversations SET pinned = 0 WHERE id = ?1",
+        params![id],
+    )?;
     Ok(())
 }
 

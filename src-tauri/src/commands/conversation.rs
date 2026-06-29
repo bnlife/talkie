@@ -42,6 +42,7 @@ pub fn create_conversation(
         system_prompt: String::new(),
         created_at: now,
         updated_at: now,
+        pinned: false,
     };
 
     store::create_conversation(&db, &conversation).map_err(|e| e.to_string())?;
@@ -80,4 +81,26 @@ pub fn delete_conversation(
     log::info!("Rust::commands::conversation::delete_conversation | 删除对话 | id={}", id);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     store::delete_conversation(&db, &id).map_err(|e| e.to_string())
+}
+
+/// Pin a conversation so it appears at the top of the list.
+#[tauri::command]
+pub fn pin_conversation(
+    id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    log::info!("Rust::commands::conversation::pin_conversation | 置顶对话 | id={}", id);
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    store::pin_conversation(&db, &id).map_err(|e| e.to_string())
+}
+
+/// Unpin a conversation so it returns to normal ordering.
+#[tauri::command]
+pub fn unpin_conversation(
+    id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    log::info!("Rust::commands::conversation::unpin_conversation | 取消置顶 | id={}", id);
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    store::unpin_conversation(&db, &id).map_err(|e| e.to_string())
 }

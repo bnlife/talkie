@@ -21,6 +21,7 @@ pub struct Conversation {
     pub system_prompt: String,
     pub created_at: i64,
     pub updated_at: i64,
+    pub pinned: bool,
 }
 
 /// Application settings persisted in a JSON config file.

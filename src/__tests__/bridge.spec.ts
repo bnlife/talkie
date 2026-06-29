@@ -7,6 +7,8 @@ import {
   createConversation,
   updateConversation,
   deleteConversation,
+  pinConversation,
+  unpinConversation,
 } from '../bridge/conversation'
 import { getSettings, updateSettings, testConnection } from '../bridge/settings'
 
@@ -99,6 +101,18 @@ describe('conversation bridge', () => {
     mockedInvoke.mockResolvedValue(undefined)
     await deleteConversation('c1')
     expect(mockedInvoke).toHaveBeenCalledWith('delete_conversation', { id: 'c1' })
+  })
+
+  it('pinConversation calls invoke with correct id', async () => {
+    mockedInvoke.mockResolvedValue(undefined)
+    await pinConversation('c1')
+    expect(mockedInvoke).toHaveBeenCalledWith('pin_conversation', { id: 'c1' })
+  })
+
+  it('unpinConversation calls invoke with correct id', async () => {
+    mockedInvoke.mockResolvedValue(undefined)
+    await unpinConversation('c1')
+    expect(mockedInvoke).toHaveBeenCalledWith('unpin_conversation', { id: 'c1' })
   })
 })
 
