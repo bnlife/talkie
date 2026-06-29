@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, nextTick, onMounted, onUnmounted } from 'vue'
 import type { Conversation } from '../../types'
-import { SettingsOutline } from '@vicons/ionicons5'
+import { SettingsOutline, ChevronBackOutline } from '@vicons/ionicons5'
 import { useThemeVars } from 'naive-ui'
 
 const themeVars = useThemeVars()
@@ -18,6 +18,7 @@ const emit = defineEmits<{
   rename: [id: string, title: string]
   pin: [id: string]
   unpin: [id: string]
+  'toggle-collapse': []
   'open-settings': []
 }>()
 
@@ -127,14 +128,17 @@ onUnmounted(() => {
 <template>
   <div style="display: flex; flex-direction: column; height: 100%;">
     <!-- 顶部：新建对话按钮 -->
-    <div style="flex-shrink: 0; padding: 12px; padding-bottom: 8px;">
-      <n-button block secondary @click="emit('create')">
+    <div style="flex-shrink: 0; display: flex; align-items: center; gap: 4px; padding: 0 12px 8px;">
+      <n-button secondary @click="emit('create')" style="flex: 1;">
         新建对话
+      </n-button>
+      <n-button text @click="emit('toggle-collapse')" style="width: 28px;">
+        <template #icon><n-icon :component="ChevronBackOutline" /></template>
       </n-button>
     </div>
 
     <!-- 搜索框 -->
-    <div style="flex-shrink: 0; padding: 0 12px 12px;">
+    <div style="flex-shrink: 0; padding: 0 12px 8px;">
       <n-input
         v-model:value="searchQuery"
         placeholder="搜索对话..."
@@ -156,7 +160,7 @@ onUnmounted(() => {
           justifyContent: 'space-between',
           padding: '8px 12px',
           cursor: 'pointer',
-          borderRadius: '6px',
+          borderRadius: '8px',
           margin: '0 4px',
           background: conv.id === activeId
             ? themeVars.pressedColor
@@ -169,11 +173,10 @@ onUnmounted(() => {
         @mouseenter="hoveredKey = conv.id"
         @mouseleave="hoveredKey = null"
       >
-        <span v-if="conv.pinned" style="margin-right: 4px; flex-shrink: 0; font-size: 12px; line-height: 1;">📌</span>
+        <span v-if="conv.pinned" style="margin-right: 4px; flex-shrink: 0; line-height: 1;">📌</span>
         <n-input
           v-if="editingId === conv.id"
           v-model:value="editingTitle"
-          size="small"
           class="inline-rename-input"
           style="flex: 1; min-width: 0;"
           @keyup.enter="confirmEdit"
@@ -187,14 +190,13 @@ onUnmounted(() => {
           :style="{
             flex: '1',
             minWidth: 0,
-            fontSize: '13px',
             color: conv.id === activeId ? themeVars.textColor1 : themeVars.textColor2,
           }"
         >
           {{ conv.title }}
         </n-ellipsis>
         <div v-if="hoveredKey === conv.id" style="display: flex; gap: 2px; flex-shrink: 0;">
-          <n-button text type="error" size="tiny" @click.stop="handleDelete(conv.id)">
+          <n-button text type="error" @click.stop="handleDelete(conv.id)">
             删除
           </n-button>
         </div>

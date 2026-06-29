@@ -17,11 +17,9 @@ const props = defineProps<{
       :content-style="{ padding: '6px 12px' }"
       :bordered="props.message.role === 'assistant'"
       :embedded="props.message.role === 'user'"
-      size="small"
     >
       <n-tag
         :type="props.message.role === 'user' ? 'primary' : 'info'"
-        size="tiny"
         :bordered="false"
         style="margin-bottom: 4px;"
       >

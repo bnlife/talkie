@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import { listen } from '@tauri-apps/api/event'
 import { useChatStore } from '../stores/chatStore'
 import * as chatBridge from '../bridge/chat'
@@ -27,10 +27,6 @@ onUnmounted(() => {
   cleanupFns.forEach(fn => fn())
 })
 
-const currentConversation = computed(() =>
-  chatStore.conversations.find(c => c.id === chatStore.activeConversationId)
-)
-
 function handleSend(content: string) {
   chatStore.sendMessage(content)
 }
@@ -41,11 +37,7 @@ function handleStopStream() {
 </script>
 
 <template>
-  <div style="height: 100%; display: flex; flex-direction: column; padding: 16px; box-sizing: border-box;">
-    <n-h2 style="margin: 0 0 8px 0;">
-      {{ currentConversation?.title ?? '选择或创建一个对话' }}
-    </n-h2>
-    <n-divider style="margin: 0 0 12px 0;" />
+  <div style="height: 100%; display: flex; flex-direction: column; padding: 0 12px 12px; box-sizing: border-box;">
     <div style="flex: 1; overflow: hidden; min-height: 0;">
       <MessageList
         :messages="chatStore.messages"

@@ -36,14 +36,12 @@ function handleKeydown(e: KeyboardEvent) {
       :autosize="{ minRows: 2, maxRows: 6 }"
       :disabled="disabled"
       placeholder="输入消息... (Enter 发送)"
-      size="small"
       @keydown="handleKeydown"
       style="flex: 1;"
     />
     <n-button
       v-if="streaming"
       type="error"
-      size="small"
       @click="emit('stop-stream')"
       style="flex-shrink: 0;"
     >
@@ -52,7 +50,6 @@ function handleKeydown(e: KeyboardEvent) {
     <n-button
       v-else
       type="primary"
-      size="small"
       :disabled="disabled || !inputText.trim()"
       @click="handleSend"
       style="flex-shrink: 0;"
