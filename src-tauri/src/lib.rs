@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod config;
 pub mod error;
+pub mod llm;
 pub mod models;
 pub mod store;
 
@@ -8,12 +9,16 @@ use std::path::PathBuf;
 
 use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
+use tokio_util::sync::CancellationToken;
 
 /// Global application state managed by Tauri.
 pub struct AppState {
     pub db: std::sync::Mutex<rusqlite::Connection>,
     pub config: std::sync::Mutex<models::Settings>,
     pub config_path: PathBuf,
+    /// Token used to cancel an in-flight streaming LLM response.
+    /// `send_message` creates it; `stop_stream` takes it and calls `.cancel()`.
+    pub cancel: std::sync::Mutex<Option<CancellationToken>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -58,6 +63,7 @@ pub fn run() {
                 db: std::sync::Mutex::new(db),
                 config: std::sync::Mutex::new(settings),
                 config_path,
+                cancel: std::sync::Mutex::new(None),
             });
 
             Ok(())
