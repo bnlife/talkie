@@ -18,8 +18,8 @@ use std::time::Duration;
 
 use tokio_util::sync::CancellationToken;
 
-use app_lib::models::{Conversation, Message};
-use app_lib::store;
+use talkie::models::{Conversation, Message};
+use talkie::store;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -404,9 +404,9 @@ fn test_appstate_full_lifecycle() {
 #[test]
 fn test_real_appstate_cancel_field() {
     let conn = store::init(&PathBuf::from(":memory:")).unwrap();
-    let state = app_lib::AppState {
+    let state = talkie::AppState {
         db: Mutex::new(conn),
-        config: Mutex::new(app_lib::models::Settings::default()),
+        config: Mutex::new(talkie::models::Settings::default()),
         config_path: PathBuf::from(":memory:"),
         cancel: Mutex::new(None),
     };

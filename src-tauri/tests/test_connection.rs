@@ -18,7 +18,7 @@ async fn test_connection_success() {
         .await;
 
     let result =
-        app_lib::commands::settings::verify_connection(&server.url(), "test-key", "test-model")
+        talkie::commands::settings::verify_connection(&server.url(), "test-key", "test-model")
             .await;
 
     assert!(result.is_ok());
@@ -38,7 +38,7 @@ async fn test_connection_unauthorized() {
         .await;
 
     let result =
-        app_lib::commands::settings::verify_connection(&server.url(), "invalid-key", "test-model")
+        talkie::commands::settings::verify_connection(&server.url(), "invalid-key", "test-model")
             .await;
 
     assert!(result.is_err());
@@ -63,7 +63,7 @@ async fn test_connection_not_found() {
         .await;
 
     let result =
-        app_lib::commands::settings::verify_connection(&server.url(), "test-key", "test-model")
+        talkie::commands::settings::verify_connection(&server.url(), "test-key", "test-model")
             .await;
 
     assert!(result.is_err());
@@ -99,7 +99,7 @@ async fn test_connection_timeout() {
     // Wrap the call in a top-level timeout so the test never hangs indefinitely
     let result = tokio::time::timeout(
         std::time::Duration::from_secs(25),
-        app_lib::commands::settings::verify_connection(&base_url, "test-key", "test-model"),
+        talkie::commands::settings::verify_connection(&base_url, "test-key", "test-model"),
     )
     .await;
 

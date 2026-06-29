@@ -16,7 +16,7 @@ pub async fn send_message(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     log::info!(
-        "Rust::commands::chat::send_message | conv={} len={}",
+        "Rust::commands::chat::send_message | 发送消息 | conv={} len={}",
         conversation_id,
         content.len()
     );
@@ -37,6 +37,10 @@ pub async fn send_message(
         let db = state.db.lock().map_err(|e| e.to_string())?;
         store::create_message(&db, &msg).map_err(|e| e.to_string())?;
     }
+    log::debug!(
+        "Rust::commands::chat::send_message | 用户消息已保存 | msg_id={}",
+        msg.id
+    );
 
     // 2. Retrieve the full conversation history.
     let history = {
@@ -73,7 +77,7 @@ pub async fn send_message(
     //    the frontend via a `chat:stream-chunk` event.
     let app_handle = app.clone();
     let mid = message_id.clone();
-    let full_text = llm::stream_chat(
+    let full_text = match llm::stream_chat(
         &base_url,
         &api_key,
         &model,
@@ -89,7 +93,24 @@ pub async fn send_message(
             );
         },
     )
-    .await?;
+    .await
+    {
+        Ok(text) => text,
+        Err(e) => {
+            if e.contains("请求已取消") {
+                log::warn!(
+                    "Rust::commands::chat::send_message | 助手消息被取消 | conv={}",
+                    conversation_id
+                );
+            } else {
+                log::error!(
+                    "Rust::commands::chat::send_message | 流式请求失败 | err={}",
+                    e
+                );
+            }
+            return Err(e);
+        }
+    };
 
     // 7. Persist the assistant's full response.
     let assistant_msg = models::Message {
@@ -107,6 +128,11 @@ pub async fn send_message(
         let db = state.db.lock().map_err(|e| e.to_string())?;
         store::create_message(&db, &assistant_msg).map_err(|e| e.to_string())?;
     }
+    log::info!(
+        "Rust::commands::chat::send_message | 助手消息已保存 | msg_id={} chars={}",
+        assistant_msg.id,
+        assistant_msg.content.len()
+    );
 
     // 8. Clean up the cancellation token from AppState (our stream is done).
     {
@@ -132,10 +158,12 @@ pub async fn send_message(
 /// cancellation check.
 #[tauri::command]
 pub async fn stop_stream(state: State<'_, AppState>) -> Result<(), String> {
-    log::info!("Rust::commands::chat::stop_stream | 停止流式响应");
+    log::info!("Rust::commands::chat::stop_stream | 用户停止生成");
     let mut c = state.cancel.lock().map_err(|e| e.to_string())?;
     if let Some(token) = c.take() {
         token.cancel();
+    } else {
+        log::debug!("Rust::commands::chat::stop_stream | 无活跃流式可取消");
     }
     Ok(())
 }

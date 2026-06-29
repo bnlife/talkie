@@ -32,8 +32,16 @@ where
 {
     // ── Early cancellation check (no HTTP request if already cancelled) ──
     if cancel.is_cancelled() {
+        log::warn!("Rust::llm::stream_chat | 流式请求被取消");
         return Err("请求已取消".to_string());
     }
+
+    log::info!(
+        "Rust::llm::stream_chat | 开始流式请求 | url={} model={} messages={}",
+        base_url,
+        model,
+        messages.len()
+    );
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
@@ -72,17 +80,20 @@ where
         .send()
         .await
         .map_err(|e| {
-            if e.is_timeout() {
+            let msg = if e.is_timeout() {
                 "请求超时".to_string()
             } else if e.is_connect() {
                 format!("无法连接到服务器: {}", e)
             } else {
                 format!("请求失败: {}", e)
-            }
+            };
+            log::error!("Rust::llm::stream_chat | ERR_net_connect | 请求失败: {}", msg);
+            msg
         })?;
 
     // ── Non‑success HTTP status → error ──
     let status = response.status();
+    log::debug!("Rust::llm::stream_chat | HTTP 响应 | status={}", status);
     if !status.is_success() {
         return Err(format!("HTTP error: {}", status));
     }
@@ -96,6 +107,7 @@ where
     loop {
         // ── Check cancellation before processing each chunk ──
         if cancel.is_cancelled() {
+            log::warn!("Rust::llm::stream_chat | 流式请求被取消");
             return Err("请求已取消".to_string());
         }
 
@@ -105,6 +117,8 @@ where
             Some(c) => c,
             None => break, // stream ended normally
         };
+
+        log::trace!("Rust::llm::stream_chat | 收到 chunk | len={}", chunk.len());
 
         let text = String::from_utf8_lossy(&chunk);
 
@@ -125,6 +139,7 @@ where
 
                 // "[DONE]" signals the end of the stream
                 if data == "[DONE]" {
+                    log::info!("Rust::llm::stream_chat | 流式完成 | total_chars={}", accumulated.len());
                     return Ok(accumulated);
                 }
 
@@ -144,8 +159,9 @@ where
                             }
                         }
                     }
+                } else {
+                    log::warn!("Rust::llm::stream_chat | SSE 解析异常 | line={}", data);
                 }
-                // Malformed JSON inside a "data:" line is silently skipped.
             }
             // Lines that don't start with "data:" (e.g. SSE comments `: ...`)
             // are ignored per the SSE spec.
@@ -154,5 +170,6 @@ where
 
     // If we exhausted the stream without seeing `[DONE]`, return whatever we
     // accumulated (the server may not send a termination event).
+    log::info!("Rust::llm::stream_chat | 流式完成 | total_chars={}", accumulated.len());
     Ok(accumulated)
 }

@@ -1,12 +1,12 @@
 //! Tests for SSE streaming parsing (the real `llm::stream_chat`).
 //!
-//! Uses `app_lib::llm::stream_chat` with `tokio_util::sync::CancellationToken`
+//! Uses `talkie::llm::stream_chat` with `tokio_util::sync::CancellationToken`
 //! and `mockito` for HTTP mocking.
 
 use std::sync::Arc;
 
-use app_lib::llm::stream_chat;
-use app_lib::models::Message;
+use talkie::llm::stream_chat;
+use talkie::models::Message;
 use tokio_util::sync::CancellationToken;
 
 // ---------------------------------------------------------------------------

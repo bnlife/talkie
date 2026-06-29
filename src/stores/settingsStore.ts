@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import type { Settings } from '../types'
 import * as settingsBridge from '../bridge/settings'
+import { log } from '../bridge/log'
 
 export const useSettingsStore = defineStore('settings', {
   state: (): Settings => ({
@@ -12,16 +13,19 @@ export const useSettingsStore = defineStore('settings', {
 
   actions: {
     async loadSettings(): Promise<void> {
+      await log('info', '前端::settingsStore::loadSettings')
       const s = await settingsBridge.getSettings()
       Object.assign(this, s)
     },
 
     async updateSettings(partial: Partial<Settings>): Promise<void> {
+      await log('info', `前端::settingsStore::updateSettings | model=${partial.model}`)
       Object.assign(this, partial)
       await settingsBridge.updateSettings(partial)
     },
 
     async testConnection(): Promise<{ ok: boolean; error?: string }> {
+      await log('info', '前端::settingsStore::testConnection')
       return settingsBridge.testConnection({
         base_url: this.base_url,
         api_key: this.api_key,

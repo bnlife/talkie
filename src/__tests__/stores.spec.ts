@@ -179,14 +179,14 @@ describe('chatStore', () => {
   })
 
   describe('finishStream', () => {
-    it('pushes assistant message and resets streaming state', () => {
+    it('pushes assistant message and resets streaming state', async () => {
       const store = useChatStore()
       store.streamingId = 'msg-ast'
       store.streamingContent = 'Hello world'
       store.activeConversationId = 'conv-1'
 
       const before = Date.now()
-      store.finishStream()
+      await store.finishStream()
       const after = Date.now()
 
       expect(store.messages).toHaveLength(1)
@@ -203,9 +203,9 @@ describe('chatStore', () => {
       expect(store.streamingContent).toBe('')
     })
 
-    it('does nothing when streamingId is null', () => {
+    it('does nothing when streamingId is null', async () => {
       const store = useChatStore()
-      store.finishStream()
+      await store.finishStream()
       expect(store.messages).toHaveLength(0)
     })
   })

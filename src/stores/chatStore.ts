@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import type { Conversation, Message } from '../types'
 import * as chatBridge from '../bridge/chat'
 import * as conversationBridge from '../bridge/conversation'
+import { log } from '../bridge/log'
 
 export const useChatStore = defineStore('chat', {
   state: () => ({
@@ -18,6 +19,7 @@ export const useChatStore = defineStore('chat', {
     },
 
     async createConversation(): Promise<void> {
+      await log('info', '前端::chatStore::createConversation | 新建对话')
       const conv = await conversationBridge.createConversation()
       this.conversations.unshift(conv)
       this.activeConversationId = conv.id
@@ -25,6 +27,7 @@ export const useChatStore = defineStore('chat', {
     },
 
     async deleteConversation(id: string): Promise<void> {
+      await log('info', `前端::chatStore::deleteConversation | 删除对话 | id=${id}`)
       await conversationBridge.deleteConversation(id)
       this.conversations = this.conversations.filter(c => c.id !== id)
       if (this.activeConversationId === id) {
@@ -34,12 +37,14 @@ export const useChatStore = defineStore('chat', {
     },
 
     async switchConversation(id: string): Promise<void> {
+      await log('info', `前端::chatStore::switchConversation | 切换对话 | id=${id}`)
       if (this.activeConversationId === id) return
       this.activeConversationId = id
       this.messages = await chatBridge.getMessages(id)
     },
 
     async sendMessage(content: string): Promise<void> {
+      await log('info', `前端::chatStore::sendMessage | 发送消息 | len=${content.length}`)
       if (!this.activeConversationId) return
       const tempMsg: Message = {
         id: crypto.randomUUID(),
@@ -57,7 +62,8 @@ export const useChatStore = defineStore('chat', {
       this.streamingContent += delta
     },
 
-    finishStream(): void {
+    async finishStream(): Promise<void> {
+      await log('info', '前端::chatStore::finishStream | 流式完成')
       if (!this.streamingId) return
       const finalMsg: Message = {
         id: this.streamingId,

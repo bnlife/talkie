@@ -1,5 +1,5 @@
 {
-  "name": "chatbot",
+  "name": "talkie",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -31,6 +31,7 @@
     "@tauri-apps/cli": "^2.11.4",
     "@vue/test-utils": "^2.4.11",
     "jsdom": "^29.1.1",
+    "sharp": "^0.35.2",
     "vitest": "^4.1.9",
     "vue-tsc": "^3.3.5"
   }
