@@ -27,3 +27,6 @@ tokio = { version = "1", features = ["full"] }
 uuid = { version = "1", features = ["v4"] }
 tauri = { version = "2.11.3", features = [] }
 tauri-plugin-log = "2"
+
+[dev-dependencies]
+mockito = "1.7.2"

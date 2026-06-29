@@ -9,6 +9,7 @@ use crate::models;
 pub fn list_conversations(
     state: State<'_, AppState>,
 ) -> Result<Vec<models::Conversation>, String> {
+    log::debug!("Rust::commands::conversation::list_conversations | 查询对话列表");
     let db = state.db.lock().map_err(|e| e.to_string())?;
     store::list_conversations(&db).map_err(|e| e.to_string())
 }
@@ -21,6 +22,7 @@ pub fn create_conversation(
     title: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<models::Conversation, String> {
+    log::info!("Rust::commands::conversation::create_conversation | 创建新对话 | title={:?}", title);
     let model = {
         let config = state.config.lock().map_err(|e| e.to_string())?;
         config.model.clone()
@@ -53,6 +55,7 @@ pub fn update_conversation(
     title: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
+    log::info!("Rust::commands::conversation::update_conversation | 重命名对话 | id={} title={}", id, title);
     let db = state.db.lock().map_err(|e| e.to_string())?;
 
     let mut conversation = store::get_conversation(&db, &id)
@@ -74,6 +77,7 @@ pub fn delete_conversation(
     id: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
+    log::info!("Rust::commands::conversation::delete_conversation | 删除对话 | id={}", id);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     store::delete_conversation(&db, &id).map_err(|e| e.to_string())
 }

@@ -9,6 +9,7 @@ use crate::models::{Conversation, Message};
 ///
 /// Foreign key constraints are enabled automatically.
 pub fn init(db_path: &PathBuf) -> Result<Connection, AppError> {
+    log::info!("Rust::store::init | 初始化数据库 | path={:?}", db_path);
     if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -35,6 +36,7 @@ pub fn init(db_path: &PathBuf) -> Result<Connection, AppError> {
         );",
     )?;
 
+    log::info!("Rust::store::init | 数据库初始化完成");
     Ok(conn)
 }
 
@@ -44,6 +46,7 @@ pub fn init(db_path: &PathBuf) -> Result<Connection, AppError> {
 
 /// List all conversations, ordered by most recently updated first.
 pub fn list_conversations(conn: &Connection) -> Result<Vec<Conversation>, AppError> {
+    log::debug!("Rust::store::list_conversations | 查询所有对话");
     let mut stmt = conn.prepare(
         "SELECT id, title, model, system_prompt, created_at, updated_at \
          FROM conversations ORDER BY updated_at DESC",
@@ -67,6 +70,7 @@ pub fn list_conversations(conn: &Connection) -> Result<Vec<Conversation>, AppErr
 
 /// Insert a new conversation into the database.
 pub fn create_conversation(conn: &Connection, conversation: &Conversation) -> Result<(), AppError> {
+    log::info!("Rust::store::create_conversation | 创建对话 | id={}", conversation.id);
     conn.execute(
         "INSERT INTO conversations (id, title, model, system_prompt, created_at, updated_at) \
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -84,6 +88,7 @@ pub fn create_conversation(conn: &Connection, conversation: &Conversation) -> Re
 
 /// Retrieve a single conversation by its ID.
 pub fn get_conversation(conn: &Connection, id: &str) -> Result<Option<Conversation>, AppError> {
+    log::debug!("Rust::store::get_conversation | 查询对话 | id={}", id);
     let mut stmt = conn.prepare(
         "SELECT id, title, model, system_prompt, created_at, updated_at \
          FROM conversations WHERE id = ?1",
@@ -107,6 +112,7 @@ pub fn get_conversation(conn: &Connection, id: &str) -> Result<Option<Conversati
 
 /// Update title, model, system_prompt, and updated_at of an existing conversation.
 pub fn update_conversation(conn: &Connection, conversation: &Conversation) -> Result<(), AppError> {
+    log::debug!("Rust::store::update_conversation | 更新对话 | id={}", conversation.id);
     conn.execute(
         "UPDATE conversations SET title = ?1, model = ?2, system_prompt = ?3, updated_at = ?4 \
          WHERE id = ?5",
@@ -123,6 +129,7 @@ pub fn update_conversation(conn: &Connection, conversation: &Conversation) -> Re
 
 /// Delete a conversation and all its associated messages (via ON DELETE CASCADE).
 pub fn delete_conversation(conn: &Connection, id: &str) -> Result<(), AppError> {
+    log::info!("Rust::store::delete_conversation | 删除对话及关联消息 | id={}", id);
     conn.execute("DELETE FROM conversations WHERE id = ?1", params![id])?;
     Ok(())
 }
@@ -136,6 +143,7 @@ pub fn list_messages_by_conversation(
     conn: &Connection,
     conversation_id: &str,
 ) -> Result<Vec<Message>, AppError> {
+    log::debug!("Rust::store::list_messages_by_conversation | 查询消息列表 | conv={}", conversation_id);
     let mut stmt = conn.prepare(
         "SELECT id, conversation_id, role, content, created_at, token_count \
          FROM messages WHERE conversation_id = ?1 ORDER BY created_at ASC",
@@ -159,6 +167,7 @@ pub fn list_messages_by_conversation(
 
 /// Insert a single message into the database.
 pub fn create_message(conn: &Connection, message: &Message) -> Result<(), AppError> {
+    log::debug!("Rust::store::create_message | 创建消息 | conv={} role={}", message.conversation_id, message.role);
     conn.execute(
         "INSERT INTO messages (id, conversation_id, role, content, created_at, token_count) \
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -176,6 +185,7 @@ pub fn create_message(conn: &Connection, message: &Message) -> Result<(), AppErr
 
 /// Insert multiple messages in a single transaction.
 pub fn batch_create_messages(conn: &Connection, messages: &[Message]) -> Result<(), AppError> {
+    log::debug!("Rust::store::batch_create_messages | 批量创建消息 | count={}", messages.len());
     let tx = conn.unchecked_transaction()?;
     for msg in messages {
         tx.execute(
@@ -200,6 +210,7 @@ pub fn delete_messages_by_conversation(
     conn: &Connection,
     conversation_id: &str,
 ) -> Result<(), AppError> {
+    log::debug!("Rust::store::delete_messages_by_conversation | 删除消息 | conv={}", conversation_id);
     conn.execute(
         "DELETE FROM messages WHERE conversation_id = ?1",
         params![conversation_id],

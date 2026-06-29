@@ -138,8 +138,8 @@ describe('settings bridge', () => {
   })
 
   it('testConnection propagates error from invoke', async () => {
-    mockedInvoke.mockResolvedValue({ ok: false, error: 'connection refused' })
+    mockedInvoke.mockRejectedValue(new Error('connection refused'))
     const result = await testConnection(mockSettings)
-    expect(result).toEqual({ ok: false, error: 'connection refused' })
+    expect(result).toEqual({ ok: false, error: 'Error: connection refused' })
   })
 })

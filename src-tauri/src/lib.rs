@@ -7,6 +7,7 @@ pub mod store;
 use std::path::PathBuf;
 
 use tauri::Manager;
+use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 
 /// Global application state managed by Tauri.
 pub struct AppState {
@@ -22,7 +23,20 @@ pub fn run() {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
+                        .level(log::LevelFilter::Debug)
+                        .clear_targets()
+                        .target(Target::new(TargetKind::Stdout))
+                        .target(Target::new(TargetKind::LogDir {
+                            file_name: Some("app".into()),
+                        }))
+                        .target(
+                            Target::new(TargetKind::LogDir {
+                                file_name: Some("app.error".into()),
+                            })
+                            .filter(|metadata| metadata.level() == log::Level::Error),
+                        )
+                        .max_file_size(2 * 1024 * 1024)
+                        .rotation_strategy(RotationStrategy::KeepSome(10))
                         .build(),
                 )?;
             }
@@ -59,6 +73,7 @@ pub fn run() {
             commands::settings::get_settings,
             commands::settings::update_settings,
             commands::settings::test_connection,
+            commands::settings::log_message,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

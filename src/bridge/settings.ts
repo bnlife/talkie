@@ -11,4 +11,6 @@ export async function updateSettings(settings: Partial<Settings>): Promise<void>
 
 export async function testConnection(settings: Settings): Promise<{ ok: boolean; error?: string }> {
   return invoke<{ ok: boolean; error?: string }>('test_connection', { settings })
+    .then(() => ({ ok: true }))
+    .catch((e) => ({ ok: false, error: String(e) }))
 }

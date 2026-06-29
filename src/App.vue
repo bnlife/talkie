@@ -7,8 +7,10 @@ import ChatPage from './pages/ChatPage.vue'
 import SettingsPanel from './components/settings/SettingsPanel.vue'
 import type { Settings } from './types'
 import type { GlobalThemeOverrides } from 'naive-ui'
+import { createDiscreteApi } from 'naive-ui'
 
 const chatStore = useChatStore()
+const { message } = createDiscreteApi(['message'])
 const settingsStore = useSettingsStore()
 
 const themeOverrides: GlobalThemeOverrides = {
@@ -131,12 +133,19 @@ function handleRenameConversation(id: string, title: string) {
   // TODO: rename logic
 }
 
-function handleUpdateSettings(partial: Partial<Settings>) {
-  settingsStore.updateSettings(partial)
+async function handleUpdateSettings(partial: Partial<Settings>) {
+  await settingsStore.updateSettings(partial)
+  message.success('设置已保存')
+  showSettings.value = false
 }
 
-function handleTestConnection() {
-  settingsStore.testConnection()
+async function handleTestConnection() {
+  const result = await settingsStore.testConnection()
+  if (result.ok) {
+    message.success('连接成功')
+  } else {
+    message.error(result.error || '连接失败')
+  }
 }
 </script>
 
