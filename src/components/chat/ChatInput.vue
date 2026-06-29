@@ -29,31 +29,32 @@ function handleKeydown(e: KeyboardEvent) {
 </script>
 
 <template>
-  <n-space vertical :size="8">
+  <div style="display: flex; gap: 8px; align-items: flex-end;">
     <n-input
       v-model:value="inputText"
       type="textarea"
       :autosize="{ minRows: 2, maxRows: 6 }"
       :disabled="disabled"
-      placeholder="输入消息... (Enter 发送, Shift+Enter 换行)"
+      placeholder="输入消息... (Enter 发送)"
       @keydown="handleKeydown"
+      style="flex: 1;"
     />
-    <n-space justify="end" :size="8">
-      <n-button
-        v-if="streaming"
-        type="error"
-        @click="emit('stop-stream')"
-      >
-        停止生成
-      </n-button>
-      <n-button
-        v-else
-        type="primary"
-        :disabled="disabled || !inputText.trim()"
-        @click="handleSend"
-      >
-        发送
-      </n-button>
-    </n-space>
-  </n-space>
+    <n-button
+      v-if="streaming"
+      type="error"
+      @click="emit('stop-stream')"
+      style="flex-shrink: 0;"
+    >
+      停止
+    </n-button>
+    <n-button
+      v-else
+      type="primary"
+      :disabled="disabled || !inputText.trim()"
+      @click="handleSend"
+      style="flex-shrink: 0;"
+    >
+      发送
+    </n-button>
+  </div>
 </template>

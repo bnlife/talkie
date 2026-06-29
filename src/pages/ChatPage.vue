@@ -41,7 +41,7 @@ function handleStopStream() {
 </script>
 
 <template>
-  <div style="height: 100%; display: flex; flex-direction: column; padding: 16px;">
+  <div style="height: 100%; display: flex; flex-direction: column; padding: 16px; box-sizing: border-box;">
     <n-h2 style="margin: 0 0 8px 0;">
       {{ currentConversation?.title ?? '选择或创建一个对话' }}
     </n-h2>
@@ -53,7 +53,7 @@ function handleStopStream() {
         :streaming-content="chatStore.streamingContent"
       />
     </div>
-    <div style="margin-top: 12px;">
+    <div style="margin-top: 12px; flex-shrink: 0;">
       <ChatInput
         :disabled="!chatStore.activeConversationId"
         :streaming="!!chatStore.streamingId"
