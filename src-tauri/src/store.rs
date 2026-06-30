@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use rusqlite::{params, Connection};
 
 use crate::error::AppError;
-use crate::models::{Conversation, Message};
+use crate::models::{Conversation, Message, Prompt};
 
 /// Open or create the SQLite database and ensure all tables exist.
 ///
@@ -34,6 +34,14 @@ pub fn init(db_path: &PathBuf) -> Result<Connection, AppError> {
             created_at INTEGER NOT NULL,
             token_count INTEGER,
             FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+        );
+        CREATE TABLE IF NOT EXISTS prompts (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            content TEXT NOT NULL,
+            is_default INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
         );",
     )?;
 
@@ -252,5 +260,82 @@ pub fn delete_messages_by_conversation(
 pub fn delete_message(conn: &Connection, message_id: &str) -> Result<(), AppError> {
     log::info!("Rust::store::delete_message | 删除单条消息 | id={}", message_id);
     conn.execute("DELETE FROM messages WHERE id = ?1", params![message_id])?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Prompt CRUD
+// ---------------------------------------------------------------------------
+
+/// List all prompts, ordered by most recently updated first.
+pub fn list_prompts(conn: &Connection) -> Result<Vec<Prompt>, AppError> {
+    log::debug!("Rust::store::list_prompts | 查询所有提示词");
+    let mut stmt = conn.prepare(
+        "SELECT id, name, content, is_default, created_at, updated_at \
+         FROM prompts ORDER BY updated_at DESC",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok(Prompt {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            content: row.get(2)?,
+            is_default: row.get::<_, i64>(3)? != 0,
+            created_at: row.get(4)?,
+            updated_at: row.get(5)?,
+        })
+    })?;
+    let mut prompts = Vec::new();
+    for row in rows {
+        prompts.push(row?);
+    }
+    Ok(prompts)
+}
+
+/// Insert a new prompt into the database.
+pub fn create_prompt(conn: &Connection, prompt: &Prompt) -> Result<(), AppError> {
+    log::info!("Rust::store::create_prompt | 创建提示词 | id={} name={}", prompt.id, prompt.name);
+    conn.execute(
+        "INSERT INTO prompts (id, name, content, is_default, created_at, updated_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![
+            prompt.id,
+            prompt.name,
+            prompt.content,
+            prompt.is_default as i64,
+            prompt.created_at,
+            prompt.updated_at,
+        ],
+    )?;
+    Ok(())
+}
+
+/// Update name, content, and updated_at of an existing prompt.
+pub fn update_prompt(conn: &Connection, prompt: &Prompt) -> Result<(), AppError> {
+    log::debug!("Rust::store::update_prompt | 更新提示词 | id={}", prompt.id);
+    conn.execute(
+        "UPDATE prompts SET name = ?1, content = ?2, updated_at = ?3 \
+         WHERE id = ?4",
+        params![
+            prompt.name,
+            prompt.content,
+            prompt.updated_at,
+            prompt.id,
+        ],
+    )?;
+    Ok(())
+}
+
+/// Delete a prompt by its ID.
+pub fn delete_prompt(conn: &Connection, id: &str) -> Result<(), AppError> {
+    log::info!("Rust::store::delete_prompt | 删除提示词 | id={}", id);
+    conn.execute("DELETE FROM prompts WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
+/// Set a prompt as default (clear others, set this one).
+pub fn set_default_prompt(conn: &Connection, id: &str) -> Result<(), AppError> {
+    log::info!("Rust::store::set_default_prompt | 设置默认提示词 | id={}", id);
+    conn.execute("UPDATE prompts SET is_default = 0 WHERE is_default = 1", [])?;
+    conn.execute("UPDATE prompts SET is_default = 1 WHERE id = ?1", params![id])?;
     Ok(())
 }

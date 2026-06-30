@@ -25,3 +25,12 @@ export interface Settings {
   last_active_conversation_id?: string
   darkMode?: boolean
 }
+
+export interface Prompt {
+  id: string
+  name: string
+  content: string
+  is_default: boolean
+  created_at: number
+  updated_at: number
+}

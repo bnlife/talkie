@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Button } from '@/components/ui/button'
-import { MessageSquare, BookOpen, Settings, Moon, Sun } from 'lucide-vue-next'
+import { MessageSquare, BookOpen, Settings, Moon, Sun, FileText } from 'lucide-vue-next'
 import { useSettingsStore } from '@/stores/settingsStore'
 
 defineProps<{ activeView: string }>()
@@ -25,6 +25,14 @@ const settingsStore = useSettingsStore()
       @click="emit('select', 'knowledge')"
     >
       <BookOpen class="size-4" />
+    </Button>
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      :class="activeView === 'prompt' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background'"
+      @click="emit('select', 'prompt')"
+    >
+      <FileText class="size-4" />
     </Button>
     <div class="mt-auto flex flex-col items-center gap-2">
       <Button

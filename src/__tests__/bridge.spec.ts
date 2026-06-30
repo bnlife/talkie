@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { invoke } from '@tauri-apps/api/core'
 
-import { sendMessage, stopStream, getMessages } from '../bridge/chat'
+import { sendMessage, stopStream, getMessages, deleteMessage, regenerateMessage } from '../bridge/chat'
 import {
   listConversations,
   createConversation,
@@ -11,6 +11,13 @@ import {
   unpinConversation,
 } from '../bridge/conversation'
 import { getSettings, updateSettings, testConnection } from '../bridge/settings'
+import {
+  listPrompts,
+  createPrompt,
+  updatePrompt,
+  deletePrompt,
+  setDefaultPrompt,
+} from '../bridge/prompt'
 
 const mockedInvoke = vi.mocked(invoke)
 
@@ -155,5 +162,58 @@ describe('settings bridge', () => {
     mockedInvoke.mockRejectedValue(new Error('connection refused'))
     const result = await testConnection(mockSettings)
     expect(result).toEqual({ ok: false, error: 'Error: connection refused' })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// prompt bridge
+// ---------------------------------------------------------------------------
+describe('prompt bridge', () => {
+  const mockPrompt = {
+    id: 'prompt-1',
+    name: '翻译助手',
+    content: '你是一个翻译助手',
+    is_default: false,
+    created_at: 1000,
+    updated_at: 1000,
+  }
+
+  it('listPrompts returns prompts from invoke', async () => {
+    mockedInvoke.mockResolvedValue([mockPrompt])
+    const result = await listPrompts()
+    expect(mockedInvoke).toHaveBeenCalledWith('list_prompts')
+    expect(result).toEqual([mockPrompt])
+  })
+
+  it('createPrompt calls invoke with correct arguments', async () => {
+    mockedInvoke.mockResolvedValue(mockPrompt)
+    const result = await createPrompt('翻译助手', '你是一个翻译助手')
+    expect(mockedInvoke).toHaveBeenCalledWith('create_prompt', {
+      name: '翻译助手',
+      content: '你是一个翻译助手',
+    })
+    expect(result).toEqual(mockPrompt)
+  })
+
+  it('updatePrompt calls invoke with correct arguments', async () => {
+    mockedInvoke.mockResolvedValue(undefined)
+    await updatePrompt('prompt-1', '新名称', '新内容')
+    expect(mockedInvoke).toHaveBeenCalledWith('update_prompt', {
+      id: 'prompt-1',
+      name: '新名称',
+      content: '新内容',
+    })
+  })
+
+  it('deletePrompt calls invoke with correct id', async () => {
+    mockedInvoke.mockResolvedValue(undefined)
+    await deletePrompt('prompt-1')
+    expect(mockedInvoke).toHaveBeenCalledWith('delete_prompt', { id: 'prompt-1' })
+  })
+
+  it('setDefaultPrompt calls invoke with correct id', async () => {
+    mockedInvoke.mockResolvedValue(undefined)
+    await setDefaultPrompt('prompt-1')
+    expect(mockedInvoke).toHaveBeenCalledWith('set_default_prompt', { id: 'prompt-1' })
   })
 })
