@@ -20,13 +20,10 @@ pub fn update_settings(
     settings: models::Settings,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    let last_active = settings.last_active_conversation_id
-        .as_deref()
-        .unwrap_or("(none)");
     log::info!(
-        "Rust::commands::settings::update_settings | 更新配置 | model={} last_active={}",
-        settings.model,
-        last_active,
+        "Rust::commands::settings::update_settings | 更新配置 | providers={} active={}",
+        settings.providers.len(),
+        settings.active_provider_id,
     );
     {
         let mut config = state.config.lock().map_err(|e| e.to_string())?;
@@ -38,7 +35,7 @@ pub fn update_settings(
 /// Verify LLM API connectivity by sending a POST request to the chat completions endpoint.
 ///
 /// This is a pure function (no Tauri dependency) so it can be tested directly.
-pub async fn verify_connection(base_url: &str, api_key: &str, model: &str) -> Result<String, String> {
+pub async fn verify_connection(base_url: &str, api_key: &str, model: &str, headers: &std::collections::HashMap<String, String>) -> Result<String, String> {
     log::info!("Rust::commands::settings::verify_connection | 验证连接 | base_url={} model={}", base_url, model);
     let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
 
@@ -62,10 +59,16 @@ pub async fn verify_connection(base_url: &str, api_key: &str, model: &str) -> Re
             format!("序列化请求体失败: {}", e)
         })?;
 
-    let response = client
+    let mut request = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", api_key))
-        .header("Content-Type", "application/json")
+        .header("Content-Type", "application/json");
+
+    for (key, value) in headers {
+        request = request.header(key, value);
+    }
+
+    let response = request
         .body(body_str)
         .send()
         .await
@@ -102,14 +105,69 @@ pub async fn verify_connection(base_url: &str, api_key: &str, model: &str) -> Re
     }
 }
 
-/// Test the LLM API connection with the given settings.
+/// Test the LLM API connection with a single provider's configuration.
 #[tauri::command]
-pub async fn test_connection(
-    settings: models::Settings,
-    _state: State<'_, AppState>,
+pub async fn test_provider_connection(
+    provider: models::ModelProvider,
 ) -> Result<String, String> {
-    log::info!("Rust::commands::settings::test_connection | 测试连接 | url={}", settings.base_url);
-    verify_connection(&settings.base_url, &settings.api_key, &settings.model).await
+    log::info!("Rust::commands::settings::test_provider_connection | 测试连接 | provider={} base_url={}", provider.name, provider.base_url);
+    verify_connection(&provider.base_url, &provider.api_key, provider.models.first().unwrap_or(&"gpt-3.5-turbo".to_string()), &provider.headers).await
+}
+
+/// Fetch available models from a provider's /v1/models endpoint.
+#[tauri::command]
+pub async fn fetch_provider_models(
+    provider: models::ModelProvider,
+) -> Result<Vec<String>, String> {
+    log::info!("Rust::commands::settings::fetch_provider_models | 拉取模型列表 | provider={} base_url={}", provider.name, provider.base_url);
+
+    let url = format!("{}/models", provider.base_url.trim_end_matches('/'));
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| {
+            log::error!("Rust::commands::settings::fetch_provider_models | 创建 HTTP 客户端失败: {}", e);
+            format!("创建 HTTP 客户端失败: {}", e)
+        })?;
+
+    let mut request = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", provider.api_key));
+
+    for (key, value) in &provider.headers {
+        request = request.header(key.as_str(), value.as_str());
+    }
+
+    let response = request.send().await.map_err(|e| {
+        log::error!("Rust::commands::settings::fetch_provider_models | 请求失败: {}", e);
+        format!("请求失败: {}", e)
+    })?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        log::error!("Rust::commands::settings::fetch_provider_models | HTTP 错误 | status={} body={}", status, body);
+        return Err(format!("HTTP error {}: {}", status, body));
+    }
+
+    let body: serde_json::Value = response.json().await.map_err(|e| {
+        log::error!("Rust::commands::settings::fetch_provider_models | 解析响应失败: {}", e);
+        format!("解析响应失败: {}", e)
+    })?;
+
+    let models: Vec<String> = body
+        .get("data")
+        .and_then(|d| d.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|m| m.get("id").and_then(|id| id.as_str()).map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    log::info!("Rust::commands::settings::fetch_provider_models | 获取到 {} 个模型", models.len());
+    Ok(models)
 }
 
 /// Forward a log message from the frontend to the backend logging system.

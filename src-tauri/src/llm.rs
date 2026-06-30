@@ -5,24 +5,13 @@ use crate::models;
 /// Send a streaming chat-completion request to an OpenAI-compatible endpoint,
 /// parse the SSE response line‑by‑line, invoke `on_chunk` for each content
 /// delta, and return the full accumulated text.
-///
-/// # Arguments
-///
-/// * `base_url` - Base URL of the API (e.g. `https://api.openai.com/v1`)
-/// * `api_key`  - API key used for Bearer authentication
-/// * `model`    - Model identifier (e.g. `gpt-4o`)
-/// * `messages` - Conversation history in the OpenAI message format
-/// * `cancel`   - `CancellationToken` – checked before each chunk; when
-///                cancelled the function returns early with an error
-/// * `on_chunk` - Callback invoked for every non‑empty content delta received
-///
-/// # Returns
-///
-/// The full concatenated response text on success, or an error message.
 pub async fn stream_chat<F>(
     base_url: &str,
     api_key: &str,
     model: &str,
+    headers: &std::collections::HashMap<String, String>,
+    temperature: f32,
+    top_p: f32,
     messages: &[models::Message],
     cancel: CancellationToken,
     on_chunk: F,
@@ -30,17 +19,15 @@ pub async fn stream_chat<F>(
 where
     F: Fn(String) + Send + 'static,
 {
-    // ── Early cancellation check (no HTTP request if already cancelled) ──
     if cancel.is_cancelled() {
         log::warn!("Rust::llm::stream_chat | 流式请求被取消");
         return Err("请求已取消".to_string());
     }
 
+    let has_system = messages.first().map_or(false, |m| m.role == "system");
     log::info!(
-        "Rust::llm::stream_chat | 开始流式请求 | url={} model={} messages={}",
-        base_url,
-        model,
-        messages.len()
+        "Rust::llm::stream_chat | 开始流式请求 | url={} model={} messages={} temperature={} top_p={} system_prompt={}",
+        base_url, model, messages.len(), temperature, top_p, has_system
     );
 
     let client = reqwest::Client::builder()
@@ -50,8 +37,6 @@ where
 
     let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
 
-    // Build the OpenAI‑compatible streaming request body, converting our
-    // internal `Message` struct to the expected JSON format.
     let msg_values: Vec<serde_json::Value> = messages
         .iter()
         .map(|m| {
@@ -65,17 +50,25 @@ where
     let body = serde_json::json!({
         "model": model,
         "messages": msg_values,
+        "temperature": temperature,
+        "top_p": top_p,
         "stream": true,
     });
 
     let body_str =
         serde_json::to_string(&body).map_err(|e| format!("序列化请求体失败: {}", e))?;
 
-    // ── Send the POST request ──
-    let mut response = client
+    let mut request = client
         .post(&url)
         .header("Authorization", format!("Bearer {}", api_key))
-        .header("Content-Type", "application/json")
+        .header("Content-Type", "application/json");
+
+    for (key, value) in headers {
+        log::trace!("Rust::llm::stream_chat | 自定义 header | {}={}", key, value);
+        request = request.header(key.as_str(), value.as_str());
+    }
+
+    let mut response = request
         .body(body_str)
         .send()
         .await
@@ -91,38 +84,30 @@ where
             msg
         })?;
 
-    // ── Non‑success HTTP status → error ──
     let status = response.status();
     log::debug!("Rust::llm::stream_chat | HTTP 响应 | status={}", status);
     if !status.is_success() {
         return Err(format!("HTTP error: {}", status));
     }
 
-    // ── Stream the response body chunk‑by‑chunk, parsing SSE lines ──
     let mut accumulated = String::new();
     let mut buffer = String::new();
 
-    // Use reqwest's chunk() API to read the response incrementally.
-    // This avoids pulling in the `futures-util` crate.
     loop {
-        // ── Check cancellation before processing each chunk ──
         if cancel.is_cancelled() {
             log::warn!("Rust::llm::stream_chat | 流式请求被取消");
             return Err("请求已取消".to_string());
         }
 
         let chunk = response.chunk().await.map_err(|e| format!("读取响应分块失败: {}", e))?;
-
         let chunk = match chunk {
             Some(c) => c,
-            None => break, // stream ended normally
+            None => break,
         };
 
         log::trace!("Rust::llm::stream_chat | 收到 chunk | len={}", chunk.len());
 
         let text = String::from_utf8_lossy(&chunk);
-
-        // Append new data to the line buffer and process complete lines
         buffer.push_str(&text);
 
         while let Some(newline_pos) = buffer.find('\n') {
@@ -133,17 +118,14 @@ where
                 continue;
             }
 
-            // SSE data lines begin with "data: "
             if let Some(data) = line.strip_prefix("data: ") {
                 let data = data.trim();
 
-                // "[DONE]" signals the end of the stream
                 if data == "[DONE]" {
                     log::info!("Rust::llm::stream_chat | 流式完成 | total_chars={}", accumulated.len());
                     return Ok(accumulated);
                 }
 
-                // Try to parse the JSON payload inside the "data:" field
                 if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
                     if let Some(choices) = json.get("choices").and_then(|c| c.as_array()) {
                         for choice in choices {
@@ -163,13 +145,129 @@ where
                     log::warn!("Rust::llm::stream_chat | SSE 解析异常 | line={}", data);
                 }
             }
-            // Lines that don't start with "data:" (e.g. SSE comments `: ...`)
-            // are ignored per the SSE spec.
         }
     }
 
-    // If we exhausted the stream without seeing `[DONE]`, return whatever we
-    // accumulated (the server may not send a termination event).
     log::info!("Rust::llm::stream_chat | 流式完成 | total_chars={}", accumulated.len());
     Ok(accumulated)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::Message;
+
+    fn run_with_mock<F>(test_fn: F)
+    where
+        F: FnOnce(mockito::ServerGuard) + Send + 'static,
+    {
+        let handle = std::thread::spawn(move || {
+            let server = mockito::Server::new();
+            test_fn(server);
+        });
+        handle.join().unwrap();
+    }
+
+    #[test]
+    fn request_body_contains_temperature_top_p_and_system_prompt() {
+        run_with_mock(|mut server| {
+            let sse_body = "data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"}}]}\n\ndata: [DONE]\n\n";
+            let mock = server.mock("POST", "/chat/completions")
+                .match_request(|req| {
+                    let body = req.utf8_lossy_body().unwrap_or_default();
+                    let v: serde_json::Value = serde_json::from_str(&body).unwrap_or_default();
+                    v["model"] == "gpt-4o"
+                        && (v["temperature"].as_f64().unwrap_or(0.0) - 0.8).abs() < 0.01
+                        && (v["top_p"].as_f64().unwrap_or(0.0) - 0.95).abs() < 0.01
+                        && v["stream"] == true
+                        && v["messages"].as_array().map_or(false, |m| m.len() == 2)
+                        && v["messages"][0]["role"] == "system"
+                        && v["messages"][0]["content"] == "你是翻译助手"
+                        && v["messages"][1]["role"] == "user"
+                        && v["messages"][1]["content"] == "hello"
+                })
+                .with_status(200)
+                .with_header("content-type", "text/event-stream")
+                .with_body(sse_body)
+                .create();
+
+            let messages = vec![
+                Message { id: "system".into(), conversation_id: "c1".into(), role: "system".into(), content: "你是翻译助手".into(), created_at: 0, token_count: None },
+                Message { id: "u1".into(), conversation_id: "c1".into(), role: "user".into(), content: "hello".into(), created_at: 0, token_count: None },
+            ];
+
+            let mut headers = std::collections::HashMap::new();
+            headers.insert("X-Custom".to_string(), "test".to_string());
+
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            let result = rt.block_on(stream_chat(
+                &server.url(), "sk-test", "gpt-4o", &headers,
+                0.8, 0.95, &messages, CancellationToken::new(), |_| {},
+            ));
+
+            assert!(result.is_ok());
+            mock.assert();
+        });
+    }
+
+    #[test]
+    fn request_body_without_system_prompt() {
+        run_with_mock(|mut server| {
+            let sse_body = "data: {\"choices\":[{\"delta\":{\"content\":\"OK\"}}]}\n\ndata: [DONE]\n\n";
+            let mock = server.mock("POST", "/chat/completions")
+                .match_request(|req| {
+                    let body = req.utf8_lossy_body().unwrap_or_default();
+                    let v: serde_json::Value = serde_json::from_str(&body).unwrap_or_default();
+                    v["model"] == "deepseek-chat"
+                        && (v["temperature"].as_f64().unwrap_or(0.0) - 0.5).abs() < 0.01
+                        && (v["top_p"].as_f64().unwrap_or(0.0) - 1.0).abs() < 0.01
+                        && v["messages"].as_array().map_or(false, |m| m.len() == 1)
+                        && v["messages"][0]["role"] == "user"
+                })
+                .with_status(200)
+                .with_header("content-type", "text/event-stream")
+                .with_body(sse_body)
+                .create();
+
+            let messages = vec![
+                Message { id: "u1".into(), conversation_id: "c1".into(), role: "user".into(), content: "hi".into(), created_at: 0, token_count: None },
+            ];
+
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            let result = rt.block_on(stream_chat(
+                &server.url(), "sk-test", "deepseek-chat", &std::collections::HashMap::new(),
+                0.5, 1.0, &messages, CancellationToken::new(), |_| {},
+            ));
+
+            assert!(result.is_ok());
+            mock.assert();
+        });
+    }
+
+    #[test]
+    fn custom_headers_are_sent() {
+        run_with_mock(|mut server| {
+            let sse_body = "data: [DONE]\n\n";
+            let mock = server.mock("POST", "/chat/completions")
+                .match_header("X-Custom", "test-value")
+                .with_status(200)
+                .with_header("content-type", "text/event-stream")
+                .with_body(sse_body)
+                .expect(1)
+                .create();
+
+            let messages = vec![];
+            let mut headers = std::collections::HashMap::new();
+            headers.insert("X-Custom".to_string(), "test-value".to_string());
+
+            let rt = tokio::runtime::Runtime::new().unwrap();
+            let result = rt.block_on(stream_chat(
+                &server.url(), "sk-test", "gpt-4o", &headers,
+                0.7, 1.0, &messages, CancellationToken::new(), |_| {},
+            ));
+
+            assert!(result.is_ok());
+            mock.assert();
+        });
+    }
 }

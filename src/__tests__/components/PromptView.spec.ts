@@ -54,19 +54,20 @@ describe('PromptView.vue', () => {
     expect(wrapper.text()).toContain('选择或创建一个提示词模板')
   })
 
-  it('点击加号按钮显示编辑区域', async () => {
+  it('点击新建提示词按钮显示编辑区域', async () => {
     const wrapper = mount(PromptView)
     await flushPromises()
 
-    const addButton = wrapper.find('button:has(.lucide-plus)')
-    await addButton.trigger('click')
+    // 点击"新建提示词"区域
+    const createArea = wrapper.find('.border-dashed')
+    await createArea.trigger('click')
     await wrapper.vm.$nextTick()
 
     expect(wrapper.text()).toContain('模板名称')
     expect(wrapper.text()).toContain('提示词内容')
   })
 
-  it('点击加号后输入名称和内容，点击保存创建新模板', async () => {
+  it('点击新建后输入名称和内容，点击保存创建新模板', async () => {
     vi.mocked(promptBridge.createPrompt).mockResolvedValue({
       id: 'new-id',
       name: '写作助手',
@@ -80,22 +81,21 @@ describe('PromptView.vue', () => {
     const wrapper = mount(PromptView)
     await flushPromises()
 
-    // 点击加号
-    const addButton = wrapper.find('button:has(.lucide-plus)')
-    await addButton.trigger('click')
+    // 点击新建
+    const createArea = wrapper.find('.border-dashed')
+    await createArea.trigger('click')
     await wrapper.vm.$nextTick()
 
     // 输入名称
-    const nameInput = wrapper.find('input[placeholder="输入模板名称"]')
+    const nameInput = wrapper.find('#prompt-name')
     await nameInput.setValue('写作助手')
 
     // 输入内容
-    const contentTextarea = wrapper.find('textarea[placeholder="输入提示词内容"]')
+    const contentTextarea = wrapper.find('#prompt-content')
     await contentTextarea.setValue('你是一个写作助手')
 
     // 点击保存
-    const buttons = wrapper.findAll('button')
-    const saveButton = buttons.find(b => b.text().includes('保存'))
+    const saveButton = wrapper.findAll('button').find(b => b.text().includes('保存'))
     expect(saveButton).toBeTruthy()
     await saveButton!.trigger('click')
     await flushPromises()
@@ -110,18 +110,17 @@ describe('PromptView.vue', () => {
     const wrapper = mount(PromptView)
     await flushPromises()
 
-    // 点击模板
-    const buttons = wrapper.findAll('button')
-    const promptButton = buttons.find(b => b.text().includes('翻译助手'))
-    expect(promptButton).toBeTruthy()
-    await promptButton!.trigger('click')
+    // 点击模板（在 sidebar 的 div 中）
+    const promptItem = wrapper.find('.truncate')
+    expect(promptItem).toBeTruthy()
+    await promptItem!.trigger('click')
     await wrapper.vm.$nextTick()
 
     // 验证输入框显示内容
-    const nameInput = wrapper.find('input[placeholder="输入模板名称"]')
+    const nameInput = wrapper.find('#prompt-name')
     expect((nameInput.element as HTMLInputElement).value).toBe('翻译助手')
 
-    const contentTextarea = wrapper.find('textarea[placeholder="输入提示词内容"]')
+    const contentTextarea = wrapper.find('#prompt-content')
     expect((contentTextarea.element as HTMLTextAreaElement).value).toBe('你是一个翻译助手')
   })
 
@@ -133,7 +132,7 @@ describe('PromptView.vue', () => {
     await flushPromises()
 
     // 选择模板
-    const promptItem = wrapper.findAll('button').find(b => b.text().includes('翻译助手'))
+    const promptItem = wrapper.find('.truncate')
     expect(promptItem).toBeTruthy()
     await promptItem!.trigger('click')
     await wrapper.vm.$nextTick()
@@ -156,7 +155,7 @@ describe('PromptView.vue', () => {
     await flushPromises()
 
     // 选择模板
-    const promptItem = wrapper.findAll('button').find(b => b.text().includes('翻译助手'))
+    const promptItem = wrapper.find('.truncate')
     expect(promptItem).toBeTruthy()
     await promptItem!.trigger('click')
     await wrapper.vm.$nextTick()

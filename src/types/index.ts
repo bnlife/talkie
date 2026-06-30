@@ -7,9 +7,21 @@ export interface Message {
   token_count?: number
 }
 
+export interface ModelProvider {
+  id: string
+  name: string
+  icon?: string
+  base_url: string
+  api_key: string
+  headers: Record<string, string>
+  models: string[]
+  enabled: boolean
+}
+
 export interface Conversation {
   id: string
   title: string
+  provider_id: string
   model: string
   system_prompt: string
   created_at: number
@@ -18,10 +30,10 @@ export interface Conversation {
 }
 
 export interface Settings {
-  base_url: string
-  api_key: string
-  model: string
+  providers: ModelProvider[]
+  active_provider_id: string
   temperature: number
+  top_p: number
   last_active_conversation_id?: string
   darkMode?: boolean
 }

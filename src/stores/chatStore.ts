@@ -39,8 +39,10 @@ export const useChatStore = defineStore('chat', {
     },
 
     async createConversation(): Promise<void> {
-      await log('info', '前端::chatStore::createConversation | 新建对话')
-      const conv = await conversationBridge.createConversation()
+      const settingsStore = useSettingsStore()
+      const providerId = settingsStore.active_provider_id
+      await log('info', `前端::chatStore::createConversation | 新建对话 | provider_id=${providerId}`)
+      const conv = await conversationBridge.createConversation(providerId)
       this.conversations.unshift(conv)
       this.activeConversationId = conv.id
       this.messages = []
@@ -90,7 +92,7 @@ export const useChatStore = defineStore('chat', {
       const settingsStore = useSettingsStore()
       if (settingsStore.last_active_conversation_id !== id) {
         settingsStore.last_active_conversation_id = id
-        await settingsStore.updateSettings({ ...settingsStore.$state } as Settings)
+        await settingsStore.saveSettings()
       }
     },
 

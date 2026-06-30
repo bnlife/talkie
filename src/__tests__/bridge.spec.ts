@@ -10,7 +10,7 @@ import {
   pinConversation,
   unpinConversation,
 } from '../bridge/conversation'
-import { getSettings, updateSettings, testConnection } from '../bridge/settings'
+import { getSettings, updateSettings, testProviderConnection, fetchProviderModels } from '../bridge/settings'
 import {
   listPrompts,
   createPrompt,
@@ -64,6 +64,7 @@ describe('conversation bridge', () => {
   const mockConv = {
     id: 'c1',
     title: 'Test',
+    provider_id: 'prov-1',
     model: 'deepseek-chat',
     system_prompt: '',
     created_at: 0,
@@ -77,10 +78,11 @@ describe('conversation bridge', () => {
     expect(result).toEqual([mockConv])
   })
 
-  it('createConversation calls invoke with optional title', async () => {
+  it('createConversation calls invoke with providerId and optional title', async () => {
     mockedInvoke.mockResolvedValue(mockConv)
-    const result = await createConversation('New Chat')
+    const result = await createConversation('prov-1', 'New Chat')
     expect(mockedInvoke).toHaveBeenCalledWith('create_conversation', {
+      providerId: 'prov-1',
       title: 'New Chat',
     })
     expect(result).toEqual(mockConv)
@@ -88,8 +90,9 @@ describe('conversation bridge', () => {
 
   it('createConversation works without title', async () => {
     mockedInvoke.mockResolvedValue(mockConv)
-    const result = await createConversation()
+    const result = await createConversation('prov-1')
     expect(mockedInvoke).toHaveBeenCalledWith('create_conversation', {
+      providerId: 'prov-1',
       title: undefined,
     })
     expect(result).toEqual(mockConv)
@@ -127,10 +130,19 @@ describe('conversation bridge', () => {
 // settings bridge
 // ---------------------------------------------------------------------------
 describe('settings bridge', () => {
-  const mockSettings = {
+  const mockProvider = {
+    id: 'prov-1',
+    name: 'DeepSeek',
     base_url: 'https://api.deepseek.com/v1',
     api_key: 'sk-xxx',
-    model: 'deepseek-chat',
+    headers: {},
+    models: ['deepseek-chat'],
+    enabled: true,
+  }
+
+  const mockSettings = {
+    providers: [mockProvider],
+    active_provider_id: 'prov-1',
     temperature: 0.7,
   }
 
@@ -143,25 +155,34 @@ describe('settings bridge', () => {
 
   it('updateSettings calls invoke with correct arguments', async () => {
     mockedInvoke.mockResolvedValue(undefined)
-    await updateSettings({ model: 'gpt-4' })
+    await updateSettings({ temperature: 0.5 })
     expect(mockedInvoke).toHaveBeenCalledWith('update_settings', {
-      settings: { model: 'gpt-4' },
+      settings: { temperature: 0.5 },
     })
   })
 
-  it('testConnection returns result from invoke', async () => {
-    mockedInvoke.mockResolvedValue({ ok: true })
-    const result = await testConnection(mockSettings)
-    expect(mockedInvoke).toHaveBeenCalledWith('test_connection', {
-      settings: mockSettings,
+  it('testProviderConnection returns result from invoke', async () => {
+    mockedInvoke.mockResolvedValue('连接成功')
+    const result = await testProviderConnection(mockProvider)
+    expect(mockedInvoke).toHaveBeenCalledWith('test_provider_connection', {
+      provider: mockProvider,
     })
     expect(result).toEqual({ ok: true })
   })
 
-  it('testConnection propagates error from invoke', async () => {
+  it('testProviderConnection propagates error from invoke', async () => {
     mockedInvoke.mockRejectedValue(new Error('connection refused'))
-    const result = await testConnection(mockSettings)
+    const result = await testProviderConnection(mockProvider)
     expect(result).toEqual({ ok: false, error: 'Error: connection refused' })
+  })
+
+  it('fetchProviderModels returns model list from invoke', async () => {
+    mockedInvoke.mockResolvedValue(['gpt-4o', 'gpt-4o-mini'])
+    const result = await fetchProviderModels(mockProvider)
+    expect(mockedInvoke).toHaveBeenCalledWith('fetch_provider_models', {
+      provider: mockProvider,
+    })
+    expect(result).toEqual(['gpt-4o', 'gpt-4o-mini'])
   })
 })
 

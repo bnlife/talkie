@@ -39,7 +39,7 @@ const settingsStore = useSettingsStore()
         variant="ghost"
         size="icon-sm"
         class="hover:bg-background"
-        @click="settingsStore.updateSettings({ darkMode: !settingsStore.darkMode })"
+        @click="settingsStore.darkMode = !settingsStore.darkMode; settingsStore.saveSettings()"
       >
         <Moon v-if="!settingsStore.darkMode" class="size-4" />
         <Sun v-else class="size-4" />

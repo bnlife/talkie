@@ -1,25 +1,48 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { usePromptStore } from '@/stores/promptStore'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Minus, Maximize2, Minimize2, X, Plus, Trash2, Star } from 'lucide-vue-next'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
+import {
+  PanelLeftOpen,
+  PanelLeftClose,
+  Minus,
+  Maximize2,
+  Minimize2,
+  X,
+  Plus,
+  Search,
+  Edit2,
+  Trash2,
+  Star,
+} from 'lucide-vue-next'
 
 const promptStore = usePromptStore()
 const appWindow = getCurrentWindow()
 const isMaximized = ref(false)
+const sidebarCollapsed = ref(false)
+const searchQuery = ref('')
 
 const editingId = ref<string | null>(null)
 const editName = ref('')
 const editContent = ref('')
 const isCreating = ref(false)
 
-onMounted(async () => {
-  isMaximized.value = await appWindow.isMaximized()
-  await promptStore.loadPrompts()
+// --- 搜索过滤 ---
+const filteredPrompts = computed(() => {
+  const q = searchQuery.value.toLowerCase()
+  return promptStore.prompts.filter(p =>
+    p.name.toLowerCase().includes(q)
+  )
 })
 
+// --- 窗口控制 ---
+function toggleSidebar() { sidebarCollapsed.value = !sidebarCollapsed.value }
 async function minimizeWindow() { await appWindow.minimize() }
 async function toggleMaximize() {
   if (isMaximized.value) { await appWindow.unmaximize() } else { await appWindow.maximize() }
@@ -27,6 +50,7 @@ async function toggleMaximize() {
 }
 async function closeWindow() { await appWindow.close() }
 
+// --- 提示词操作 ---
 function selectPrompt(id: string) {
   promptStore.selectPrompt(id)
   const prompt = promptStore.prompts.find(p => p.id === id)
@@ -70,15 +94,88 @@ async function setDefault() {
   if (!editingId.value) return
   await promptStore.setDefaultPrompt(editingId.value)
 }
+
+async function removePrompt(id: string) {
+  if (editingId.value === id) {
+    editingId.value = null
+    editName.value = ''
+    editContent.value = ''
+    isCreating.value = false
+  }
+  await promptStore.deletePrompt(id)
+}
+
+// --- 右键菜单 ---
+const contextMenuVisible = ref(false)
+const contextMenuX = ref(0)
+const contextMenuY = ref(0)
+const contextMenuPromptId = ref<string | null>(null)
+
+function showContextMenu(e: MouseEvent, prompt: { id: string; is_default: boolean }) {
+  e.preventDefault()
+  contextMenuPromptId.value = prompt.id
+  contextMenuX.value = e.clientX
+  contextMenuY.value = e.clientY
+  contextMenuVisible.value = true
+}
+
+function hideContextMenu() {
+  contextMenuVisible.value = false
+  contextMenuPromptId.value = null
+}
+
+function handleContextMenuDelete() {
+  if (!contextMenuPromptId.value) return
+  const id = contextMenuPromptId.value
+  hideContextMenu()
+  if (editingId.value === id) {
+    editingId.value = null
+    editName.value = ''
+    editContent.value = ''
+    isCreating.value = false
+  }
+  promptStore.deletePrompt(id)
+}
+
+function handleContextMenuDefault() {
+  if (!contextMenuPromptId.value) return
+  const id = contextMenuPromptId.value
+  hideContextMenu()
+  promptStore.setDefaultPrompt(id)
+  if (editingId.value === id) {
+    // refresh local state
+  }
+}
+
+function onDocumentClick() {
+  if (contextMenuVisible.value) hideContextMenu()
+}
+
+onMounted(async () => {
+  isMaximized.value = await appWindow.isMaximized()
+  await promptStore.loadPrompts()
+  document.addEventListener('click', onDocumentClick)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', onDocumentClick)
+})
 </script>
 
 <template>
   <div class="flex h-full flex-col">
+    <!-- Header -->
     <header
       data-tauri-drag-region
       class="flex h-9 shrink-0 items-center justify-between bg-muted px-3 select-none"
     >
-      <span class="text-sm font-medium text-muted-foreground">提示词</span>
+      <div class="flex items-center gap-2">
+        <Button variant="ghost" size="icon" class="h-6 w-6" @click.stop="toggleSidebar">
+          <PanelLeftClose v-if="!sidebarCollapsed" class="h-3.5 w-3.5" />
+          <PanelLeftOpen v-else class="h-3.5 w-3.5" />
+        </Button>
+        <span class="text-sm font-medium text-muted-foreground">提示词</span>
+      </div>
       <div class="flex items-center gap-0.5">
         <Button variant="ghost" size="icon" class="h-6 w-6 hover:bg-background" @click="minimizeWindow"><Minus class="h-3.5 w-3.5" /></Button>
         <Button variant="ghost" size="icon" class="h-6 w-6 hover:bg-background" @click="toggleMaximize">
@@ -88,82 +185,175 @@ async function setDefault() {
         <Button variant="ghost" size="icon" class="h-6 w-6 hover:bg-destructive hover:text-destructive-foreground" @click="closeWindow"><X class="h-3.5 w-3.5" /></Button>
       </div>
     </header>
-    <div class="flex flex-1 overflow-hidden p-1">
-      <div class="flex flex-1 overflow-hidden rounded-lg border bg-background">
-        <!-- 左侧列表 -->
-        <div class="w-48 shrink-0 border-r bg-muted">
-          <div class="flex items-center justify-between p-2">
-            <span class="text-xs font-medium text-muted-foreground">模板列表</span>
-            <Button variant="ghost" size="icon" class="h-6 w-6 hover:bg-background" @click="createNew">
-              <Plus class="h-3.5 w-3.5" />
-            </Button>
-          </div>
-          <div class="flex flex-col gap-0.5 px-1">
-            <button
-              v-for="prompt in promptStore.prompts"
-              :key="prompt.id"
-              :class="cn(
-                'flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
-                editingId === prompt.id
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'hover:bg-background'
-              )"
-              @click="selectPrompt(prompt.id)"
-            >
-              <Star v-if="prompt.is_default" class="h-3 w-3 shrink-0 text-yellow-500" />
-              <span class="truncate">{{ prompt.name }}</span>
-            </button>
-          </div>
-        </div>
 
-        <!-- 右侧编辑区 -->
-        <div class="flex flex-1 flex-col overflow-hidden">
-          <div class="flex-1 overflow-y-auto p-4">
-            <div v-if="editingId !== null || isCreating" class="flex flex-col gap-4">
-              <div class="flex flex-col gap-2">
-                <label class="text-sm font-medium text-muted-foreground">模板名称</label>
-                <input
-                  v-model="editName"
-                  :class="cn(
-                    'flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm',
-                    'transition-colors placeholder:text-muted-foreground',
-                    'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-                  )"
-                  placeholder="输入模板名称"
-                />
-              </div>
-              <div class="flex flex-1 flex-col gap-2">
-                <label class="text-sm font-medium text-muted-foreground">提示词内容</label>
-                <textarea
-                  v-model="editContent"
-                  :class="cn(
-                    'flex min-h-[200px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm',
-                    'transition-colors placeholder:text-muted-foreground',
-                    'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring'
-                  )"
-                  placeholder="输入提示词内容"
-                />
-              </div>
+    <!-- Content -->
+    <div class="flex flex-1 overflow-hidden p-1">
+      <div class="flex flex-1 overflow-hidden rounded-lg border">
+        <!-- Sidebar -->
+        <aside
+          v-show="!sidebarCollapsed"
+          class="w-60 shrink-0 border-r bg-background overflow-hidden flex flex-col"
+        >
+          <div class="flex flex-col gap-1 p-2 text-sm">
+            <!-- 搜索栏 -->
+            <div class="relative">
+              <Search class="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                v-model="searchQuery"
+                placeholder="搜索提示词..."
+                class="h-7 pl-8 text-sm"
+              />
+            </div>
+
+            <!-- 新建提示词 -->
+            <div
+              class="flex cursor-pointer items-center justify-between rounded-md border border-dashed px-2 py-1.5 text-sm transition-colors hover:bg-foreground/5"
+              @click="createNew"
+            >
               <div class="flex items-center gap-2">
-                <Button size="sm" @click="save">
-                  保存
-                </Button>
+                <Plus class="size-3.5" />
+                <span>新建提示词</span>
+              </div>
+            </div>
+
+            <!-- 提示词列表 -->
+            <div class="flex-1 overflow-y-auto">
+              <div
+                v-for="prompt in filteredPrompts"
+                :key="prompt.id"
+                :class="
+                  cn(
+                    'group relative flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-foreground/5',
+                    prompt.id === editingId && 'bg-accent text-accent-foreground',
+                  )
+                "
+                @click="selectPrompt(prompt.id)"
+                @contextmenu="showContextMenu($event, prompt)"
+              >
+                <div class="min-w-0 flex-1 flex items-center gap-2">
+                  <Star v-if="prompt.is_default" class="h-3 w-3 shrink-0 text-yellow-500" />
+                  <span class="truncate text-sm text-muted-foreground">{{ prompt.name }}</span>
+                </div>
+
+                <div
+                  :class="
+                    cn(
+                      'ml-1 flex shrink-0 items-center gap-0.5',
+                      'opacity-0 group-hover:opacity-100',
+                    )
+                  "
+                >
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    class="size-5"
+                    @click.stop="selectPrompt(prompt.id)"
+                  >
+                    <Edit2 class="size-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    class="size-5"
+                    @click.stop="removePrompt(prompt.id)"
+                  >
+                    <Trash2 class="size-3" />
+                  </Button>
+                </div>
+              </div>
+
+              <!-- 空状态 -->
+              <div
+                v-if="filteredPrompts.length === 0"
+                class="flex flex-col items-center py-8 text-muted-foreground"
+              >
+                <span class="text-sm">{{ searchQuery ? '无匹配结果' : '暂无提示词' }}</span>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Main content -->
+        <main class="relative flex flex-1 flex-col overflow-hidden bg-background">
+          <div v-if="editingId !== null || isCreating" class="flex flex-1 flex-col overflow-hidden">
+            <!-- 编辑区 header bar -->
+            <div class="flex items-center justify-between border-b px-4 py-2">
+              <span class="text-sm font-medium text-muted-foreground">
+                {{ isCreating ? '新建提示词' : '编辑提示词' }}
+              </span>
+              <div class="flex items-center gap-2">
                 <Button v-if="editingId" variant="outline" size="sm" @click="setDefault">
                   <Star class="h-3.5 w-3.5" />
                   设为默认
                 </Button>
-                <Button v-if="editingId" variant="destructive" size="sm" @click="remove">
+                <Button variant="destructive" size="sm" @click="remove">
                   <Trash2 class="h-3.5 w-3.5" />
                   删除
                 </Button>
+                <Button size="sm" @click="save">
+                  保存
+                </Button>
               </div>
             </div>
-            <div v-else class="flex h-full items-center justify-center text-sm text-muted-foreground">
-              选择或创建一个提示词模板
+
+            <!-- 编辑区表单 -->
+            <div class="flex-1 overflow-y-auto p-4">
+              <div class="flex flex-col gap-4 max-w-2xl">
+                <div class="flex flex-col gap-2">
+                  <Label for="prompt-name" class="text-sm">模板名称</Label>
+                  <Input
+                    id="prompt-name"
+                    v-model="editName"
+                    placeholder="输入模板名称"
+                  />
+                </div>
+                <div class="flex flex-col gap-2">
+                  <Label for="prompt-content" class="text-sm">提示词内容</Label>
+                  <Textarea
+                    id="prompt-content"
+                    v-model="editContent"
+                    placeholder="输入提示词内容"
+                    class="min-h-[300px] resize-none"
+                  />
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+
+          <!-- 空状态 -->
+          <div
+            v-else
+            class="flex flex-1 items-center justify-center text-sm text-muted-foreground"
+          >
+            选择或创建一个提示词模板
+          </div>
+        </main>
       </div>
     </div>
+
+    <!-- 右键菜单 -->
+    <Teleport to="body">
+      <div
+        v-if="contextMenuVisible"
+        :style="{ left: `${contextMenuX}px`, top: `${contextMenuY}px` }"
+        class="fixed z-50 min-w-28 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+        @click.stop
+      >
+        <button
+          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-foreground/5 hover:text-foreground"
+          @click="handleContextMenuDefault"
+        >
+          <Star class="size-3.5" />
+          设为默认
+        </button>
+        <button
+          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-foreground/5 hover:text-foreground"
+          @click="handleContextMenuDelete"
+        >
+          <Trash2 class="size-3.5" />
+          删除
+        </button>
+      </div>
+    </Teleport>
   </div>
 </template>

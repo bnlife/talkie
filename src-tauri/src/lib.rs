@@ -87,7 +87,8 @@ pub fn run() {
             commands::prompt::set_default_prompt,
             commands::settings::get_settings,
             commands::settings::update_settings,
-            commands::settings::test_connection,
+            commands::settings::test_provider_connection,
+            commands::settings::fetch_provider_models,
             commands::settings::log_message,
         ])
         .run(tauri::generate_context!())

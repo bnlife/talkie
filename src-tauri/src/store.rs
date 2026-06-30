@@ -20,6 +20,7 @@ pub fn init(db_path: &PathBuf) -> Result<Connection, AppError> {
         "CREATE TABLE IF NOT EXISTS conversations (
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL,
+            provider_id TEXT NOT NULL DEFAULT '',
             model TEXT NOT NULL,
             system_prompt TEXT NOT NULL DEFAULT '',
             created_at INTEGER NOT NULL,
@@ -51,6 +52,12 @@ pub fn init(db_path: &PathBuf) -> Result<Connection, AppError> {
         [],
     );
 
+    // 迁移：为旧数据库添加 provider_id 列（如已存在则忽略）
+    let _ = conn.execute(
+        "ALTER TABLE conversations ADD COLUMN provider_id TEXT NOT NULL DEFAULT ''",
+        [],
+    );
+
     log::info!("Rust::store::init | 数据库初始化完成");
     Ok(conn)
 }
@@ -63,18 +70,19 @@ pub fn init(db_path: &PathBuf) -> Result<Connection, AppError> {
 pub fn list_conversations(conn: &Connection) -> Result<Vec<Conversation>, AppError> {
     log::debug!("Rust::store::list_conversations | 查询所有对话");
     let mut stmt = conn.prepare(
-        "SELECT id, title, model, system_prompt, created_at, updated_at, pinned \
+        "SELECT id, title, provider_id, model, system_prompt, created_at, updated_at, pinned \
          FROM conversations ORDER BY pinned DESC, updated_at DESC",
     )?;
     let rows = stmt.query_map([], |row| {
         Ok(Conversation {
             id: row.get(0)?,
             title: row.get(1)?,
-            model: row.get(2)?,
-            system_prompt: row.get(3)?,
-            created_at: row.get(4)?,
-            updated_at: row.get(5)?,
-            pinned: row.get::<_, i64>(6)? != 0,
+            provider_id: row.get(2)?,
+            model: row.get(3)?,
+            system_prompt: row.get(4)?,
+            created_at: row.get(5)?,
+            updated_at: row.get(6)?,
+            pinned: row.get::<_, i64>(7)? != 0,
         })
     })?;
     let mut conversations = Vec::new();
@@ -88,11 +96,12 @@ pub fn list_conversations(conn: &Connection) -> Result<Vec<Conversation>, AppErr
 pub fn create_conversation(conn: &Connection, conversation: &Conversation) -> Result<(), AppError> {
     log::info!("Rust::store::create_conversation | 创建对话 | id={}", conversation.id);
     conn.execute(
-        "INSERT INTO conversations (id, title, model, system_prompt, created_at, updated_at, pinned) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO conversations (id, title, provider_id, model, system_prompt, created_at, updated_at, pinned) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         params![
             conversation.id,
             conversation.title,
+            conversation.provider_id,
             conversation.model,
             conversation.system_prompt,
             conversation.created_at,
@@ -107,18 +116,19 @@ pub fn create_conversation(conn: &Connection, conversation: &Conversation) -> Re
 pub fn get_conversation(conn: &Connection, id: &str) -> Result<Option<Conversation>, AppError> {
     log::debug!("Rust::store::get_conversation | 查询对话 | id={}", id);
     let mut stmt = conn.prepare(
-        "SELECT id, title, model, system_prompt, created_at, updated_at, pinned \
+        "SELECT id, title, provider_id, model, system_prompt, created_at, updated_at, pinned \
          FROM conversations WHERE id = ?1",
     )?;
     let mut rows = stmt.query_map(params![id], |row| {
         Ok(Conversation {
             id: row.get(0)?,
             title: row.get(1)?,
-            model: row.get(2)?,
-            system_prompt: row.get(3)?,
-            created_at: row.get(4)?,
-            updated_at: row.get(5)?,
-            pinned: row.get::<_, i64>(6)? != 0,
+            provider_id: row.get(2)?,
+            model: row.get(3)?,
+            system_prompt: row.get(4)?,
+            created_at: row.get(5)?,
+            updated_at: row.get(6)?,
+            pinned: row.get::<_, i64>(7)? != 0,
         })
     })?;
     match rows.next() {
@@ -132,10 +142,11 @@ pub fn get_conversation(conn: &Connection, id: &str) -> Result<Option<Conversati
 pub fn update_conversation(conn: &Connection, conversation: &Conversation) -> Result<(), AppError> {
     log::debug!("Rust::store::update_conversation | 更新对话 | id={}", conversation.id);
     conn.execute(
-        "UPDATE conversations SET title = ?1, model = ?2, system_prompt = ?3, updated_at = ?4 \
-         WHERE id = ?5",
+        "UPDATE conversations SET title = ?1, provider_id = ?2, model = ?3, system_prompt = ?4, updated_at = ?5 \
+         WHERE id = ?6",
         params![
             conversation.title,
+            conversation.provider_id,
             conversation.model,
             conversation.system_prompt,
             conversation.updated_at,
@@ -373,9 +384,10 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
         conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS conversations (
+            "            CREATE TABLE IF NOT EXISTS conversations (
                 id TEXT PRIMARY KEY,
                 title TEXT NOT NULL,
+                provider_id TEXT NOT NULL DEFAULT '',
                 model TEXT NOT NULL,
                 system_prompt TEXT NOT NULL DEFAULT '',
                 created_at INTEGER NOT NULL,
@@ -500,6 +512,7 @@ mod tests {
         create_conversation(&conn, &Conversation {
             id: "c1".into(),
             title: "test".into(),
+            provider_id: "".into(),
             model: "gpt-4".into(),
             system_prompt: "".into(),
             created_at: 0,
@@ -539,6 +552,7 @@ mod tests {
         create_conversation(&conn, &Conversation {
             id: "c1".into(),
             title: "test".into(),
+            provider_id: "".into(),
             model: "gpt-4".into(),
             system_prompt: "对话专属提示词".into(),
             created_at: 0,
@@ -568,5 +582,47 @@ mod tests {
 
         // Should use conversation's prompt, not the default
         assert_eq!(system_prompt.unwrap(), "对话专属提示词");
+    }
+
+    #[test]
+    fn conversation_with_provider_id() {
+        let conn = setup_db();
+        create_conversation(&conn, &Conversation {
+            id: "c1".into(),
+            title: "test".into(),
+            provider_id: "prov-1".into(),
+            model: "gpt-4".into(),
+            system_prompt: "".into(),
+            created_at: 0,
+            updated_at: 0,
+            pinned: false,
+        }).unwrap();
+
+        let conv = get_conversation(&conn, "c1").unwrap().unwrap();
+        assert_eq!(conv.provider_id, "prov-1");
+        assert_eq!(conv.model, "gpt-4");
+
+        let list = list_conversations(&conn).unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].provider_id, "prov-1");
+    }
+
+    #[test]
+    fn conversation_provider_id_defaults_to_empty() {
+        let conn = setup_db();
+        // Simulate old data without provider_id by inserting with empty
+        create_conversation(&conn, &Conversation {
+            id: "c-old".into(),
+            title: "old".into(),
+            provider_id: "".into(),
+            model: "deepseek-chat".into(),
+            system_prompt: "".into(),
+            created_at: 0,
+            updated_at: 0,
+            pinned: false,
+        }).unwrap();
+
+        let conv = get_conversation(&conn, "c-old").unwrap().unwrap();
+        assert_eq!(conv.provider_id, "");
     }
 }

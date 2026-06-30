@@ -1,161 +1,126 @@
 <script setup lang="ts">
-import { reactive, watch } from 'vue'
-import type { Settings } from '@/types'
+import { reactive, watch, ref } from 'vue'
+import type { ModelProvider } from '@/types'
+import { useSettingsStore } from '@/stores/settingsStore'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
-import { Slider } from '@/components/ui/slider'
-import { Globe, Cpu, Plug, Save } from 'lucide-vue-next'
+import {
+  Eye, EyeOff, RefreshCw, Plus, Trash2, Check, XIcon,
+} from 'lucide-vue-next'
 
 const props = defineProps<{
-  settings: Settings
+  provider: ModelProvider
 }>()
 
-const emit = defineEmits<{
-  (e: 'update', value: Partial<Settings>): void
-  (e: 'test-connection'): void
-}>()
+const settingsStore = useSettingsStore()
 
 const form = reactive({
-  base_url: props.settings.base_url,
-  api_key: props.settings.api_key,
-  model: props.settings.model,
-  temperature: props.settings.temperature,
-  darkMode: props.settings.darkMode ?? false,
+  name: props.provider.name,
+  base_url: props.provider.base_url,
+  api_key: props.provider.api_key,
+  enabled: props.provider.enabled,
+  temperature: settingsStore.temperature,
+  top_p: settingsStore.top_p,
 })
 
-watch(
-  () => props.settings,
-  (val) => {
-    form.base_url = val.base_url
-    form.api_key = val.api_key
-    form.model = val.model
-    form.temperature = val.temperature
-    form.darkMode = val.darkMode ?? false
-  },
-  { deep: true },
-)
+const showApiKey = ref(false)
+const testResult = ref<{ ok: boolean; error?: string } | null>(null)
+const isTesting = ref(false)
+const isFetching = ref(false)
+const newModelName = ref('')
 
-function handleSave() {
-  emit('update', {
-    base_url: form.base_url,
-    api_key: form.api_key,
-    model: form.model,
-    temperature: form.temperature,
-    darkMode: form.darkMode,
-  })
+watch(() => props.provider, (p) => {
+  form.name = p.name
+  form.base_url = p.base_url
+  form.api_key = p.api_key
+  form.enabled = p.enabled
+}, { deep: true })
+
+async function saveName() {
+  await settingsStore.updateProvider(props.provider.id, { name: form.name })
 }
 
-function handleTestConnection() {
-  emit('test-connection')
+async function saveBaseUrl() {
+  await settingsStore.updateProvider(props.provider.id, { base_url: form.base_url })
+}
+
+async function saveApiKey() {
+  await settingsStore.updateProvider(props.provider.id, { api_key: form.api_key })
+}
+
+async function toggleEnabled() {
+  form.enabled = !form.enabled
+  await settingsStore.updateProvider(props.provider.id, { enabled: form.enabled })
+}
+
+async function handleTest() {
+  isTesting.value = true
+  testResult.value = null
+  await settingsStore.updateProvider(props.provider.id, {
+    base_url: form.base_url,
+    api_key: form.api_key,
+  })
+  // Auto-fetch models to get a real model name for testing
+  isFetching.value = true
+  await settingsStore.fetchModels(props.provider.id)
+  isFetching.value = false
+  testResult.value = await settingsStore.testConnection(props.provider.id)
+  isTesting.value = false
+}
+
+async function handleFetchModels() {
+  isFetching.value = true
+  await settingsStore.fetchModels(props.provider.id)
+  isFetching.value = false
+}
+
+function handleAddModel() {
+  if (newModelName.value.trim()) {
+    settingsStore.addModel(props.provider.id, newModelName.value.trim())
+    newModelName.value = ''
+  }
+}
+
+function handleRemoveModel(model: string) {
+  settingsStore.removeModel(props.provider.id, model)
+}
+
+async function handleParamChange() {
+  settingsStore.temperature = form.temperature
+  settingsStore.top_p = form.top_p
+  await settingsStore.saveSettings()
 }
 </script>
 
 <template>
-  <form
-    :class="cn('flex flex-col gap-4')"
-    @submit.prevent="handleSave"
-  >
-    <!-- 连接设置 -->
-    <div :class="cn('flex flex-col gap-3')">
-      <div :class="cn('flex items-center gap-2 text-sm font-medium text-muted-foreground')">
-        <Globe :class="cn('size-4')" />
-        <span>连接设置</span>
-      </div>
-
-      <div :class="cn('flex items-center gap-3')">
-        <Label for="base-url" :class="cn('w-20 shrink-0 text-right text-sm')">
-          Base URL
-        </Label>
-        <Input
-          id="base-url"
-          v-model="form.base_url"
-          placeholder="https://api.openai.com/v1"
-          :class="cn('flex-1')"
-        />
-      </div>
-
-      <div :class="cn('flex items-center gap-3')">
-        <Label for="api-key" :class="cn('w-20 shrink-0 text-right text-sm')">
-          API Key
-        </Label>
-        <Input
-          id="api-key"
-          v-model="form.api_key"
-          type="password"
-          placeholder="sk-..."
-          :class="cn('flex-1')"
-        />
-      </div>
-    </div>
-
-    <Separator />
-
-    <!-- 模型设置 -->
-    <div :class="cn('flex flex-col gap-3')">
-      <div :class="cn('flex items-center gap-2 text-sm font-medium text-muted-foreground')">
-        <Cpu :class="cn('size-4')" />
-        <span>模型设置</span>
-      </div>
-
-      <div :class="cn('flex items-center gap-3')">
-        <Label for="model" :class="cn('w-20 shrink-0 text-right text-sm')">
-          模型
-        </Label>
-        <Input
-          id="model"
-          v-model="form.model"
-          placeholder="gpt-3.5-turbo"
-          :class="cn('flex-1')"
-        />
-      </div>
-
-      <div :class="cn('flex items-center gap-3')">
-        <Label for="temperature" :class="cn('w-20 shrink-0 text-right text-sm')">
-          温度
-        </Label>
-        <div :class="cn('flex flex-1 items-center gap-3')">
-          <Slider
-            id="temperature"
-            :model-value="[form.temperature]"
-            :min="0"
-            :max="2"
-            :step="0.1"
-            :class="cn('flex-1')"
-            @update:model-value="(v) => { if (v) form.temperature = v[0] ?? form.temperature }"
-          />
-          <span :class="cn('w-10 text-right text-sm tabular-nums')">
-            {{ form.temperature.toFixed(1) }}
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <Separator />
-
-    <!-- 夜间模式 -->
-    <div :class="cn('flex flex-col gap-3')">
-      <div :class="cn('flex items-center justify-between')">
-        <span :class="cn('text-sm')">夜间模式</span>
+  <div :class="cn('flex flex-col gap-1.5 p-3 text-sm')">
+    <!-- 1. Provider 标题栏 -->
+    <div :class="cn('flex items-center justify-between')">
+      <Input
+        v-model="form.name"
+        class="h-6 w-40 border-none bg-transparent px-1 text-sm font-medium shadow-none focus-visible:ring-0"
+        @blur="saveName"
+        @keyup.enter="saveName"
+      />
+      <div class="flex items-center gap-1.5">
+        <span class="text-xs text-muted-foreground">{{ form.enabled ? '已启用' : '已禁用' }}</span>
         <button
           type="button"
           role="switch"
-          :aria-checked="form.darkMode"
+          :aria-checked="form.enabled"
           :class="cn(
-            'peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full',
+            'peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full',
             'border-2 border-transparent transition-colors',
-            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-            form.darkMode ? 'bg-primary' : 'bg-input',
+            form.enabled ? 'bg-primary' : 'bg-input',
           )"
-          @click="form.darkMode = !form.darkMode"
+          @click="toggleEnabled"
         >
           <span
             :class="cn(
-              'pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg',
-              'transition-transform',
-              form.darkMode ? 'translate-x-5' : 'translate-x-0',
+              'pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg transition-transform',
+              form.enabled ? 'translate-x-4' : 'translate-x-0',
             )"
           />
         </button>
@@ -164,31 +129,143 @@ function handleTestConnection() {
 
     <Separator />
 
-    <!-- 操作按钮 -->
-    <div :class="cn('flex flex-col gap-3')">
-      <div :class="cn('flex items-center gap-2 text-sm font-medium text-muted-foreground')">
-        <Plug :class="cn('size-4')" />
-        <span>操作</span>
+    <!-- 2. API 密钥 -->
+    <div :class="cn('flex flex-col gap-1')">
+      <span :class="cn('text-xs font-medium text-foreground')">API 密钥</span>
+      <div class="flex items-center gap-1.5">
+        <div class="relative flex-1">
+          <Input
+            v-model="form.api_key"
+            :type="showApiKey ? 'text' : 'password'"
+            placeholder="sk-..."
+            class="h-7 pr-16 text-sm"
+            @blur="saveApiKey"
+          />
+          <div class="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+            <Check v-if="testResult?.ok" class="size-3.5 text-green-600" />
+            <XIcon v-else-if="testResult && !testResult.ok" class="size-3.5 text-destructive" />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              class="size-5"
+              @click="showApiKey = !showApiKey"
+            >
+              <Eye v-if="!showApiKey" class="size-3" />
+              <EyeOff v-else class="size-3" />
+            </Button>
+          </div>
+        </div>
+        <Button
+          :variant="testResult?.ok ? 'default' : testResult && !testResult.ok ? 'destructive' : 'outline'"
+          size="sm"
+          class="h-7"
+          :disabled="isTesting"
+          @click="handleTest"
+        >
+          {{ isTesting ? '检测中...' : '检测' }}
+        </Button>
       </div>
-
-      <div :class="cn('flex items-center justify-end gap-2')">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          @click="handleTestConnection"
-        >
-          <Plug :class="cn('size-4')" />
-          测试连接
-        </Button>
-        <Button
-          type="submit"
-          size="sm"
-        >
-          <Save :class="cn('size-4')" />
-          保存设置
-        </Button>
+      <div :class="cn('h-4 text-xs', testResult?.ok ? 'text-green-600' : 'text-destructive')">
+        <span v-if="testResult">{{ testResult.ok ? '连接成功' : testResult.error }}</span>
       </div>
     </div>
-  </form>
+
+    <Separator />
+
+    <!-- 3. API 地址 -->
+    <div :class="cn('flex flex-col gap-1')">
+      <span :class="cn('text-xs font-medium text-foreground')">API 地址</span>
+      <Input
+        v-model="form.base_url"
+        placeholder="https://api.openai.com/v1"
+        class="h-7 text-sm"
+        @blur="saveBaseUrl"
+      />
+      <span class="text-xs text-muted-foreground">
+        预览: {{ form.base_url.replace(/\/+$/, '') }}/chat/completions
+      </span>
+    </div>
+
+    <Separator />
+
+    <!-- 4. 参数设置 -->
+    <div :class="cn('flex flex-col gap-1')">
+      <span :class="cn('text-xs font-medium text-foreground')">参数设置</span>
+      <div class="flex items-center gap-2">
+        <span class="w-10 text-right text-xs text-muted-foreground">温度</span>
+        <Input
+          v-model.number="form.temperature"
+          type="number"
+          :min="0"
+          :max="2"
+          :step="0.1"
+          class="h-7 w-20 text-sm"
+          @blur="handleParamChange"
+        />
+        <span class="w-10 text-right text-xs text-muted-foreground">Top-P</span>
+        <Input
+          v-model.number="form.top_p"
+          type="number"
+          :min="0"
+          :max="1"
+          :step="0.05"
+          class="h-7 w-20 text-sm"
+          @blur="handleParamChange"
+        />
+      </div>
+    </div>
+
+    <Separator />
+
+    <!-- 5. 模型列表 -->
+    <div :class="cn('flex flex-col gap-1')">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-1.5">
+          <span :class="cn('text-xs font-medium text-foreground')">模型</span>
+          <span :class="cn('rounded-full bg-muted px-1 py-0.5 text-xs text-muted-foreground')">
+            {{ provider.models.length }}
+          </span>
+        </div>
+        <Button variant="ghost" size="icon-sm" class="size-5" :disabled="isFetching" @click="handleFetchModels">
+          <RefreshCw :class="cn('size-3', isFetching && 'animate-spin')" />
+        </Button>
+      </div>
+
+      <!-- 添加模型 -->
+      <div class="flex items-center gap-1.5">
+        <Input
+          v-model="newModelName"
+          placeholder="输入模型名称..."
+          class="h-7 text-sm"
+          @keyup.enter="handleAddModel"
+        />
+        <Button variant="outline" size="sm" class="h-7" @click="handleAddModel">
+          <Plus class="size-3" />
+          添加
+        </Button>
+      </div>
+
+      <!-- 模型列表 -->
+      <div class="flex flex-col gap-0.5">
+        <div
+          v-for="model in provider.models"
+          :key="model"
+          class="group flex items-center justify-between rounded-sm px-1.5 py-1 hover:bg-foreground/5"
+        >
+          <span class="text-sm">{{ model }}</span>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            class="size-4 opacity-0 group-hover:opacity-100"
+            @click="handleRemoveModel(model)"
+          >
+            <Trash2 class="size-3" />
+          </Button>
+        </div>
+        <div v-if="provider.models.length === 0" class="py-2 text-center text-xs text-muted-foreground">
+          暂无模型，点击"获取"拉取或手动添加
+        </div>
+      </div>
+    </div>
+  </div>
 </template>

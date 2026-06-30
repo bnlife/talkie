@@ -19,13 +19,18 @@ pub fn list_conversations(
 /// The model is inherited from the current application settings.
 #[tauri::command]
 pub fn create_conversation(
+    provider_id: String,
     title: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<models::Conversation, String> {
-    log::info!("Rust::commands::conversation::create_conversation | 创建新对话 | title={:?}", title);
+    log::info!("Rust::commands::conversation::create_conversation | 创建新对话 | title={:?} provider_id={}", title, provider_id);
     let model = {
         let config = state.config.lock().map_err(|e| e.to_string())?;
-        config.model.clone()
+        // Find the provider and use its first model as default
+        config.providers.iter()
+            .find(|p| p.id == provider_id)
+            .and_then(|p| p.models.first().cloned())
+            .unwrap_or_else(|| "unknown".to_string())
     };
 
     let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -38,6 +43,7 @@ pub fn create_conversation(
     let conversation = models::Conversation {
         id: uuid::Uuid::new_v4().to_string(),
         title: title.unwrap_or_else(|| "新对话".to_string()),
+        provider_id,
         model,
         system_prompt: String::new(),
         created_at: now,

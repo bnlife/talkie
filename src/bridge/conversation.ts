@@ -5,8 +5,8 @@ export async function listConversations(): Promise<Conversation[]> {
   return invoke<Conversation[]>('list_conversations')
 }
 
-export async function createConversation(title?: string): Promise<Conversation> {
-  return invoke<Conversation>('create_conversation', { title })
+export async function createConversation(providerId: string, title?: string): Promise<Conversation> {
+  return invoke<Conversation>('create_conversation', { providerId, title })
 }
 
 export async function updateConversation(id: string, title: string): Promise<void> {

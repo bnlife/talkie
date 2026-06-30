@@ -84,14 +84,38 @@ pub async fn send_message(
     }
     messages.extend(history.iter().cloned());
 
-    // 3. Read the current configuration.
-    let (base_url, api_key, model) = {
+    // 3. Read the current configuration from the conversation's provider.
+    let (base_url, api_key, model, headers, temperature, top_p) = {
         let config = state.config.lock().map_err(|e| e.to_string())?;
-        (
-            config.base_url.clone(),
-            config.api_key.clone(),
-            config.model.clone(),
-        )
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conv = store::get_conversation(&db, &conversation_id)
+            .map_err(|e| e.to_string())?;
+
+        let (provider, conv_model) = match conv {
+            Some(ref c) if !c.provider_id.is_empty() => {
+                let p = config.providers.iter().find(|p| p.id == c.provider_id);
+                (p, Some(c.model.clone()))
+            }
+            _ => {
+                let p = config.providers.iter().find(|p| p.id == config.active_provider_id);
+                (p, None)
+            }
+        };
+
+        match provider {
+            Some(p) => {
+                let m = conv_model.unwrap_or_else(|| p.models.first().cloned().unwrap_or_default());
+                log::debug!(
+                    "Rust::commands::chat::send_message | 使用 provider | name={} model={}",
+                    p.name, m
+                );
+                (p.base_url.clone(), p.api_key.clone(), m, p.headers.clone(), config.temperature, config.top_p)
+            }
+            None => {
+                log::warn!("Rust::commands::chat::send_message | 未找到 provider，使用默认");
+                ("https://api.openai.com/v1".to_string(), String::new(), "gpt-3.5-turbo".to_string(), std::collections::HashMap::new(), config.temperature, config.top_p)
+            }
+        }
     };
 
     // 4. Create a CancellationToken and store it in AppState so that
@@ -116,6 +140,9 @@ pub async fn send_message(
         &base_url,
         &api_key,
         &model,
+        &headers,
+        temperature,
+        top_p,
         &messages,
         cancel.clone(),
         move |delta| {
@@ -295,14 +322,38 @@ pub async fn regenerate_message(
     }
     messages.extend(history.iter().cloned());
 
-    // 2. Read the current configuration.
-    let (base_url, api_key, model) = {
+    // 2. Read the current configuration from the conversation's provider.
+    let (base_url, api_key, model, headers, temperature, top_p) = {
         let config = state.config.lock().map_err(|e| e.to_string())?;
-        (
-            config.base_url.clone(),
-            config.api_key.clone(),
-            config.model.clone(),
-        )
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conv = store::get_conversation(&db, &conversation_id)
+            .map_err(|e| e.to_string())?;
+
+        let (provider, conv_model) = match conv {
+            Some(ref c) if !c.provider_id.is_empty() => {
+                let p = config.providers.iter().find(|p| p.id == c.provider_id);
+                (p, Some(c.model.clone()))
+            }
+            _ => {
+                let p = config.providers.iter().find(|p| p.id == config.active_provider_id);
+                (p, None)
+            }
+        };
+
+        match provider {
+            Some(p) => {
+                let m = conv_model.unwrap_or_else(|| p.models.first().cloned().unwrap_or_default());
+                log::debug!(
+                    "Rust::commands::chat::regenerate_message | 使用 provider | name={} model={}",
+                    p.name, m
+                );
+                (p.base_url.clone(), p.api_key.clone(), m, p.headers.clone(), config.temperature, config.top_p)
+            }
+            None => {
+                log::warn!("Rust::commands::chat::regenerate_message | 未找到 provider，使用默认");
+                ("https://api.openai.com/v1".to_string(), String::new(), "gpt-3.5-turbo".to_string(), std::collections::HashMap::new(), config.temperature, config.top_p)
+            }
+        }
     };
 
     // 3. Create a CancellationToken and store it in AppState.
@@ -324,6 +375,9 @@ pub async fn regenerate_message(
         &base_url,
         &api_key,
         &model,
+        &headers,
+        temperature,
+        top_p,
         &messages,
         cancel.clone(),
         move |delta| {

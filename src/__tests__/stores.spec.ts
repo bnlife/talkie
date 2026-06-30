@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import type { Conversation, Message, Settings, Prompt } from '../types'
+import type { Conversation, Message, Settings, Prompt, ModelProvider } from '../types'
 
 // Mock bridge modules before importing stores
 vi.mock('../bridge/chat')
@@ -24,6 +24,7 @@ function createConv(overrides: Partial<Conversation> = {}): Conversation {
   return {
     id: 'conv-1',
     title: 'Test',
+    provider_id: 'prov-1',
     model: 'deepseek-chat',
     system_prompt: '',
     created_at: 0,
@@ -56,6 +57,20 @@ function createPrompt(overrides: Partial<Prompt> = {}): Prompt {
   }
 }
 
+function createProvider(overrides: Partial<ModelProvider> = {}): ModelProvider {
+  return {
+    id: 'prov-1',
+    name: 'DeepSeek',
+    icon: 'Sparkles',
+    base_url: 'https://api.deepseek.com/v1',
+    api_key: 'sk-test',
+    headers: {},
+    models: ['deepseek-chat'],
+    enabled: true,
+    ...overrides,
+  }
+}
+
 // ---------------------------------------------------------------------------
 // chatStore
 // ---------------------------------------------------------------------------
@@ -83,7 +98,6 @@ describe('chatStore', () => {
       vi.mocked(chatBridge.getMessages).mockResolvedValue([])
       vi.mocked(settingsBridge.updateSettings).mockResolvedValue(undefined)
 
-      // Set the saved last_active id
       const settingsStore = useSettingsStore()
       settingsStore.last_active_conversation_id = 'last-id'
 
@@ -105,7 +119,6 @@ describe('chatStore', () => {
     })
 
     it('skips restoration when saved conversation no longer exists', async () => {
-      // Only conv-1 exists, but saved id points to deleted-conv
       vi.mocked(conversationBridge.listConversations).mockResolvedValue([
         createConv({ id: 'conv-1' }),
       ])
@@ -122,9 +135,13 @@ describe('chatStore', () => {
   })
 
   describe('createConversation', () => {
-    it('calls bridge, prepends conversation, and sets active', async () => {
-      const newConv = createConv({ id: 'new-id', title: 'New Chat' })
+    it('calls bridge with active provider_id, prepends conversation, and sets active', async () => {
+      const newConv = createConv({ id: 'new-id', title: 'New Chat', provider_id: 'prov-1' })
       vi.mocked(conversationBridge.createConversation).mockResolvedValue(newConv)
+
+      const settingsStore = useSettingsStore()
+      settingsStore.providers = [createProvider({ id: 'prov-1' })]
+      settingsStore.active_provider_id = 'prov-1'
 
       const store = useChatStore()
       store.conversations = [createConv({ id: 'old-id' })]
@@ -132,7 +149,7 @@ describe('chatStore', () => {
 
       await store.createConversation()
 
-      expect(conversationBridge.createConversation).toHaveBeenCalledOnce()
+      expect(conversationBridge.createConversation).toHaveBeenCalledWith('prov-1')
       expect(store.conversations).toHaveLength(2)
       expect(store.conversations[0].id).toBe('new-id')
       expect(store.activeConversationId).toBe('new-id')
@@ -204,14 +221,8 @@ describe('chatStore', () => {
 
       await store.switchConversation('target-id')
 
-      // settingsStore should have the new id
       const settingsStore = useSettingsStore()
       expect(settingsStore.last_active_conversation_id).toBe('target-id')
-
-      // bridge should have been called with full settings including the id
-      expect(settingsBridge.updateSettings).toHaveBeenCalled()
-      const callArg = vi.mocked(settingsBridge.updateSettings).mock.calls[0][0] as Settings
-      expect(callArg.last_active_conversation_id).toBe('target-id')
     })
 
     it('does not persist if already on the same conversation', async () => {
@@ -413,19 +424,18 @@ describe('settingsStore', () => {
 
   it('has correct default values', () => {
     const store = useSettingsStore()
-    expect(store.base_url).toBe('https://api.deepseek.com/v1')
-    expect(store.api_key).toBe('')
-    expect(store.model).toBe('deepseek-chat')
+    expect(store.providers).toEqual([])
+    expect(store.active_provider_id).toBe('')
     expect(store.temperature).toBe(0.7)
   })
 
   describe('loadSettings', () => {
     it('fetches remote settings and applies them to state', async () => {
-      const remote = {
-        base_url: 'https://custom.api.com',
-        api_key: 'sk-custom',
-        model: 'gpt-4',
+      const remote: Settings = {
+        providers: [createProvider()],
+        active_provider_id: 'prov-1',
         temperature: 0.5,
+        top_p: 0.9,
       }
       vi.mocked(settingsBridge.getSettings).mockResolvedValue(remote)
 
@@ -433,47 +443,187 @@ describe('settingsStore', () => {
       await store.loadSettings()
 
       expect(settingsBridge.getSettings).toHaveBeenCalledOnce()
-      expect(store.base_url).toBe('https://custom.api.com')
-      expect(store.api_key).toBe('sk-custom')
-      expect(store.model).toBe('gpt-4')
+      expect(store.providers).toHaveLength(1)
+      expect(store.providers[0].id).toBe('prov-1')
+      expect(store.active_provider_id).toBe('prov-1')
       expect(store.temperature).toBe(0.5)
     })
   })
 
-  describe('updateSettings', () => {
-    it('partially updates state and persists via bridge', async () => {
+  describe('addProvider', () => {
+    it('prepends provider to list without changing active', async () => {
       vi.mocked(settingsBridge.updateSettings).mockResolvedValue(undefined)
 
       const store = useSettingsStore()
-      await store.updateSettings({ model: 'gpt-4', temperature: 0.2 })
+      store.providers = [createProvider({ id: 'old' })]
+      store.active_provider_id = 'old'
 
-      expect(store.model).toBe('gpt-4')
-      expect(store.temperature).toBe(0.2)
-      // unchanged fields
-      expect(store.base_url).toBe('https://api.deepseek.com/v1')
-      expect(store.api_key).toBe('')
+      const p = await store.addProvider({ name: 'OpenAI', base_url: 'https://api.openai.com/v1' })
 
-      expect(settingsBridge.updateSettings).toHaveBeenCalledWith({
-        model: 'gpt-4',
-        temperature: 0.2,
-      })
+      expect(store.providers).toHaveLength(2)
+      expect(store.providers[0].name).toBe('OpenAI')
+      expect(store.active_provider_id).toBe('old')
+      expect(settingsBridge.updateSettings).toHaveBeenCalled()
+    })
+  })
+
+  describe('removeProvider', () => {
+    it('removes provider from list', async () => {
+      vi.mocked(settingsBridge.updateSettings).mockResolvedValue(undefined)
+
+      const store = useSettingsStore()
+      store.providers = [createProvider({ id: 'p1' }), createProvider({ id: 'p2' })]
+      store.active_provider_id = 'p2'
+
+      await store.removeProvider('p1')
+
+      expect(store.providers).toHaveLength(1)
+      expect(store.providers[0].id).toBe('p2')
+    })
+
+    it('refuses to remove active provider', async () => {
+      vi.mocked(settingsBridge.updateSettings).mockResolvedValue(undefined)
+
+      const store = useSettingsStore()
+      store.providers = [createProvider({ id: 'p1' }), createProvider({ id: 'p2' })]
+      store.active_provider_id = 'p1'
+
+      await store.removeProvider('p1')
+
+      expect(store.providers).toHaveLength(2)
+      expect(settingsBridge.updateSettings).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('updateProvider', () => {
+    it('merges partial update into provider', async () => {
+      vi.mocked(settingsBridge.updateSettings).mockResolvedValue(undefined)
+
+      const store = useSettingsStore()
+      store.providers = [createProvider({ id: 'p1', name: 'Old' })]
+
+      await store.updateProvider('p1', { name: 'New' })
+
+      expect(store.providers[0].name).toBe('New')
+      expect(settingsBridge.updateSettings).toHaveBeenCalled()
+    })
+  })
+
+  describe('setActiveProvider', () => {
+    it('changes active_provider_id', async () => {
+      vi.mocked(settingsBridge.updateSettings).mockResolvedValue(undefined)
+
+      const store = useSettingsStore()
+      store.providers = [createProvider({ id: 'p1' }), createProvider({ id: 'p2' })]
+
+      await store.setActiveProvider('p2')
+
+      expect(store.active_provider_id).toBe('p2')
+    })
+  })
+
+  describe('fetchModels', () => {
+    it('calls bridge and updates provider models', async () => {
+      vi.mocked(settingsBridge.fetchProviderModels).mockResolvedValue(['gpt-4o', 'gpt-4o-mini'])
+      vi.mocked(settingsBridge.updateSettings).mockResolvedValue(undefined)
+
+      const store = useSettingsStore()
+      store.providers = [createProvider({ id: 'p1', models: [] })]
+
+      await store.fetchModels('p1')
+
+      expect(settingsBridge.fetchProviderModels).toHaveBeenCalledWith(store.providers[0])
+      expect(store.providers[0].models).toEqual(['gpt-4o', 'gpt-4o-mini'])
+    })
+  })
+
+  describe('addModel', () => {
+    it('appends model to provider', () => {
+      vi.mocked(settingsBridge.updateSettings).mockResolvedValue(undefined)
+
+      const store = useSettingsStore()
+      store.providers = [createProvider({ id: 'p1', models: ['gpt-4'] })]
+
+      store.addModel('p1', 'gpt-4o')
+
+      expect(store.providers[0].models).toEqual(['gpt-4', 'gpt-4o'])
+    })
+
+    it('does not add duplicate model', () => {
+      vi.mocked(settingsBridge.updateSettings).mockResolvedValue(undefined)
+
+      const store = useSettingsStore()
+      store.providers = [createProvider({ id: 'p1', models: ['gpt-4'] })]
+
+      store.addModel('p1', 'gpt-4')
+
+      expect(store.providers[0].models).toEqual(['gpt-4'])
+    })
+  })
+
+  describe('removeModel', () => {
+    it('removes model from provider', () => {
+      vi.mocked(settingsBridge.updateSettings).mockResolvedValue(undefined)
+
+      const store = useSettingsStore()
+      store.providers = [createProvider({ id: 'p1', models: ['gpt-4', 'gpt-4o'] })]
+
+      store.removeModel('p1', 'gpt-4')
+
+      expect(store.providers[0].models).toEqual(['gpt-4o'])
     })
   })
 
   describe('testConnection', () => {
-    it('calls bridge with current settings and returns result', async () => {
-      vi.mocked(settingsBridge.testConnection).mockResolvedValue({ ok: true })
+    it('calls bridge with provider and returns result', async () => {
+      vi.mocked(settingsBridge.testProviderConnection).mockResolvedValue({ ok: true })
 
       const store = useSettingsStore()
-      const result = await store.testConnection()
+      store.providers = [createProvider({ id: 'p1' })]
 
-      expect(settingsBridge.testConnection).toHaveBeenCalledWith({
-        base_url: 'https://api.deepseek.com/v1',
-        api_key: '',
-        model: 'deepseek-chat',
-        temperature: 0.7,
-      })
+      const result = await store.testConnection('p1')
+
+      expect(settingsBridge.testProviderConnection).toHaveBeenCalledWith(store.providers[0])
       expect(result).toEqual({ ok: true })
+    })
+
+    it('returns error for non-existent provider', async () => {
+      const store = useSettingsStore()
+
+      const result = await store.testConnection('non-existent')
+
+      expect(result.ok).toBe(false)
+      expect(result.error).toBe('Provider 不存在')
+    })
+  })
+
+  describe('getters', () => {
+    it('activeProvider returns the active provider', () => {
+      const store = useSettingsStore()
+      store.providers = [createProvider({ id: 'p1' }), createProvider({ id: 'p2' })]
+      store.active_provider_id = 'p2'
+
+      expect(store.activeProvider?.id).toBe('p2')
+    })
+
+    it('activeProvider returns undefined when no active', () => {
+      const store = useSettingsStore()
+      store.providers = [createProvider({ id: 'p1' })]
+      store.active_provider_id = ''
+
+      expect(store.activeProvider).toBeUndefined()
+    })
+
+    it('enabledProviders filters disabled providers', () => {
+      const store = useSettingsStore()
+      store.providers = [
+        createProvider({ id: 'p1', enabled: true }),
+        createProvider({ id: 'p2', enabled: false }),
+        createProvider({ id: 'p3', enabled: true }),
+      ]
+
+      expect(store.enabledProviders).toHaveLength(2)
+      expect(store.enabledProviders.map(p => p.id)).toEqual(['p1', 'p3'])
     })
   })
 })

@@ -1,17 +1,33 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Minus, Maximize2, Minimize2, X } from 'lucide-vue-next'
+import { Input } from '@/components/ui/input'
+import {
+  Minus, Maximize2, Minimize2, X,
+  Plus, Search, Star,
+} from 'lucide-vue-next'
 import SettingsPanel from './SettingsPanel.vue'
 
 const settingsStore = useSettingsStore()
 const appWindow = getCurrentWindow()
 const isMaximized = ref(false)
+const searchQuery = ref('')
+const editingId = ref<string | null>(null)
+const renamingId = ref<string | null>(null)
+const renameValue = ref('')
 
-onMounted(async () => { isMaximized.value = await appWindow.isMaximized() })
+onMounted(async () => {
+  isMaximized.value = await appWindow.isMaximized()
+  await settingsStore.loadSettings()
+  document.addEventListener('click', hideContextMenu)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', hideContextMenu)
+})
 
 async function minimizeWindow() { await appWindow.minimize() }
 async function toggleMaximize() {
@@ -20,13 +36,69 @@ async function toggleMaximize() {
 }
 async function closeWindow() { await appWindow.close() }
 
-async function handleUpdate(partial: any) {
-  await settingsStore.updateSettings(partial)
+const filteredProviders = computed(() => {
+  const q = searchQuery.value.toLowerCase()
+  return settingsStore.providers.filter(p => p.name.toLowerCase().includes(q))
+})
+
+async function addCustom() {
+  const p = await settingsStore.addProvider({ name: '新 Provider' })
+  editingId.value = p.id
 }
-async function handleTestConnection() {
-  const r = await settingsStore.testConnection()
-  if (r.ok) alert('连接成功')
-  else alert(r.error || '连接失败')
+
+function selectProvider(id: string) {
+  editingId.value = id
+}
+
+async function handleDelete(id: string) {
+  await settingsStore.removeProvider(id)
+  if (editingId.value === id) editingId.value = null
+}
+
+const editingProvider = computed(() => {
+  if (!editingId.value) return settingsStore.activeProvider
+  return settingsStore.providers.find(p => p.id === editingId.value)
+})
+
+// --- 右键菜单 ---
+const contextMenu = ref({ visible: false, x: 0, y: 0, providerId: '' })
+
+function showContextMenu(e: MouseEvent, id: string) {
+  e.preventDefault()
+  contextMenu.value = { visible: true, x: e.clientX, y: e.clientY, providerId: id }
+}
+
+function hideContextMenu() {
+  contextMenu.value.visible = false
+}
+
+async function handleSetDefault() {
+  await settingsStore.setActiveProvider(contextMenu.value.providerId)
+  hideContextMenu()
+}
+
+function handleRename() {
+  renamingId.value = contextMenu.value.providerId
+  const p = settingsStore.providers.find(p => p.id === contextMenu.value.providerId)
+  renameValue.value = p?.name ?? ''
+  hideContextMenu()
+}
+
+async function confirmRename() {
+  if (renameValue.value.trim() && renamingId.value) {
+    await settingsStore.updateProvider(renamingId.value, { name: renameValue.value.trim() })
+  }
+  renamingId.value = null
+  renameValue.value = ''
+}
+
+function cancelRename() {
+  renamingId.value = null
+  renameValue.value = ''
+}
+
+function isDefault(id: string) {
+  return settingsStore.active_provider_id === id
 }
 </script>
 
@@ -47,11 +119,115 @@ async function handleTestConnection() {
       </div>
     </header>
     <div class="flex flex-1 overflow-hidden p-1">
-      <div class="flex flex-1 flex-col overflow-hidden rounded-lg border bg-background">
-        <div class="flex-1 overflow-y-auto p-4">
-          <SettingsPanel :settings="settingsStore.$state" @update="handleUpdate" @test-connection="handleTestConnection" />
+      <div class="flex flex-1 overflow-hidden rounded-lg border bg-background">
+        <!-- Sidebar -->
+        <div class="flex w-60 shrink-0 flex-col gap-1 border-r p-1.5 text-sm">
+          <!-- 搜索 -->
+          <div class="relative">
+            <Search class="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input v-model="searchQuery" placeholder="搜索 Provider..." class="h-7 pl-8 text-sm" />
+          </div>
+
+          <!-- 新建按钮 -->
+          <div
+            class="flex cursor-pointer items-center justify-between rounded-md border border-dashed px-2 py-1.5 transition-colors hover:bg-foreground/5"
+            @click="addCustom"
+          >
+            <div class="flex items-center gap-2">
+              <Plus class="size-3.5" />
+              <span>新建 Provider</span>
+            </div>
+          </div>
+
+          <!-- 分隔 -->
+          <div v-if="filteredProviders.length > 0" class="my-1 border-t" />
+
+          <!-- Provider 列表 -->
+          <div class="flex-1 overflow-y-auto">
+            <div
+              v-for="provider in filteredProviders"
+              :key="provider.id"
+              :class="cn(
+                'group relative flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-foreground/5',
+                editingId === provider.id && 'bg-accent text-accent-foreground',
+              )"
+              @click="selectProvider(provider.id)"
+              @contextmenu="showContextMenu($event, provider.id)"
+            >
+              <div class="flex min-w-0 items-center gap-2">
+                <span
+                  :class="cn(
+                    'size-1.5 shrink-0 rounded-full',
+                    provider.enabled ? 'bg-green-500' : 'bg-muted-foreground/30',
+                  )"
+                />
+                <template v-if="renamingId === provider.id">
+                  <input
+                    v-model="renameValue"
+                    class="w-full truncate rounded bg-background px-1 py-0.5 text-sm text-foreground outline-none ring-1 ring-ring"
+                    @keyup.enter="confirmRename"
+                    @keyup.escape="cancelRename"
+                    @blur="confirmRename"
+                  />
+                </template>
+                <template v-else>
+                  <span class="truncate text-sm">{{ provider.name }}</span>
+                </template>
+                <Star
+                  v-if="isDefault(provider.id) && renamingId !== provider.id"
+                  class="size-3 shrink-0 fill-yellow-500 text-yellow-500"
+                />
+              </div>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                class="size-5 opacity-0 group-hover:opacity-100"
+                @click.stop="handleDelete(provider.id)"
+              >
+                <X class="size-3" />
+              </Button>
+            </div>
+
+            <div v-if="filteredProviders.length === 0" class="flex flex-col items-center py-8 text-muted-foreground">
+              <span class="text-sm">{{ searchQuery ? '无匹配结果' : '暂无 Provider' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main: ProviderEditor -->
+        <div class="flex-1 overflow-y-auto">
+          <SettingsPanel
+            v-if="editingProvider"
+            :provider="editingProvider"
+          />
+          <div v-else class="flex h-full items-center justify-center text-muted-foreground">
+            <span class="text-sm">选择或新建一个 Provider</span>
+          </div>
         </div>
       </div>
     </div>
+
+    <!-- 右键菜单 -->
+    <Teleport to="body">
+      <div
+        v-if="contextMenu.visible"
+        :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
+        class="fixed z-50 min-w-28 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+        @click.stop
+      >
+        <button
+          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-foreground/5 hover:text-foreground"
+          @click="handleRename"
+        >
+          重命名
+        </button>
+        <button
+          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-foreground/5 hover:text-foreground"
+          @click="handleSetDefault"
+        >
+          设为默认
+        </button>
+      </div>
+    </Teleport>
   </div>
 </template>
