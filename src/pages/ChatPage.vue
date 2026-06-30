@@ -1,57 +1,54 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted } from 'vue'
 import { listen } from '@tauri-apps/api/event'
-import { useChatStore } from '../stores/chatStore'
-import * as chatBridge from '../bridge/chat'
-import MessageList from '../components/chat/MessageList.vue'
-import ChatInput from '../components/chat/ChatInput.vue'
+import { useChatStore } from '@/stores/chatStore'
+import * as chatBridge from '@/bridge/chat'
+import { cn } from '@/lib/utils'
+import MessageList from '@/components/chat/MessageList.vue'
+import ChatInput from '@/components/chat/ChatInput.vue'
 
 const chatStore = useChatStore()
 
-const cleanupFns: (() => void)[] = []
+const isStreaming = computed(() => chatStore.streamingId !== null)
+const isDisabled = computed(() => !chatStore.activeConversationId)
 
-onMounted(() => {
-  ;(async () => {
-    const unlistenChunk = await listen('chat:stream-chunk', (event) => {
-      const payload = event.payload as { message_id: string; delta: string }
-      chatStore.appendStreamChunk(payload.message_id, payload.delta)
+let unlisteners: (() => void)[] = []
+
+onMounted(async () => {
+  unlisteners.push(
+    await listen<{ message_id: string; delta: string }>('chat:stream-chunk', (event) => {
+      chatStore.appendStreamChunk(event.payload.message_id, event.payload.delta)
     })
-    const unlistenDone = await listen('chat:stream-done', () => {
+  )
+  unlisteners.push(
+    await listen<void>('chat:stream-done', () => {
       chatStore.finishStream()
     })
-    cleanupFns.push(unlistenChunk, unlistenDone)
-  })()
+  )
 })
 
 onUnmounted(() => {
-  cleanupFns.forEach(fn => fn())
+  unlisteners.forEach((unlisten) => unlisten())
+  unlisteners = []
 })
 
-function handleSend(content: string) {
-  chatStore.sendMessage(content)
+async function handleSend(content: string) {
+  await chatStore.sendMessage(content)
 }
 
-function handleStopStream() {
-  chatBridge.stopStream()
+async function handleStopStream() {
+  await chatBridge.stopStream()
 }
 </script>
 
 <template>
-  <div style="height: 100%; display: flex; flex-direction: column; padding: 0 12px 12px; box-sizing: border-box;">
-    <div style="flex: 1; overflow: hidden; min-height: 0;">
-      <MessageList
-        :messages="chatStore.messages"
-        :streaming-id="chatStore.streamingId"
-        :streaming-content="chatStore.streamingContent"
-      />
-    </div>
-    <div style="margin-top: 12px; flex-shrink: 0;">
-      <ChatInput
-        :disabled="!chatStore.activeConversationId"
-        :streaming="!!chatStore.streamingId"
-        @send="handleSend"
-        @stop-stream="handleStopStream"
-      />
-    </div>
+  <div :class="cn('flex flex-col h-full bg-background')">
+    <MessageList />
+    <ChatInput
+      :disabled="isDisabled"
+      :streaming="isStreaming"
+      @send="handleSend"
+      @stop-stream="handleStopStream"
+    />
   </div>
 </template>

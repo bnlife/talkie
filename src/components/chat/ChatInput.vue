@@ -1,27 +1,21 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { SendIcon, SquareIcon } from 'lucide-vue-next'
+import { Textarea } from '@/components/ui/textarea'
+import { Send, Square } from 'lucide-vue-next'
 
 const props = defineProps<{
-  disabled: boolean
-  streaming: boolean
+  disabled?: boolean
+  streaming?: boolean
 }>()
 
 const emit = defineEmits<{
-  send: [content: string]
-  'stop-stream': []
+  (e: 'send', content: string): void
+  (e: 'stop-stream'): void
 }>()
 
-const inputText = ref('')
-
-function handleSend() {
-  if (inputText.value.trim() && !props.disabled && !props.streaming) {
-    emit('send', inputText.value.trim())
-    inputText.value = ''
-  }
-}
+const input = ref('')
 
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter' && !e.shiftKey) {
@@ -29,24 +23,48 @@ function handleKeydown(e: KeyboardEvent) {
     handleSend()
   }
 }
+
+function handleSend() {
+  const text = input.value.trim()
+  if (!text || props.disabled) return
+  emit('send', text)
+  input.value = ''
+}
 </script>
 
 <template>
-  <div class="flex gap-normal items-end">
+  <div
+    :class="cn(
+      'flex items-end gap-2 p-3 border-t bg-background',
+    )"
+  >
     <Textarea
-      v-model="inputText"
+      v-model="input"
       :disabled="disabled"
-      placeholder="输入消息... (Enter 发送)"
-      class="flex-1 min-h-14"
-      :rows="2"
+      :rows="1"
+      placeholder="输入消息..."
+      :class="cn(
+        'min-h-[40px] max-h-[120px] resize-none flex-1 text-sm leading-relaxed',
+      )"
       @keydown="handleKeydown"
     />
-    <Button v-if="streaming" variant="destructive" size="icon" @click="emit('stop-stream')">
-      <SquareIcon class="size-4" />
+    <Button
+      v-if="streaming"
+      variant="destructive"
+      size="icon"
+      class="shrink-0 h-10 w-10"
+      @click="emit('stop-stream')"
+    >
+      <Square class="w-4 h-4" />
     </Button>
-    <Button v-else :disabled="disabled || !inputText.trim()" @click="handleSend">
-      <SendIcon />
-      发送
+    <Button
+      v-else
+      size="icon"
+      class="shrink-0 h-10 w-10"
+      :disabled="disabled || !input.trim()"
+      @click="handleSend"
+    >
+      <Send class="w-4 h-4" />
     </Button>
   </div>
 </template>

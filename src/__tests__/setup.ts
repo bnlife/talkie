@@ -1,4 +1,4 @@
-// vitest 环境配置
+﻿// vitest 环境配置
 //  mock Tauri API，防止组件测试中报 "invoke is not defined"
 
 import { vi } from 'vitest'
@@ -12,9 +12,6 @@ vi.mock('@tauri-apps/api/core', () => ({
 vi.mock('@tauri-apps/api/event', () => ({
   listen: vi.fn().mockResolvedValue(vi.fn()),
 }))
-
-// ResizeObserver polyfill for shadcn-vue (Reka UI)
-globalThis.ResizeObserver = class ResizeObserver { observe() {} unobserve() {} disconnect() {} }
 
 // ResizeObserver polyfill
 globalThis.ResizeObserver = class ResizeObserver { observe() {} unobserve() {} disconnect() {} }

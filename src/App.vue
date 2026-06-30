@@ -1,189 +1,207 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useChatStore } from './stores/chatStore'
-import { useSettingsStore } from './stores/settingsStore'
-import Sidebar from './components/chat/Sidebar.vue'
-import ChatPage from './pages/ChatPage.vue'
-import SettingsPanel from './components/settings/SettingsPanel.vue'
-import type { Settings } from './types'
+import { ref, computed, onMounted } from 'vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { Badge } from '@/components/ui/badge'
+import { Minus, Maximize2, Minimize2, X, Settings, PanelLeft } from 'lucide-vue-next'
+import { useChatStore } from '@/stores/chatStore'
+import { useSettingsStore } from '@/stores/settingsStore'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Toaster, toast } from 'vue-sonner'
-import { PanelRightOpenIcon } from 'lucide-vue-next'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import Sidebar from '@/components/chat/Sidebar.vue'
+import ChatPage from '@/pages/ChatPage.vue'
+import SettingsPanel from '@/components/settings/SettingsPanel.vue'
+import type { Settings as SettingsType } from '@/types'
 
 const chatStore = useChatStore()
 const settingsStore = useSettingsStore()
-const appWindow = getCurrentWindow()
-const isMaximized = ref(false)
-const sidebarCollapsed = ref(false)
 
-const activeConversationTitle = computed(() => {
-  if (!chatStore.activeConversationId) return ''
+const sidebarCollapsed = ref(false)
+const isMaximized = ref(false)
+const settingsVisible = ref(false)
+
+const currentTitle = computed(() => {
+  if (!chatStore.activeConversationId) return 'Talkie'
   const conv = chatStore.conversations.find(c => c.id === chatStore.activeConversationId)
-  return conv?.title ?? ''
+  return conv?.title || 'Talkie'
 })
 
-async function minimizeWindow() { await appWindow.minimize() }
-async function toggleMaximize() {
-  if (isMaximized.value) { await appWindow.unmaximize() } else { await appWindow.maximize() }
-  isMaximized.value = await appWindow.isMaximized()
+// 侧栏事件处理
+function handleSelect(id: string) {
+  chatStore.switchConversation(id)
 }
-async function closeWindow() { await appWindow.close() }
-function toggleSider() { sidebarCollapsed.value = !sidebarCollapsed.value }
 
-const showSettings = ref(false)
+function handleCreate() {
+  chatStore.createConversation()
+}
+
+function handleCloseConversation(id: string) {
+  chatStore.deleteConversation(id)
+}
+
+function handleRename(id: string, title: string) {
+  chatStore.renameConversation(id, title)
+}
+
+function handlePin(id: string) {
+  chatStore.pinConversation(id)
+}
+
+function handleUnpin(id: string) {
+  chatStore.unpinConversation(id)
+}
+
+// 设置事件处理
+function handleSettingsUpdate(value: Partial<SettingsType>) {
+  settingsStore.updateSettings(value)
+}
+
+async function handleTestConnection() {
+  await settingsStore.testConnection()
+}
+
+// 窗口控制
+async function toggleSidebar() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+}
+
+async function handleMinimize() {
+  await getCurrentWindow().minimize()
+}
+
+async function handleToggleMaximize() {
+  await getCurrentWindow().toggleMaximize()
+  isMaximized.value = await getCurrentWindow().isMaximized()
+}
+
+async function handleClose() {
+  await getCurrentWindow().close()
+}
 
 onMounted(async () => {
   await settingsStore.loadSettings()
   await chatStore.loadConversations()
-  isMaximized.value = await appWindow.isMaximized()
+  isMaximized.value = await getCurrentWindow().isMaximized()
 })
-
-function handleSelectConversation(id: string) {
-  chatStore.switchConversation(id)
-}
-
-function handleCreateConversation() {
-  chatStore.createConversation()
-}
-
-function handleDeleteConversation(id: string) {
-  chatStore.deleteConversation(id)
-}
-
-async function handleRenameConversation(id: string, title: string) {
-  await chatStore.renameConversation(id, title)
-}
-
-function handlePinConversation(id: string) {
-  chatStore.pinConversation(id)
-}
-
-function handleUnpinConversation(id: string) {
-  chatStore.unpinConversation(id)
-}
-
-async function handleUpdateSettings(partial: Partial<Settings>) {
-  await settingsStore.updateSettings(partial)
-  toast.success('设置已保存')
-  showSettings.value = false
-}
-
-async function handleTestConnection() {
-  const result = await settingsStore.testConnection()
-  if (result.ok) {
-    toast.success('连接成功')
-  } else {
-    toast.error(result.error || '连接失败')
-  }
-}
 </script>
 
 <template>
-  <div class="h-screen flex flex-col overflow-hidden">
-    <!-- 右侧顶栏 32px -->
-    <div class="flex flex-shrink-0 h-8 bg-page border-b border-border">
-      <!-- 对应侧栏宽度的留空 -->
-      <div class="w-60 flex-shrink-0"></div>
-      <!-- 右侧：标签 + 拖拽区 + 控件 -->
-      <div class="flex-1 flex items-center min-w-0" data-tauri-drag-region>
-        <Button
-          v-if="sidebarCollapsed"
-          variant="ghost"
-          size="sm"
-          @click.stop="toggleSider"
-          class="ml-tight"
-        >
-          <PanelRightOpenIcon class="size-4" />
-        </Button>
-        <Badge
-          v-if="activeConversationTitle"
-          variant="secondary"
-          class="ml-3 flex-shrink-0 text-small"
-        >
-          {{ activeConversationTitle }}
-        </Badge>
-        <div class="flex-1 min-w-0"></div>
-        <div class="flex-shrink-0 flex gap-0.5 pr-2" @click.stop @mousedown.stop>
-          <button class="titlebar-btn" @click="minimizeWindow">─</button>
-          <button class="titlebar-btn" @click="toggleMaximize">{{ isMaximized ? '❐' : '☐' }}</button>
-          <button class="titlebar-btn titlebar-btn-close" @click="closeWindow">✕</button>
-        </div>
-      </div>
-    </div>
+  <div class="flex h-screen w-screen overflow-hidden bg-background text-foreground">
+    <!-- 侧边栏 -->
+    <aside
+      v-show="!sidebarCollapsed"
+      :class="cn(
+        'flex flex-col border-r border-border bg-muted/30 transition-[width] duration-200',
+        sidebarCollapsed ? 'w-0' : 'w-60'
+      )"
+    >
+      <Sidebar
+        :conversations="chatStore.conversations"
+        :active-id="chatStore.activeConversationId"
+        @select="handleSelect"
+        @create="handleCreate"
+        @close="handleCloseConversation"
+        @rename="handleRename"
+        @pin="handlePin"
+        @unpin="handleUnpin"
+        @toggle-collapse="toggleSidebar"
+        @open-settings="settingsVisible = true"
+      />
+    </aside>
 
-    <!-- 主布局：侧栏 + 内容 -->
-    <div class="flex flex-1 min-h-0">
-      <!-- 侧栏 -->
-      <aside
-        :class="[
-          'h-full overflow-hidden bg-page border-r border-border transition-all duration-200',
-          sidebarCollapsed ? 'w-0' : 'w-60'
-        ]"
+    <!-- 主内容区 -->
+    <div class="flex flex-1 flex-col overflow-hidden">
+      <!-- 顶栏 -->
+      <header
+        data-tauri-drag-region
+        :class="cn(
+          'flex h-9 shrink-0 items-center justify-between border-b border-border bg-background px-3',
+          'select-none'
+        )"
       >
-        <Sidebar
-          :conversations="chatStore.conversations"
-          :active-id="chatStore.activeConversationId"
-          @select="handleSelectConversation"
-          @create="handleCreateConversation"
-          @close="handleDeleteConversation"
-          @rename="handleRenameConversation"
-          @pin="handlePinConversation"
-          @unpin="handleUnpinConversation"
-          @toggle-collapse="toggleSider"
-          @open-settings="showSettings = true"
-        />
-      </aside>
+        <div class="flex items-center gap-2">
+          <!-- 侧栏切换按钮 -->
+          <Button
+            variant="ghost"
+            size="icon"
+            class="h-6 w-6"
+            @click.stop="toggleSidebar"
+          >
+            <PanelLeft class="h-3.5 w-3.5" />
+            <span class="sr-only">切换侧栏</span>
+          </Button>
+          <!-- 当前对话标题 -->
+          <span class="truncate text-sm font-medium text-muted-foreground">
+            {{ currentTitle }}
+          </span>
+        </div>
 
-      <!-- 主内容区 -->
-      <main class="flex-1 flex flex-col overflow-hidden bg-surface">
+        <div class="flex items-center gap-0.5">
+          <!-- 设置按钮 -->
+          <Button
+            variant="ghost"
+            size="icon"
+            class="h-6 w-6"
+            @click.stop="settingsVisible = true"
+          >
+            <Settings class="h-3.5 w-3.5" />
+            <span class="sr-only">设置</span>
+          </Button>
+
+          <!-- 最小化 -->
+          <Button
+            variant="ghost"
+            size="icon"
+            class="h-6 w-6"
+            @click.stop="handleMinimize"
+          >
+            <Minus class="h-3.5 w-3.5" />
+            <span class="sr-only">最小化</span>
+          </Button>
+
+          <!-- 最大化/还原 -->
+          <Button
+            variant="ghost"
+            size="icon"
+            class="h-6 w-6"
+            @click.stop="handleToggleMaximize"
+          >
+            <Maximize2 v-if="!isMaximized" class="h-3.5 w-3.5" />
+            <Minimize2 v-else class="h-3.5 w-3.5" />
+            <span class="sr-only">{{ isMaximized ? '还原' : '最大化' }}</span>
+          </Button>
+
+          <!-- 关闭 -->
+          <Button
+            variant="ghost"
+            size="icon"
+            class="h-6 w-6 hover:bg-destructive hover:text-destructive-foreground"
+            @click.stop="handleClose"
+          >
+            <X class="h-3.5 w-3.5" />
+            <span class="sr-only">关闭</span>
+          </Button>
+        </div>
+      </header>
+
+      <!-- 聊天主区域 -->
+      <main class="flex-1 overflow-hidden">
         <ChatPage />
       </main>
     </div>
+
+    <!-- 设置弹窗 -->
+    <Dialog v-model:open="settingsVisible">
+      <DialogContent class="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>设置</DialogTitle>
+          <DialogDescription>管理应用偏好与接口配置</DialogDescription>
+        </DialogHeader>
+        <SettingsPanel
+          :settings="settingsStore.$state"
+          @update="handleSettingsUpdate"
+          @test-connection="handleTestConnection"
+        />
+      </DialogContent>
+    </Dialog>
   </div>
-
-  <!-- 设置弹窗 -->
-  <Dialog v-model:open="showSettings">
-    <DialogContent class="sm:max-w-[480px]">
-      <DialogHeader>
-        <DialogTitle>设置</DialogTitle>
-      </DialogHeader>
-      <SettingsPanel
-        :settings="settingsStore.$state"
-        @update="handleUpdateSettings"
-        @test-connection="handleTestConnection"
-      />
-    </DialogContent>
-  </Dialog>
-
-  <!-- Sonner Toast -->
-  <Toaster richColors position="top-right" />
 </template>
-
-<style scoped>
-.titlebar-btn {
-  width: 36px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  color: var(--color-sub);
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background-color 0.15s ease;
-}
-.titlebar-btn:hover { background-color: #e5e7eb; }
-.titlebar-btn:active { background-color: #d1d5db; }
-.titlebar-btn-close:hover { background-color: #ef4444; color: #fff; }
-.titlebar-btn-close:active { background-color: #dc2626; }
-:global(body) { font-size: 12px; }
-</style>

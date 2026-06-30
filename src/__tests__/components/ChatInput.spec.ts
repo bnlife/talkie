@@ -25,9 +25,15 @@ describe('ChatInput.vue', () => {
 
   it('输入文字后按 Enter 触发 send 事件，值正确', async () => {
     const wrapper = createWrapper()
+    // 设置 t-textarea 的值
     const textarea = wrapper.find('textarea')
-    await textarea.setValue('你好')
-    await textarea.trigger('keydown', { key: 'Enter', shiftKey: false })
+    const textareaEl = textarea.element as HTMLTextAreaElement
+    textareaEl.value = '你好'
+    await textarea.trigger('input')
+    await wrapper.vm.$nextTick()
+    // 在包裹 div（@keydown 所在）上触发 Enter
+    const keydownTarget = wrapper.find('div.flex-1')
+    await keydownTarget.trigger('keydown', { key: 'Enter', shiftKey: false })
     const emitted = wrapper.emitted('send')
     expect(emitted).toBeTruthy()
     if (emitted) {
@@ -37,7 +43,8 @@ describe('ChatInput.vue', () => {
 
   it('streaming=true 时显示停止按钮，点击触发 stop-stream', async () => {
     const wrapper = createWrapper({ streaming: true })
-    const stopBtn = wrapper.find('button[class*="destructive"]')
+    // streaming=true 时只渲染停止按钮（t-button variant="outline" shape="square"）
+    const stopBtn = wrapper.find('button')
     expect(stopBtn.exists()).toBe(true)
     await stopBtn.trigger('click')
     expect(wrapper.emitted('stop-stream')).toBeTruthy()
@@ -46,8 +53,12 @@ describe('ChatInput.vue', () => {
   it('输入空文字（仅空白字符）不触发 send', async () => {
     const wrapper = createWrapper()
     const textarea = wrapper.find('textarea')
-    await textarea.setValue('  ')
-    await textarea.trigger('keydown', { key: 'Enter', shiftKey: false })
+    const textareaEl = textarea.element as HTMLTextAreaElement
+    textareaEl.value = '  '
+    await textarea.trigger('input')
+    await wrapper.vm.$nextTick()
+    const keydownTarget = wrapper.find('div.flex-1')
+    await keydownTarget.trigger('keydown', { key: 'Enter', shiftKey: false })
     expect(wrapper.emitted('send')).toBeFalsy()
   })
 })

@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import './styles/tokens.css'
+import './styles/global.css'
 import App from './App.vue'
 import { log } from './bridge/log'
 

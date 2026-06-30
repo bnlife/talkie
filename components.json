@@ -1,15 +1,15 @@
 {
-  "$schema": "https://www.shadcn-vue.com/schema.json",
-  "style": "default",
+  "$schema": "https://shadcn-vue.com/schema.json",
+  "style": "new-york",
   "typescript": true,
   "tailwind": {
-    "css": "src/styles/tokens.css",
+    "config": "tailwind.config.ts",
+    "css": "src/styles/global.css",
     "baseColor": "neutral",
     "cssVariables": true
   },
   "aliases": {
     "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components/ui"
+    "utils": "@/lib/utils"
   }
 }

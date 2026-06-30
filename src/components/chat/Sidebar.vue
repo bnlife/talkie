@@ -1,10 +1,21 @@
-﻿<script setup lang="ts">
-import { computed, ref, nextTick, onMounted, onUnmounted } from 'vue'
-import type { Conversation } from '../../types'
-import { SettingsIcon, ChevronLeftIcon } from 'lucide-vue-next'
+<script setup lang="ts">
+import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
+import {
+  Search,
+  Plus,
+  Pin,
+  PinOff,
+  Trash2,
+  Settings,
+  Edit2,
+  Check,
+  X,
+} from 'lucide-vue-next'
+import type { Conversation } from '@/types'
 
 const props = defineProps<{
   conversations: Conversation[]
@@ -22,55 +33,37 @@ const emit = defineEmits<{
   'open-settings': []
 }>()
 
-const hoveredKey = ref<string | null>(null)
+// --- 搜索 ---
+const searchQuery = ref('')
+
+const filteredConversations = computed(() => {
+  const q = searchQuery.value.toLowerCase()
+  const list = props.conversations.filter((c) =>
+    c.title.toLowerCase().includes(q)
+  )
+  return list.sort((a, b) => {
+    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
+    return b.updated_at - a.updated_at
+  })
+})
+
+// --- 内联重命名 ---
 const editingId = ref<string | null>(null)
 const editingTitle = ref('')
-const searchQuery = ref('')
-const forceUpdateKey = ref(0)
 
-// Context menu state
-const contextMenuVisible = ref(false)
-const contextMenuX = ref(0)
-const contextMenuY = ref(0)
-const contextMenuConvId = ref<string | null>(null)
-
-const filteredConversations = computed(() =>
-  props.conversations.filter(conv =>
-    conv.title.toLowerCase().includes(searchQuery.value.toLowerCase())
-  )
-)
-
-const sortedConversations = computed(() =>
-  [...filteredConversations.value].sort((a, b) => {
-    if (a.pinned === b.pinned) return 0
-    return a.pinned ? -1 : 1
+function startRename(conv: Conversation) {
+  editingId.value = conv.id
+  editingTitle.value = conv.title
+  nextTick(() => {
+    const el = document.querySelector<HTMLInputElement>(
+      `[data-rename-input="${conv.id}"]`,
+    )
+    el?.focus()
+    el?.select()
   })
-)
-
-function handleSelect(id: string) {
-  emit('select', id)
 }
 
-function handleDelete(id: string) {
-  emit('close', id)
-  closeContextMenu()
-}
-
-function startEdit(id: string) {
-  closeContextMenu()
-  const conv = props.conversations.find(c => c.id === id)
-  if (conv) {
-    editingId.value = id
-    editingTitle.value = conv.title
-    nextTick(() => {
-      const el = document.querySelector('.inline-rename-input') as HTMLInputElement
-      el?.focus()
-      el?.select()
-    })
-  }
-}
-
-function confirmEdit() {
+function confirmRename() {
   if (editingId.value && editingTitle.value.trim()) {
     emit('rename', editingId.value, editingTitle.value.trim())
   }
@@ -78,148 +71,234 @@ function confirmEdit() {
   editingTitle.value = ''
 }
 
-function cancelEdit() {
+function cancelRename() {
   editingId.value = null
   editingTitle.value = ''
 }
 
-function handleTogglePin(id: string) {
-  const conv = props.conversations.find(c => c.id === id)
-  if (conv?.pinned) {
-    emit('unpin', id)
-  } else {
-    emit('pin', id)
-  }
-  forceUpdateKey.value++
-  closeContextMenu()
-}
+// --- 右键菜单 ---
+const contextMenuVisible = ref(false)
+const contextMenuX = ref(0)
+const contextMenuY = ref(0)
+const contextMenuConvId = ref<string | null>(null)
 
-function handleContextMenu(e: MouseEvent, convId: string) {
+function showContextMenu(e: MouseEvent, conv: Conversation) {
   e.preventDefault()
-  contextMenuConvId.value = convId
+  contextMenuConvId.value = conv.id
   contextMenuX.value = e.clientX
   contextMenuY.value = e.clientY
   contextMenuVisible.value = true
 }
 
-function closeContextMenu() {
+function hideContextMenu() {
   contextMenuVisible.value = false
   contextMenuConvId.value = null
 }
 
-function handleDocumentClick(e: MouseEvent) {
+function handlePin() {
+  if (!contextMenuConvId.value) return
+  const conv = props.conversations.find((c) => c.id === contextMenuConvId.value)
+  if (!conv) return
+  if (conv.pinned) {
+    emit('unpin', conv.id)
+  } else {
+    emit('pin', conv.id)
+  }
+  hideContextMenu()
+}
+
+function handleRenameFromMenu() {
+  if (!contextMenuConvId.value) return
+  const conv = props.conversations.find((c) => c.id === contextMenuConvId.value)
+  hideContextMenu()
+  if (conv) {
+    nextTick(() => startRename(conv))
+  }
+}
+
+function isPinned() {
+  if (!contextMenuConvId.value) return false
+  const conv = props.conversations.find((c) => c.id === contextMenuConvId.value)
+  return conv?.pinned ?? false
+}
+
+function onDocumentClick() {
   if (contextMenuVisible.value) {
-    const target = e.target as HTMLElement
-    if (!target.closest('.context-menu')) {
-      closeContextMenu()
-    }
+    hideContextMenu()
   }
 }
 
 onMounted(() => {
-  document.addEventListener('click', handleDocumentClick)
+  document.addEventListener('click', onDocumentClick)
 })
 
-onUnmounted(() => {
-  document.removeEventListener('click', handleDocumentClick)
+onBeforeUnmount(() => {
+  document.removeEventListener('click', onDocumentClick)
 })
 </script>
 
 <template>
-  <div class="flex flex-col h-full">
-    <!-- 椤堕儴锛氭柊寤哄璇濇寜閽?+ 鎶樺彔鎸夐挳 -->
-    <div class="flex items-center gap-normal px-loose pb-normal">
-      <Button variant="outline" size="sm" @click="emit('create')" class="flex-1 text-small">
-        鏂板缓瀵硅瘽
+  <div class="flex h-full flex-col border-r bg-background text-sm">
+    <!-- 顶部操作栏 -->
+    <div class="flex items-center gap-1 px-2 pt-2 pb-1">
+      <Button variant="ghost" size="icon-sm" @click="emit('create')">
+        <Plus class="size-4" />
       </Button>
       <Button variant="ghost" size="icon-sm" @click="emit('toggle-collapse')">
-        <ChevronLeftIcon class="size-4" />
+        <X class="size-4" />
       </Button>
     </div>
 
-    <!-- 鎼滅储妗?-->
-    <div class="px-loose pb-normal">
-      <Input v-model="searchQuery" placeholder="鎼滅储瀵硅瘽..." />
+    <!-- 搜索框 -->
+    <div class="px-2 pb-2">
+      <div class="relative">
+        <Search
+          class="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+        />
+        <Input
+          v-model="searchQuery"
+          placeholder="搜索对话..."
+          class="h-8 pl-8 text-xs"
+        />
+      </div>
     </div>
 
-    <Separator class="my-0" />
+    <Separator />
 
-    <!-- 涓儴锛氬璇濆垪琛紙鍙粴鍔級 -->
-    <div :key="forceUpdateKey" class="flex-1 overflow-y-auto min-h-0 py-tight">
+    <!-- 对话列表 -->
+    <div class="flex-1 overflow-y-auto px-1 py-1">
       <div
-        v-for="conv in sortedConversations"
+        v-for="conv in filteredConversations"
         :key="conv.id"
-        class="flex items-center justify-between px-loose py-normal cursor-pointer rounded-soft mx-tight"
-        :class="conv.id === activeId ? 'bg-active' : hoveredKey === conv.id ? 'bg-hover' : ''"
-        @click="handleSelect(conv.id)"
-        @contextmenu="handleContextMenu($event, conv.id)"
-        @mouseenter="hoveredKey = conv.id"
-        @mouseleave="hoveredKey = null"
+        :class="
+          cn(
+            'group relative flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-accent/50',
+            conv.id === activeId && 'bg-accent text-accent-foreground',
+          )
+        "
+        @click="emit('select', conv.id)"
+        @contextmenu="showContextMenu($event, conv)"
       >
-        <span v-if="conv.pinned" class="mr-tight flex-shrink-0 leading-none">馃搶</span>
-        <Input
-          v-if="editingId === conv.id"
-          v-model="editingTitle"
-          class="inline-rename-input flex-1 min-w-0"
-          @keyup.enter="confirmEdit"
-          @keyup.escape="cancelEdit"
-          @blur="confirmEdit"
-          @click.stop
-        />
-        <span
-          v-else
-          class="flex-1 min-w-0 truncate line-clampx-tight py-tight text-small"
-          :class="conv.id === activeId ? 'text-main' : 'text-sub'"
+        <!-- 标题 / 重命名输入框 -->
+        <div class="min-w-0 flex-1 truncate">
+          <template v-if="editingId === conv.id">
+            <div class="flex items-center gap-1">
+              <Input
+                v-model="editingTitle"
+                :data-rename-input="conv.id"
+                class="h-6 px-1 text-xs"
+                @keyup.enter="confirmRename"
+                @keyup.escape="cancelRename"
+                @blur="confirmRename"
+              />
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                class="size-5 shrink-0"
+                @click.stop="confirmRename"
+              >
+                <Check class="size-3" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                class="size-5 shrink-0"
+                @click.stop="cancelRename"
+              >
+                <X class="size-3" />
+              </Button>
+            </div>
+          </template>
+          <template v-else>
+            <span class="block truncate text-xs">{{ conv.title }}</span>
+          </template>
+        </div>
+
+        <!-- 右侧操作按钮 -->
+        <div
+          :class="
+            cn(
+              'ml-1 flex shrink-0 items-center gap-0.5',
+              editingId === conv.id ? 'invisible' : 'opacity-0 group-hover:opacity-100',
+            )
+          "
         >
-          {{ conv.title }}
-        </span>
-        <div v-if="hoveredKey === conv.id && editingId !== conv.id" class="flex gap-tight flex-shrink-0">
-          <Button variant="ghost" size="sm" class="text-danger h-auto px-tight py-tight text-small" @click.stop="handleDelete(conv.id)">
-            鍒犻櫎
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            class="size-5"
+            @click.stop="startRename(conv)"
+          >
+            <Edit2 class="size-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            class="size-5"
+            @click.stop="emit('close', conv.id)"
+          >
+            <Trash2 class="size-3" />
           </Button>
         </div>
+
+        <!-- 置顶图标 -->
+        <Pin
+          v-if="conv.pinned && editingId !== conv.id"
+          class="ml-1 size-3 shrink-0 text-muted-foreground"
+        />
+      </div>
+
+      <!-- 空状态 -->
+      <div
+        v-if="filteredConversations.length === 0"
+        class="flex flex-col items-center py-8 text-muted-foreground"
+      >
+        <span class="text-xs">{{ searchQuery ? '无匹配结果' : '暂无对话' }}</span>
       </div>
     </div>
 
-    <!-- 搴曢儴锛氳缃叆鍙?-->
-    <div class="flex-shrink-0">
-      <Separator class="my-0" />
+    <!-- 底部设置 -->
+    <div class="px-2 py-2">
       <Button
         variant="ghost"
-        class="w-full justify-start px-section py-loose rounded-sharp"
+        class="w-full justify-start gap-2 text-xs"
         @click="emit('open-settings')"
       >
-        <SettingsIcon class="size-5 mr-normal" />
-        璁剧疆
+        <Settings class="size-4" />
+        设置
       </Button>
     </div>
+
+    <!-- 右键菜单（teleport 到 body） -->
+    <Teleport to="body">
+      <div
+        v-if="contextMenuVisible"
+        :style="{ left: `${contextMenuX}px`, top: `${contextMenuY}px` }"
+        class="fixed z-50 min-w-28 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+        @click.stop
+      >
+        <button
+          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
+          @click="handlePin"
+        >
+          <template v-if="isPinned()">
+            <PinOff class="size-3.5" />
+            取消置顶
+          </template>
+          <template v-else>
+            <Pin class="size-3.5" />
+            置顶
+          </template>
+        </button>
+        <Separator class="my-0.5" />
+        <button
+          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
+          @click="handleRenameFromMenu"
+        >
+          <Edit2 class="size-3.5" />
+          重命名
+        </button>
+      </div>
+    </Teleport>
   </div>
-
-  <!-- 鍙抽敭涓婁笅鏂囪彍鍗?-->
-  <teleport to="body">
-    <div
-      v-if="contextMenuVisible"
-      class="context-menu fixed bg-surface border border-border rounded-soft shadow-md py-tight min-w-30"
-      :style="{
-        left: contextMenuX + 'px',
-        top: contextMenuY + 'px',
-        zIndex: 9999,
-      }"
-    >
-      <div class="px-normal py-tight">
-        <Button variant="ghost" class="w-full justify-start" @click="handleTogglePin(contextMenuConvId!)">
-          {{ conversations.find(c => c.id === contextMenuConvId)?.pinned ? '鍙栨秷缃《' : '缃《' }}
-        </Button>
-      </div>
-      <div class="px-normal py-tight">
-        <Button variant="ghost" class="w-full justify-start text-warning" @click="startEdit(contextMenuConvId!)">
-          閲嶅懡鍚?        </Button>
-      </div>
-    </div>
-  </teleport>
 </template>
-
-
-
-
-

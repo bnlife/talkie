@@ -1,44 +1,83 @@
 <script setup lang="ts">
-import type { Message } from '../../types'
+import { computed, watch, nextTick, ref } from 'vue'
+import type { Message } from '@/types'
+import { useChatStore } from '@/stores/chatStore'
+import { cn } from '@/lib/utils'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { MessageCircle } from 'lucide-vue-next'
 import MessageItem from './MessageItem.vue'
-import { InboxIcon } from 'lucide-vue-next'
 
-const props = defineProps<{
-  messages: Message[]
-  streamingId: string | null
-  streamingContent?: string
-}>()
+const chatStore = useChatStore()
+const scrollRef = ref<HTMLElement | null>(null)
 
-const emit = defineEmits<{
-  'scroll-to-bottom': []
-}>()
+const messages = computed(() => chatStore.messages)
+
+const streamingMessage = computed<Message | null>(() => {
+  if (!chatStore.streamingId) return null
+  return {
+    id: chatStore.streamingId,
+    conversation_id: chatStore.activeConversationId || '',
+    role: 'assistant',
+    content: chatStore.streamingContent,
+    created_at: Date.now(),
+  }
+})
+
+const allMessages = computed(() => {
+  const list = [...messages.value]
+  if (streamingMessage.value) {
+    list.push(streamingMessage.value)
+  }
+  return list
+})
+
+function scrollToBottom() {
+  nextTick(() => {
+    if (scrollRef.value) {
+      const viewport = scrollRef.value.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]')
+      if (viewport) {
+        viewport.scrollTop = viewport.scrollHeight
+      }
+    }
+  })
+}
+
+watch(
+  () => allMessages.value.length,
+  () => {
+    scrollToBottom()
+  }
+)
+
+watch(
+  () => chatStore.streamingContent,
+  () => {
+    scrollToBottom()
+  }
+)
 </script>
 
 <template>
-  <div class="h-full overflow-y-auto">
-    <div
-      v-if="props.messages.length === 0 && !props.streamingId"
-      class="flex flex-col items-center justify-center mt-12 text-hint gap-normal"
-    >
-      <InboxIcon class="size-8 text-hint" />
-      <span class="text-small">暂无消息</span>
+  <ScrollArea
+    ref="scrollRef"
+    :class="cn('flex-1 w-full')"
+  >
+    <div class="flex flex-col gap-3 p-4">
+      <template v-if="allMessages.length">
+        <MessageItem
+          v-for="msg in allMessages"
+          :key="msg.id"
+          :message="msg"
+          :streaming="msg.id === chatStore.streamingId"
+        />
+      </template>
+      <div
+        v-else
+        class="flex flex-col items-center justify-center py-16 text-muted-foreground"
+      >
+        <MessageCircle class="w-10 h-10 mb-3" />
+        <p class="text-sm">暂无消息</p>
+      </div>
     </div>
-    <div v-for="msg in props.messages" :key="msg.id" class="py-1">
-      <MessageItem :message="msg" />
-    </div>
-    <div v-if="props.streamingId" class="py-1">
-      <MessageItem
-        :message="{
-          id: props.streamingId,
-          conversation_id: '',
-          role: 'assistant',
-          content: props.streamingContent ?? '',
-          created_at: Date.now()
-        }"
-        :is-streaming="true"
-      />
-    </div>
-  </div>
+  </ScrollArea>
 </template>
-
-
