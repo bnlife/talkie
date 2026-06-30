@@ -127,5 +127,27 @@ export const useChatStore = defineStore('chat', {
       this.streamingId = null
       this.streamingContent = ''
     },
+
+    async deleteMessage(messageId: string): Promise<void> {
+      await log('info', `前端::chatStore::deleteMessage | 删除消息 | id=${messageId}`)
+      await chatBridge.deleteMessage(messageId)
+      this.messages = this.messages.filter(m => m.id !== messageId)
+    },
+
+    async regenerateMessage(): Promise<void> {
+      await log('info', '前端::chatStore::regenerateMessage | 重新生成')
+      if (!this.activeConversationId) return
+      // 删除最后一条助手消息
+      const lastMsg = this.messages[this.messages.length - 1]
+      if (lastMsg && lastMsg.role === 'assistant') {
+        this.messages.pop()
+        await chatBridge.deleteMessage(lastMsg.id)
+      }
+      // 重新发送最后一条用户消息
+      const lastUserMsg = [...this.messages].reverse().find(m => m.role === 'user')
+      if (lastUserMsg) {
+        await chatBridge.sendMessage(this.activeConversationId, lastUserMsg.content)
+      }
+    },
   },
 })

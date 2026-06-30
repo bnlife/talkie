@@ -31,6 +31,11 @@ const allMessages = computed(() => {
   return list
 })
 
+const isLastMessage = (msg: Message) => {
+  const last = allMessages.value[allMessages.value.length - 1]
+  return last && last.id === msg.id
+}
+
 function scrollToBottom() {
   nextTick(() => {
     const el = scrollRef.value?.$el as HTMLElement | undefined
@@ -56,6 +61,18 @@ watch(
     scrollToBottom()
   }
 )
+
+async function handleCopy(content: string) {
+  await navigator.clipboard.writeText(content)
+}
+
+async function handleDelete(messageId: string) {
+  await chatStore.deleteMessage(messageId)
+}
+
+async function handleRegenerate() {
+  await chatStore.regenerateMessage()
+}
 </script>
 
 <template>
@@ -70,6 +87,10 @@ watch(
           :key="msg.id"
           :message="msg"
           :streaming="msg.id === chatStore.streamingId"
+          :is-last="isLastMessage(msg)"
+          @copy="handleCopy"
+          @delete="handleDelete"
+          @regenerate="handleRegenerate"
         />
       </template>
       <div

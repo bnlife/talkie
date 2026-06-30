@@ -12,3 +12,7 @@ export async function stopStream(): Promise<void> {
 export async function getMessages(conversationId: string): Promise<Message[]> {
   return invoke<Message[]>('get_messages', { conversationId })
 }
+
+export async function deleteMessage(messageId: string): Promise<void> {
+  return invoke<void>('delete_message', { messageId })
+}
