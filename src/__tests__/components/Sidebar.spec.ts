@@ -1,6 +1,6 @@
 ﻿import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
-import Sidebar from '@/components/chat/Sidebar.vue'
+import Sidebar from '@/pages/chat/Sidebar.vue'
 import type { Conversation } from '@/types'
 
 const sampleConversations: Conversation[] = [
@@ -12,11 +12,13 @@ const sampleConversations: Conversation[] = [
 function createWrapper(props: {
   conversations?: Conversation[]
   activeId?: string | null
+  searchQuery?: string
 } = {}) {
   return mount(Sidebar, {
     props: {
       conversations: [],
       activeId: null,
+      searchQuery: '',
       ...props,
     },
   })
@@ -25,8 +27,8 @@ function createWrapper(props: {
 describe('Sidebar.vue', () => {
   it('点击"新建对话"按钮触发 create 事件', async () => {
     const wrapper = createWrapper()
-    const createBtn = wrapper.findAll('button')[0]
-    expect(createBtn).toBeTruthy()
+    const createBtn = wrapper.findAll('div').filter(w => w.classes().includes('cursor-pointer'))[0]
+    expect(createBtn).toBeDefined()
     await createBtn!.trigger('click')
     expect(wrapper.emitted('create')).toBeTruthy()
   })
@@ -40,8 +42,8 @@ describe('Sidebar.vue', () => {
 
   it('搜索框输入文字 -> 只显示匹配的对话', async () => {
     const wrapper = createWrapper({ conversations: sampleConversations })
-    const input = wrapper.find('input')
-    await input.setValue('一')
+    await wrapper.setProps({ searchQuery: '一' })
+    await wrapper.vm.$nextTick()
     expect(wrapper.text()).toContain('对话一')
     expect(wrapper.text()).not.toContain('对话二')
     expect(wrapper.text()).not.toContain('测试对话')
@@ -49,10 +51,11 @@ describe('Sidebar.vue', () => {
 
   it('搜索框清空 -> 显示全部对话', async () => {
     const wrapper = createWrapper({ conversations: sampleConversations })
-    const input = wrapper.find('input')
-    await input.setValue('一')
+    await wrapper.setProps({ searchQuery: '一' })
+    await wrapper.vm.$nextTick()
     expect(wrapper.text()).toContain('对话一')
-    await input.setValue('')
+    await wrapper.setProps({ searchQuery: '' })
+    await wrapper.vm.$nextTick()
     expect(wrapper.text()).toContain('对话一')
     expect(wrapper.text()).toContain('对话二')
     expect(wrapper.text()).toContain('测试对话')
@@ -60,8 +63,8 @@ describe('Sidebar.vue', () => {
 
   it('不匹配的搜索词 -> 不显示任何对话', async () => {
     const wrapper = createWrapper({ conversations: sampleConversations })
-    const input = wrapper.find('input')
-    await input.setValue('zzz_not_exists')
+    await wrapper.setProps({ searchQuery: 'zzz_not_exists' })
+    await wrapper.vm.$nextTick()
     expect(wrapper.text()).not.toContain('对话一')
     expect(wrapper.text()).not.toContain('对话二')
     expect(wrapper.text()).not.toContain('测试对话')
@@ -69,7 +72,6 @@ describe('Sidebar.vue', () => {
 
   it('点击对话项触发 select 事件', async () => {
     const wrapper = createWrapper({ conversations: sampleConversations, activeId: 'c1' })
-    // Find conversation items by their containing div
     const convItems = wrapper.findAll('.flex.items-center.justify-between')
     const convItem = convItems.find(i => i.text().includes('对话一'))
     expect(convItem).toBeTruthy()
@@ -79,12 +81,4 @@ describe('Sidebar.vue', () => {
     }
   })
 
-  it('点击设置按钮触发 open-settings 事件', async () => {
-    const wrapper = createWrapper()
-    const buttons = wrapper.findAll('button')
-    const settingsBtn = buttons[buttons.length - 1]
-    expect(settingsBtn).toBeTruthy()
-    await settingsBtn!.trigger('click')
-    expect(wrapper.emitted('open-settings')).toBeTruthy()
-  })
 })

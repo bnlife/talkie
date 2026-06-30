@@ -61,9 +61,9 @@ watch(
 <template>
   <ScrollArea
     ref="scrollRef"
-    :class="cn('flex-1 w-full')"
+    :class="cn('mt-10 flex-1 w-full')"
   >
-    <div class="flex flex-col gap-3 p-4">
+    <div class="flex flex-col gap-3 px-4 pb-4">
       <template v-if="allMessages.length">
         <MessageItem
           v-for="msg in allMessages"

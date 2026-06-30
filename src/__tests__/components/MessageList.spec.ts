@@ -1,7 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { describe, it, expect } from 'vitest'
-import MessageList from '@/components/chat/MessageList.vue'
+import MessageList from '@/pages/chat/MessageList.vue'
 import { useChatStore } from '@/stores/chatStore'
 import type { Message } from '@/types'
 

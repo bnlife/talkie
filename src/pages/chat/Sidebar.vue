@@ -3,23 +3,22 @@ import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
 import {
-  Search,
   Plus,
   Pin,
   PinOff,
   Trash2,
-  Settings,
   Edit2,
   Check,
   X,
+  Search,
 } from 'lucide-vue-next'
 import type { Conversation } from '@/types'
 
 const props = defineProps<{
   conversations: Conversation[]
   activeId: string | null
+  searchQuery: string
 }>()
 
 const emit = defineEmits<{
@@ -29,17 +28,16 @@ const emit = defineEmits<{
   rename: [id: string, title: string]
   pin: [id: string]
   unpin: [id: string]
+  'update:searchQuery': [value: string]
   'toggle-collapse': []
-  'open-settings': []
 }>()
 
 // --- 搜索 ---
-const searchQuery = ref('')
 
 const filteredConversations = computed(() => {
-  const q = searchQuery.value.toLowerCase()
+  const q = props.searchQuery.toLowerCase()
   const list = props.conversations.filter((c) =>
-    c.title.toLowerCase().includes(q)
+    c.title.toLowerCase().includes(q),
   )
   return list.sort((a, b) => {
     if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
@@ -138,26 +136,23 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="flex h-full flex-col border-r bg-background text-sm">
-    <!-- 搜索框 -->
-    <div class="px-2 pt-2 pb-2">
+  <div class="flex h-full flex-col bg-background text-sm">
+    <!-- 搜索栏 -->
+    <div class="px-2 pt-2">
       <div class="relative">
-        <Search
-          class="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-        />
+        <Search class="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
         <Input
-          v-model="searchQuery"
+          :model-value="searchQuery"
           placeholder="搜索对话..."
-          class="h-8 pl-8 text-xs"
+          class="h-7 pl-8 text-xs"
+          @update:model-value="(v: string | number) => emit('update:searchQuery', String(v))"
         />
       </div>
     </div>
 
-    <Separator />
-
     <!-- 新建对话（样式同列表项） -->
     <div
-      class="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 mx-1 mt-1 transition-colors hover:bg-accent/50"
+      class="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-accent/50"
       @click="emit('create')"
     >
       <div class="flex items-center gap-2 text-xs text-muted-foreground">
@@ -165,8 +160,6 @@ onBeforeUnmount(() => {
         <span>新建对话</span>
       </div>
     </div>
-
-    <Separator class="mt-1" />
 
     <!-- 对话列表 -->
     <div class="flex-1 overflow-y-auto px-1 py-1">
@@ -260,18 +253,6 @@ onBeforeUnmount(() => {
       </div>
     </div>
 
-    <!-- 底部设置 -->
-    <div class="px-2 py-2">
-      <Button
-        variant="ghost"
-        class="w-full justify-start gap-2 text-xs"
-        @click="emit('open-settings')"
-      >
-        <Settings class="size-4" />
-        设置
-      </Button>
-    </div>
-
     <!-- 右键菜单（teleport 到 body） -->
     <Teleport to="body">
       <div
@@ -293,7 +274,6 @@ onBeforeUnmount(() => {
             置顶
           </template>
         </button>
-        <Separator class="my-0.5" />
         <button
           class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
           @click="handleRenameFromMenu"

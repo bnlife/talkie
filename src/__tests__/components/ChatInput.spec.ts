@@ -1,6 +1,6 @@
 ﻿import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
-import ChatInput from '../../components/chat/ChatInput.vue'
+import ChatInput from '../../pages/chat/ChatInput.vue'
 
 function createWrapper(props: { disabled?: boolean; streaming?: boolean } = {}) {
   return mount(ChatInput, {
