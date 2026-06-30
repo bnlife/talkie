@@ -33,7 +33,7 @@ async function handleCopy() {
 <template>
   <div
     :class="cn(
-      'group relative flex w-full',
+      'group relative flex w-full pb-8',
       isUser ? 'justify-end' : 'justify-start'
     )"
   >
@@ -63,8 +63,7 @@ async function handleCopy() {
       <div
         v-if="!streaming"
         :class="cn(
-          'absolute -bottom-8 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity',
-          isUser ? 'right-0' : 'left-0'
+          'absolute top-full left-0 mt-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity',
         )"
       >
         <Button
