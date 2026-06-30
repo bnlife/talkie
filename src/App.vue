@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { Minus, Maximize2, Minimize2, X, Settings, PanelLeft } from 'lucide-vue-next'
+import { Minus, Maximize2, Minimize2, X, Settings, PanelLeft, Sun } from 'lucide-vue-next'
 import { useChatStore } from '@/stores/chatStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { cn } from '@/lib/utils'
@@ -82,6 +82,21 @@ onMounted(async () => {
   await chatStore.loadConversations()
   isMaximized.value = await getCurrentWindow().isMaximized()
 })
+
+// 主题切换
+const themes = ['stone', 'neutral', 'slate', 'zinc', 'gray']
+function cycleTheme() {
+  const current = settingsStore.theme || 'stone'
+  const idx = themes.indexOf(current)
+  const next = themes[(idx + 1) % themes.length]
+  settingsStore.updateSettings({ theme: next })
+}
+
+watch(() => settingsStore.theme, (theme) => {
+  const el = document.documentElement
+  themes.forEach(t => el.classList.remove(`theme-${t}`))
+  if (theme && theme !== 'stone') el.classList.add(`theme-${theme}`)
+}, { immediate: true })
 </script>
 
 <template>
@@ -136,6 +151,18 @@ onMounted(async () => {
         </div>
 
         <div class="flex items-center gap-0.5">
+          <!-- 主题切换 -->
+          <Button
+            variant="ghost"
+            size="icon"
+            class="h-6 w-6"
+            title="切换主题"
+            @click.stop="cycleTheme"
+          >
+            <Sun class="h-3.5 w-3.5" />
+            <span class="sr-only">切换主题</span>
+          </Button>
+
           <!-- 设置按钮 -->
           <Button
             variant="ghost"

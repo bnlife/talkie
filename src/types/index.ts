@@ -23,4 +23,5 @@ export interface Settings {
   model: string
   temperature: number
   last_active_conversation_id?: string
+  theme?: string
 }

@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Slider } from '@/components/ui/slider'
-import { Globe, Cpu, Plug, Save } from 'lucide-vue-next'
+import { Globe, Cpu, Plug, Save, Palette } from 'lucide-vue-next'
 
 const props = defineProps<{
   settings: Settings
@@ -23,6 +23,7 @@ const form = reactive({
   api_key: props.settings.api_key,
   model: props.settings.model,
   temperature: props.settings.temperature,
+  theme: props.settings.theme || 'stone',
 })
 
 watch(
@@ -32,6 +33,7 @@ watch(
     form.api_key = val.api_key
     form.model = val.model
     form.temperature = val.temperature
+    form.theme = val.theme || 'stone'
   },
   { deep: true },
 )
@@ -42,6 +44,7 @@ function handleSave() {
     api_key: form.api_key,
     model: form.model,
     temperature: form.temperature,
+    theme: form.theme,
   })
 }
 
@@ -127,6 +130,37 @@ function handleTestConnection() {
             {{ form.temperature.toFixed(1) }}
           </span>
         </div>
+      </div>
+    </div>
+
+    <Separator />
+
+    <!-- 外观设置 -->
+    <div :class="cn('flex flex-col gap-3')">
+      <div :class="cn('flex items-center gap-2 text-sm font-medium text-muted-foreground')">
+        <Palette :class="cn('size-4')" />
+        <span>外观</span>
+      </div>
+
+      <div :class="cn('flex items-center gap-3')">
+        <Label for="theme" :class="cn('w-20 shrink-0 text-right text-sm')">
+          主题
+        </Label>
+        <select
+          id="theme"
+          v-model="form.theme"
+          :class="cn(
+            'flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm',
+            'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+            'cursor-pointer',
+          )"
+        >
+          <option value="stone">Stone</option>
+          <option value="neutral">Neutral</option>
+          <option value="slate">Slate</option>
+          <option value="zinc">Zinc</option>
+          <option value="gray">Gray</option>
+        </select>
       </div>
     </div>
 
