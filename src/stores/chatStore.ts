@@ -14,6 +14,12 @@ export const useChatStore = defineStore('chat', {
     streamingContent: '',
   }),
 
+  getters: {
+    activeConversation(state): Conversation | undefined {
+      return state.conversations.find(c => c.id === state.activeConversationId)
+    },
+  },
+
   actions: {
     async loadConversations(): Promise<void> {
       this.conversations = await conversationBridge.listConversations()

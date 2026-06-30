@@ -13,7 +13,7 @@ const settingsStore = useSettingsStore()
     <Button
       variant="ghost"
       size="icon-sm"
-      :class="activeView === 'chat' ? 'bg-accent text-accent-foreground' : ''"
+      :class="activeView === 'chat' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background'"
       @click="emit('select', 'chat')"
     >
       <MessageSquare class="size-4" />
@@ -21,7 +21,7 @@ const settingsStore = useSettingsStore()
     <Button
       variant="ghost"
       size="icon-sm"
-      :class="activeView === 'knowledge' ? 'bg-accent text-accent-foreground' : ''"
+      :class="activeView === 'knowledge' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background'"
       @click="emit('select', 'knowledge')"
     >
       <BookOpen class="size-4" />
@@ -30,6 +30,7 @@ const settingsStore = useSettingsStore()
       <Button
         variant="ghost"
         size="icon-sm"
+        class="hover:bg-background"
         @click="settingsStore.updateSettings({ darkMode: !settingsStore.darkMode })"
       >
         <Moon v-if="!settingsStore.darkMode" class="size-4" />
@@ -38,7 +39,7 @@ const settingsStore = useSettingsStore()
       <Button
         variant="ghost"
         size="icon-sm"
-        :class="activeView === 'settings' ? 'bg-accent text-accent-foreground' : ''"
+        :class="activeView === 'settings' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background'"
         @click="emit('select', 'settings')"
       >
         <Settings class="size-4" />

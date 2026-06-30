@@ -9,8 +9,6 @@ import {
   PinOff,
   Trash2,
   Edit2,
-  Check,
-  X,
   Search,
 } from 'lucide-vue-next'
 import type { Conversation } from '@/types'
@@ -143,14 +141,14 @@ onBeforeUnmount(() => {
       <Input
         :model-value="searchQuery"
         placeholder="搜索对话..."
-        class="h-7 pl-8 text-xs"
+        class="h-7 pl-8 text-sm"
         @update:model-value="(v: string | number) => emit('update:searchQuery', String(v))"
       />
     </div>
 
     <!-- 新建对话 -->
     <div
-      class="flex cursor-pointer items-center justify-between rounded-md border border-dashed px-2 py-1.5 text-xs transition-colors hover:bg-accent"
+      class="flex cursor-pointer items-center justify-between rounded-md border border-dashed px-2 py-1.5 text-sm transition-colors hover:bg-foreground/5"
       @click="emit('create')"
     >
       <div class="flex items-center gap-2">
@@ -166,7 +164,7 @@ onBeforeUnmount(() => {
         :key="conv.id"
         :class="
           cn(
-            'group relative flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-accent/50',
+            'group relative flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-foreground/5',
             conv.id === activeId && 'bg-accent text-accent-foreground',
           )
         "
@@ -174,37 +172,19 @@ onBeforeUnmount(() => {
         @contextmenu="showContextMenu($event, conv)"
       >
         <!-- 标题 / 重命名输入框 -->
-        <div class="min-w-0 flex-1 truncate">
+        <div class="min-w-0 flex-1">
           <template v-if="editingId === conv.id">
-            <div class="flex items-center gap-1">
-              <Input
-                v-model="editingTitle"
-                :data-rename-input="conv.id"
-                class="h-6 px-1 text-xs"
-                @keyup.enter="confirmRename"
-                @keyup.escape="cancelRename"
-                @blur="confirmRename"
-              />
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                class="size-5 shrink-0"
-                @click.stop="confirmRename"
-              >
-                <Check class="size-3" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                class="size-5 shrink-0"
-                @click.stop="cancelRename"
-              >
-                <X class="size-3" />
-              </Button>
-            </div>
+            <input
+              v-model="editingTitle"
+              :data-rename-input="conv.id"
+              class="w-full truncate rounded bg-background px-1 py-0.5 text-sm text-foreground outline-none ring-1 ring-ring"
+              @keyup.enter="confirmRename"
+              @keyup.escape="cancelRename"
+              @blur="confirmRename"
+            />
           </template>
           <template v-else>
-            <span class="block truncate text-xs text-muted-foreground">{{ conv.title }}</span>
+            <span class="block truncate text-sm text-muted-foreground">{{ conv.title }}</span>
           </template>
         </div>
 
@@ -247,7 +227,7 @@ onBeforeUnmount(() => {
         v-if="filteredConversations.length === 0"
         class="flex flex-col items-center py-8 text-muted-foreground"
       >
-        <span class="text-xs">{{ searchQuery ? '无匹配结果' : '暂无对话' }}</span>
+        <span class="text-sm">{{ searchQuery ? '无匹配结果' : '暂无对话' }}</span>
       </div>
     </div>
 
@@ -260,7 +240,7 @@ onBeforeUnmount(() => {
         @click.stop
       >
         <button
-          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
+          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-foreground/5 hover:text-foreground"
           @click="handlePin"
         >
           <template v-if="isPinned()">
@@ -273,7 +253,7 @@ onBeforeUnmount(() => {
           </template>
         </button>
         <button
-          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-xs outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
+          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-foreground/5 hover:text-foreground"
           @click="handleRenameFromMenu"
         >
           <Edit2 class="size-3.5" />

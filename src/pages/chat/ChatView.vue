@@ -71,11 +71,11 @@ onUnmounted(() => { cleanupFns.forEach(fn => fn()) })
           <PanelLeftClose v-if="!sidebarCollapsed" class="h-3.5 w-3.5" />
           <PanelLeftOpen v-else class="h-3.5 w-3.5" />
         </Button>
-        <span class="text-sm font-medium text-muted-foreground">对话</span>
+        <span class="text-sm font-medium text-muted-foreground truncate">{{ chatStore.activeConversation?.title || '对话' }}</span>
       </div>
       <div class="flex items-center gap-0.5">
-        <Button variant="ghost" size="icon" class="h-6 w-6" @click="minimizeWindow"><Minus class="h-3.5 w-3.5" /></Button>
-        <Button variant="ghost" size="icon" class="h-6 w-6" @click="toggleMaximize">
+        <Button variant="ghost" size="icon" class="h-6 w-6 hover:bg-background" @click="minimizeWindow"><Minus class="h-3.5 w-3.5" /></Button>
+        <Button variant="ghost" size="icon" class="h-6 w-6 hover:bg-background" @click="toggleMaximize">
           <Maximize2 v-if="!isMaximized" class="h-3.5 w-3.5" />
           <Minimize2 v-else class="h-3.5 w-3.5" />
         </Button>
