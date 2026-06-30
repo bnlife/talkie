@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { Minus, Maximize2, Minimize2, X, Settings, PanelLeft, Moon, Sun } from 'lucide-vue-next'
+import { Minus, Maximize2, Minimize2, X, Settings, PanelLeftOpen, PanelLeftClose, Moon, Sun } from 'lucide-vue-next'
 import { useChatStore } from '@/stores/chatStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { cn } from '@/lib/utils'
@@ -141,7 +141,8 @@ watch(
             class="h-6 w-6"
             @click.stop="toggleSidebar"
           >
-            <PanelLeft class="h-3.5 w-3.5" />
+            <PanelLeftClose v-if="!sidebarCollapsed" class="h-3.5 w-3.5" />
+            <PanelLeftOpen v-else class="h-3.5 w-3.5" />
             <span class="sr-only">切换侧栏</span>
           </Button>
           <!-- 当前对话标题 -->

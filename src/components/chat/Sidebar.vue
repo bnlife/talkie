@@ -139,18 +139,8 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="flex h-full flex-col border-r bg-background text-sm">
-    <!-- 顶部操作栏 -->
-    <div class="flex items-center gap-1 px-2 pt-2 pb-1">
-      <Button variant="ghost" size="icon-sm" @click="emit('create')">
-        <Plus class="size-4" />
-      </Button>
-      <Button variant="ghost" size="icon-sm" @click="emit('toggle-collapse')">
-        <X class="size-4" />
-      </Button>
-    </div>
-
     <!-- 搜索框 -->
-    <div class="px-2 pb-2">
+    <div class="px-2 pt-2 pb-2">
       <div class="relative">
         <Search
           class="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
@@ -164,6 +154,19 @@ onBeforeUnmount(() => {
     </div>
 
     <Separator />
+
+    <!-- 新建对话（样式同列表项） -->
+    <div
+      class="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 mx-1 mt-1 transition-colors hover:bg-accent/50"
+      @click="emit('create')"
+    >
+      <div class="flex items-center gap-2 text-xs text-muted-foreground">
+        <Plus class="size-3.5" />
+        <span>新建对话</span>
+      </div>
+    </div>
+
+    <Separator class="mt-1" />
 
     <!-- 对话列表 -->
     <div class="flex-1 overflow-y-auto px-1 py-1">
