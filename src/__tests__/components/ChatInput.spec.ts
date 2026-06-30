@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+﻿import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import ChatInput from '../../components/chat/ChatInput.vue'
 
@@ -35,15 +35,12 @@ describe('ChatInput.vue', () => {
     }
   })
 
-  it('streaming=true 时显示停止生成按钮，点击触发 stop-stream', async () => {
+  it('streaming=true 时显示停止按钮，点击触发 stop-stream', async () => {
     const wrapper = createWrapper({ streaming: true })
-    const buttons = wrapper.findAll('button')
-    const stopBtn = buttons.find(b => b.text().includes('停止'))
-    expect(stopBtn).toBeDefined()
-    if (stopBtn) {
-      await stopBtn.trigger('click')
-      expect(wrapper.emitted('stop-stream')).toBeTruthy()
-    }
+    const stopBtn = wrapper.find('button[class*="destructive"]')
+    expect(stopBtn.exists()).toBe(true)
+    await stopBtn.trigger('click')
+    expect(wrapper.emitted('stop-stream')).toBeTruthy()
   })
 
   it('输入空文字（仅空白字符）不触发 send', async () => {
