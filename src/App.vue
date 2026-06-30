@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { Minus, Maximize2, Minimize2, X, Settings, PanelLeft, Sun } from 'lucide-vue-next'
+import { Minus, Maximize2, Minimize2, X, Settings, PanelLeft, Moon, Sun } from 'lucide-vue-next'
 import { useChatStore } from '@/stores/chatStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { cn } from '@/lib/utils'
@@ -83,20 +83,20 @@ onMounted(async () => {
   isMaximized.value = await getCurrentWindow().isMaximized()
 })
 
-// 主题切换
-const themes = ['stone', 'neutral', 'slate', 'zinc', 'gray']
-function cycleTheme() {
-  const current = settingsStore.theme || 'stone'
-  const idx = themes.indexOf(current)
-  const next = themes[(idx + 1) % themes.length]
-  settingsStore.updateSettings({ theme: next })
+// 夜间模式
+function toggleDarkMode() {
+  settingsStore.updateSettings({ darkMode: !settingsStore.darkMode })
 }
 
-watch(() => settingsStore.theme, (theme) => {
-  const el = document.documentElement
-  themes.forEach(t => el.classList.remove(`theme-${t}`))
-  if (theme && theme !== 'stone') el.classList.add(`theme-${theme}`)
-}, { immediate: true })
+watch(
+  () => settingsStore.darkMode,
+  (darkMode) => {
+    const el = document.documentElement
+    if (darkMode) el.classList.add('dark')
+    else el.classList.remove('dark')
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -151,16 +151,17 @@ watch(() => settingsStore.theme, (theme) => {
         </div>
 
         <div class="flex items-center gap-0.5">
-          <!-- 主题切换 -->
+          <!-- 夜间模式 -->
           <Button
             variant="ghost"
             size="icon"
             class="h-6 w-6"
-            title="切换主题"
-            @click.stop="cycleTheme"
+            :title="settingsStore.darkMode ? '日间模式' : '夜间模式'"
+            @click.stop="toggleDarkMode"
           >
-            <Sun class="h-3.5 w-3.5" />
-            <span class="sr-only">切换主题</span>
+            <Moon v-if="!settingsStore.darkMode" class="h-3.5 w-3.5" />
+            <Sun v-else class="h-3.5 w-3.5" />
+            <span class="sr-only">夜间模式</span>
           </Button>
 
           <!-- 设置按钮 -->

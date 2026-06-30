@@ -10,7 +10,7 @@ export const useSettingsStore = defineStore('settings', {
     model: 'deepseek-chat',
     temperature: 0.7,
     last_active_conversation_id: undefined,
-    theme: 'stone',
+    darkMode: false,
   }),
 
   actions: {
