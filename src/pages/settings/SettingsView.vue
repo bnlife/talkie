@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   Minus, Maximize2, Minimize2, X,
-  Plus, Search, Star,
+  Plus, Search, Star, Trash2, Edit2,
 } from 'lucide-vue-next'
 import SettingsPanel from './SettingsPanel.vue'
 
@@ -171,21 +171,31 @@ function isDefault(id: string) {
                   />
                 </template>
                 <template v-else>
-                  <span class="truncate text-sm">{{ provider.name }}</span>
+                  <span class="truncate text-sm text-muted-foreground">{{ provider.name }}</span>
                 </template>
                 <Star
                   v-if="isDefault(provider.id) && renamingId !== provider.id"
                   class="size-3 shrink-0 fill-yellow-500 text-yellow-500"
                 />
               </div>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                class="size-5 opacity-0 group-hover:opacity-100"
-                @click.stop="handleDelete(provider.id)"
-              >
-                <X class="size-3" />
-              </Button>
+              <div class="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  class="size-5"
+                  @click.stop="selectProvider(provider.id)"
+                >
+                  <Edit2 class="size-3" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  class="size-5"
+                  @click.stop="handleDelete(provider.id)"
+                >
+                  <Trash2 class="size-3" />
+                </Button>
+              </div>
             </div>
 
             <div v-if="filteredProviders.length === 0" class="flex flex-col items-center py-8 text-muted-foreground">
@@ -219,6 +229,7 @@ function isDefault(id: string) {
           class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-foreground/5 hover:text-foreground"
           @click="handleRename"
         >
+          <Edit2 class="size-3.5" />
           重命名
         </button>
         <button

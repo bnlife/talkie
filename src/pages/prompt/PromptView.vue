@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import {
   PanelLeftOpen,
@@ -74,25 +73,11 @@ async function save() {
 
   if (editingId.value) {
     await promptStore.updatePrompt(editingId.value, editName.value, editContent.value)
-  } else {
+  } else if (isCreating.value) {
     const newPrompt = await promptStore.createPrompt(editName.value, editContent.value)
     editingId.value = newPrompt.id
+    isCreating.value = false
   }
-  isCreating.value = false
-}
-
-async function remove() {
-  if (!editingId.value) return
-  await promptStore.deletePrompt(editingId.value)
-  editingId.value = null
-  editName.value = ''
-  editContent.value = ''
-  isCreating.value = false
-}
-
-async function setDefault() {
-  if (!editingId.value) return
-  await promptStore.setDefaultPrompt(editingId.value)
 }
 
 async function removePrompt(id: string) {
@@ -275,48 +260,22 @@ onUnmounted(() => {
 
         <!-- Main content -->
         <main class="relative flex flex-1 flex-col overflow-hidden bg-background">
-          <div v-if="editingId !== null || isCreating" class="flex flex-1 flex-col overflow-hidden">
-            <!-- 编辑区 header bar -->
-            <div class="flex items-center justify-between border-b px-4 py-2">
-              <span class="text-sm font-medium text-muted-foreground">
-                {{ isCreating ? '新建提示词' : '编辑提示词' }}
-              </span>
-              <div class="flex items-center gap-2">
-                <Button v-if="editingId" variant="outline" size="sm" @click="setDefault">
-                  <Star class="h-3.5 w-3.5" />
-                  设为默认
-                </Button>
-                <Button variant="destructive" size="sm" @click="remove">
-                  <Trash2 class="h-3.5 w-3.5" />
-                  删除
-                </Button>
-                <Button size="sm" @click="save">
-                  保存
-                </Button>
-              </div>
-            </div>
-
-            <!-- 编辑区表单 -->
-            <div class="flex-1 overflow-y-auto p-4">
-              <div class="flex flex-col gap-4 max-w-2xl">
-                <div class="flex flex-col gap-2">
-                  <Label for="prompt-name" class="text-sm">模板名称</Label>
-                  <Input
-                    id="prompt-name"
-                    v-model="editName"
-                    placeholder="输入模板名称"
-                  />
-                </div>
-                <div class="flex flex-col gap-2">
-                  <Label for="prompt-content" class="text-sm">提示词内容</Label>
-                  <Textarea
-                    id="prompt-content"
-                    v-model="editContent"
-                    placeholder="输入提示词内容"
-                    class="min-h-[300px] resize-none"
-                  />
-                </div>
-              </div>
+          <div v-if="editingId !== null || isCreating" class="flex flex-1 flex-col overflow-hidden p-4">
+            <div class="flex flex-1 flex-col gap-3">
+              <Input
+                id="prompt-name"
+                v-model="editName"
+                placeholder="模板名称"
+                class="h-7 text-sm font-medium"
+                @blur="save"
+              />
+              <Textarea
+                id="prompt-content"
+                v-model="editContent"
+                placeholder="输入提示词内容..."
+                class="flex-1 resize-none text-sm"
+                @blur="save"
+              />
             </div>
           </div>
 

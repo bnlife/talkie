@@ -58,16 +58,15 @@ describe('PromptView.vue', () => {
     const wrapper = mount(PromptView)
     await flushPromises()
 
-    // 点击"新建提示词"区域
     const createArea = wrapper.find('.border-dashed')
     await createArea.trigger('click')
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.text()).toContain('模板名称')
-    expect(wrapper.text()).toContain('提示词内容')
+    expect(wrapper.find('#prompt-name').exists()).toBe(true)
+    expect(wrapper.find('#prompt-content').exists()).toBe(true)
   })
 
-  it('点击新建后输入名称和内容，点击保存创建新模板', async () => {
+  it('点击新建后输入名称和内容，失焦保存创建新模板', async () => {
     vi.mocked(promptBridge.createPrompt).mockResolvedValue({
       id: 'new-id',
       name: '写作助手',
@@ -81,23 +80,18 @@ describe('PromptView.vue', () => {
     const wrapper = mount(PromptView)
     await flushPromises()
 
-    // 点击新建
     const createArea = wrapper.find('.border-dashed')
     await createArea.trigger('click')
     await wrapper.vm.$nextTick()
 
-    // 输入名称
     const nameInput = wrapper.find('#prompt-name')
     await nameInput.setValue('写作助手')
 
-    // 输入内容
     const contentTextarea = wrapper.find('#prompt-content')
     await contentTextarea.setValue('你是一个写作助手')
 
-    // 点击保存
-    const saveButton = wrapper.findAll('button').find(b => b.text().includes('保存'))
-    expect(saveButton).toBeTruthy()
-    await saveButton!.trigger('click')
+    // Blur triggers save
+    await contentTextarea.trigger('blur')
     await flushPromises()
 
     expect(promptBridge.createPrompt).toHaveBeenCalledWith('写作助手', '你是一个写作助手')
@@ -124,49 +118,48 @@ describe('PromptView.vue', () => {
     expect((contentTextarea.element as HTMLTextAreaElement).value).toBe('你是一个翻译助手')
   })
 
-  it('点击删除按钮删除模板', async () => {
+  it('点击侧栏删除按钮删除模板', async () => {
     vi.mocked(promptBridge.listPrompts).mockResolvedValue([createPrompt()])
 
     const promptStore = usePromptStore()
     const wrapper = mount(PromptView)
     await flushPromises()
 
-    // 选择模板
-    const promptItem = wrapper.find('.truncate')
-    expect(promptItem).toBeTruthy()
-    await promptItem!.trigger('click')
+    // Hover to show delete button, then click it
+    const promptItem = wrapper.find('.group')
+    await promptItem.trigger('mouseenter')
     await wrapper.vm.$nextTick()
 
-    // 点击删除按钮
-    const deleteButton = wrapper.findAll('button').find(b => b.text().includes('删除'))
-    expect(deleteButton).toBeTruthy()
-    await deleteButton!.trigger('click')
+    // Find the trash button (last button in the item)
+    const buttons = promptItem.findAll('button')
+    const deleteBtn = buttons[buttons.length - 1]
+    await deleteBtn.trigger('click.stop')
     await flushPromises()
 
     expect(promptBridge.deletePrompt).toHaveBeenCalledWith('prompt-1')
     expect(promptStore.prompts).toHaveLength(0)
   })
 
-  it('点击设为默认按钮设置默认模板', async () => {
-    vi.mocked(promptBridge.listPrompts).mockResolvedValue([createPrompt({ is_default: false })])
+  it('失焦保存已有模板的修改', async () => {
+    vi.mocked(promptBridge.listPrompts).mockResolvedValue([createPrompt()])
 
     const promptStore = usePromptStore()
     const wrapper = mount(PromptView)
     await flushPromises()
 
-    // 选择模板
+    // Select prompt
     const promptItem = wrapper.find('.truncate')
-    expect(promptItem).toBeTruthy()
-    await promptItem!.trigger('click')
+    await promptItem.trigger('click')
     await wrapper.vm.$nextTick()
 
-    // 点击设为默认按钮
-    const defaultButton = wrapper.findAll('button').find(b => b.text().includes('设为默认'))
-    expect(defaultButton).toBeTruthy()
-    await defaultButton!.trigger('click')
+    // Modify content
+    const contentTextarea = wrapper.find('#prompt-content')
+    await contentTextarea.setValue('新内容')
+
+    // Blur triggers update
+    await contentTextarea.trigger('blur')
     await flushPromises()
 
-    expect(promptBridge.setDefaultPrompt).toHaveBeenCalledWith('prompt-1')
-    expect(promptStore.prompts[0].is_default).toBe(true)
+    expect(promptBridge.updatePrompt).toHaveBeenCalledWith('prompt-1', '翻译助手', '新内容')
   })
 })

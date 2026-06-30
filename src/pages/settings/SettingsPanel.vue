@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import {
-  Eye, EyeOff, RefreshCw, Plus, Trash2, Check, XIcon,
+  Eye, EyeOff, RefreshCw, Plus, Check, XIcon,
 } from 'lucide-vue-next'
 
 const props = defineProps<{
@@ -81,10 +81,6 @@ function handleAddModel() {
     settingsStore.addModel(props.provider.id, newModelName.value.trim())
     newModelName.value = ''
   }
-}
-
-function handleRemoveModel(model: string) {
-  settingsStore.removeModel(props.provider.id, model)
 }
 
 async function handleParamChange() {
@@ -250,17 +246,9 @@ async function handleParamChange() {
         <div
           v-for="model in provider.models"
           :key="model"
-          class="group flex items-center justify-between rounded-sm px-1.5 py-1 hover:bg-foreground/5"
+          class="rounded-sm px-1.5 py-1 hover:bg-foreground/5"
         >
           <span class="text-sm">{{ model }}</span>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            class="size-4 opacity-0 group-hover:opacity-100"
-            @click="handleRemoveModel(model)"
-          >
-            <Trash2 class="size-3" />
-          </Button>
         </div>
         <div v-if="provider.models.length === 0" class="py-2 text-center text-xs text-muted-foreground">
           暂无模型，点击"获取"拉取或手动添加
