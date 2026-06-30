@@ -11,6 +11,7 @@ const chatStore = useChatStore()
 const scrollRef = ref<InstanceType<typeof ScrollArea> | null>(null)
 
 const messages = computed(() => chatStore.messages)
+const modelName = computed(() => chatStore.activeConversation?.model || '')
 
 const streamingMessage = computed<Message | null>(() => {
   if (!chatStore.streamingId) return null
@@ -88,6 +89,7 @@ async function handleRegenerate() {
           :message="msg"
           :streaming="msg.id === chatStore.streamingId"
           :is-last="isLastMessage(msg)"
+          :model-name="modelName"
           @copy="handleCopy"
           @delete="handleDelete"
           @regenerate="handleRegenerate"

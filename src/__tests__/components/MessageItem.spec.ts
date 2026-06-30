@@ -26,18 +26,18 @@ describe('MessageItem.vue', () => {
     expect(wrapper.text()).toContain('测试消息')
   })
 
-  it('renders user message aligned right', () => {
+  it('renders user message with avatar', () => {
     const wrapper = mount(MessageItem, {
       props: { message: createMsg({ role: 'user' }) },
     })
-    expect(wrapper.classes()).toContain('justify-end')
+    expect(wrapper.text()).toContain('你')
   })
 
-  it('renders assistant message aligned left', () => {
+  it('renders assistant message with avatar', () => {
     const wrapper = mount(MessageItem, {
       props: { message: createMsg({ role: 'assistant' }) },
     })
-    expect(wrapper.classes()).toContain('justify-start')
+    expect(wrapper.text()).toContain('AI')
   })
 
   it('shows streaming indicator when streaming', () => {
