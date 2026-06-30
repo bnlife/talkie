@@ -108,7 +108,14 @@ pub async fn send_message(
                     e
                 );
             }
-            return Err(e);
+            // 通过 event 推送错误给前端
+            let _ = app.emit(
+                "chat:error",
+                serde_json::json!({
+                    "message": e,
+                }),
+            );
+            return Ok(());
         }
     };
 
@@ -180,4 +187,18 @@ pub fn get_messages(
     );
     let db = state.db.lock().map_err(|e| e.to_string())?;
     store::list_messages_by_conversation(&db, &conversation_id).map_err(|e| e.to_string())
+}
+
+/// Delete a single message by its ID.
+#[tauri::command]
+pub fn delete_message(
+    message_id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    log::info!(
+        "Rust::commands::chat::delete_message | 删除消息 | id={}",
+        message_id
+    );
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    store::delete_message(&db, &message_id).map_err(|e| e.to_string())
 }

@@ -6,6 +6,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window'
 import { listen } from '@tauri-apps/api/event'
 import * as chatBridge from '@/bridge/chat'
 import { log } from '@/bridge/log'
+import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 
 import { PanelLeftOpen, PanelLeftClose, Minus, Maximize2, Minimize2, X } from 'lucide-vue-next'
@@ -55,6 +56,10 @@ onMounted(async () => {
       chatStore.appendStreamChunk(p.message_id, p.delta)
     }),
     await listen('chat:stream-done', () => chatStore.finishStream()),
+    await listen('chat:error', (event) => {
+      const { message } = event.payload as { message: string }
+      toast.error(message)
+    }),
   ]
 })
 onUnmounted(() => { cleanupFns.forEach(fn => fn()) })

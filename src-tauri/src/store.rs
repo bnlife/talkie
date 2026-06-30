@@ -247,3 +247,10 @@ pub fn delete_messages_by_conversation(
     )?;
     Ok(())
 }
+
+/// Delete a single message by its ID.
+pub fn delete_message(conn: &Connection, message_id: &str) -> Result<(), AppError> {
+    log::info!("Rust::store::delete_message | 删除单条消息 | id={}", message_id);
+    conn.execute("DELETE FROM messages WHERE id = ?1", params![message_id])?;
+    Ok(())
+}

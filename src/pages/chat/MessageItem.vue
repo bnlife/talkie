@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 import type { Message } from '@/types'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Copy, Trash2, RefreshCw } from 'lucide-vue-next'
+import { Copy, Trash2, RefreshCw, Check } from 'lucide-vue-next'
 
 const props = defineProps<{
   message: Message
@@ -19,6 +19,14 @@ const emit = defineEmits<{
 }>()
 
 const isUser = computed(() => props.message.role === 'user')
+const isCopied = ref(false)
+
+async function handleCopy() {
+  await navigator.clipboard.writeText(props.message.content)
+  isCopied.value = true
+  setTimeout(() => { isCopied.value = false }, 2000)
+  emit('copy', props.message.content)
+}
 
 </script>
 
@@ -63,9 +71,10 @@ const isUser = computed(() => props.message.role === 'user')
           variant="ghost"
           size="icon"
           class="h-6 w-6"
-          @click="emit('copy', message.content)"
+          @click="handleCopy"
         >
-          <Copy class="h-3 w-3" />
+          <Check v-if="isCopied" class="h-3 w-3 text-green-500" />
+          <Copy v-else class="h-3 w-3" />
         </Button>
         <Button
           variant="ghost"

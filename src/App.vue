@@ -2,6 +2,8 @@
 import { ref } from 'vue'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { watch } from 'vue'
+import 'vue-sonner/style.css'
+import { Toaster } from 'vue-sonner'
 import Toolstrip from '@/components/app/Toolstrip.vue'
 import ChatView from '@/pages/chat/ChatView.vue'
 import SettingsView from '@/pages/settings/SettingsView.vue'
@@ -22,6 +24,7 @@ watch(
 </script>
 
 <template>
+  <Toaster />
   <div class="flex h-screen w-screen overflow-hidden bg-muted text-foreground">
     <Toolstrip :active-view="activeView" @select="activeView = $event" />
     <ChatView v-if="activeView === 'chat'" class="flex flex-1 overflow-hidden" />
