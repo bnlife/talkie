@@ -352,7 +352,7 @@ describe('chatStore', () => {
       expect(chatBridge.sendMessage).not.toHaveBeenCalled()
     })
 
-    it('deletes last assistant message and resends last user message', async () => {
+    it('deletes last assistant message and calls bridge', async () => {
       vi.mocked(chatBridge.deleteMessage).mockResolvedValue(undefined)
       vi.mocked(chatBridge.sendMessage).mockResolvedValue(undefined)
 
@@ -368,7 +368,7 @@ describe('chatStore', () => {
       expect(chatBridge.deleteMessage).toHaveBeenCalledWith('ast-1')
       expect(store.messages).toHaveLength(1)
       expect(store.messages[0].id).toBe('user-1')
-      expect(chatBridge.sendMessage).toHaveBeenCalledWith('conv-1', 'hello')
+      expect(chatBridge.sendMessage).toHaveBeenCalledWith('conv-1', '')
     })
 
     it('does nothing if last message is not assistant', async () => {

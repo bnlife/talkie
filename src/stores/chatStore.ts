@@ -143,11 +143,8 @@ export const useChatStore = defineStore('chat', {
       // 删除最后一条助手消息
       this.messages.pop()
       await chatBridge.deleteMessage(lastMsg.id)
-      // 重新发送最后一条用户消息
-      const lastUserMsg = [...this.messages].reverse().find(m => m.role === 'user')
-      if (lastUserMsg) {
-        await chatBridge.sendMessage(this.activeConversationId, lastUserMsg.content)
-      }
+      // 直接调用 bridge 请求新回复（不创建新的用户消息）
+      await chatBridge.sendMessage(this.activeConversationId, '')
     },
   },
 })
