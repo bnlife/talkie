@@ -30,15 +30,16 @@ describe('SettingsPanel.vue', () => {
 
   it('修改值后点击"保存"触发 update 事件，携带修改后的值', async () => {
     const wrapper = createWrapper()
-    // 找到所有输入框（n-input 渲染为内部 input 元素）
-    const inputs = wrapper.findAll('input')
-    // 第 1 个 input - base_url
-    await inputs[0].setValue('https://custom.api.com/v1')
+    // 直接设置原生 input 值并触发 input 事件，确保通过 useVModel 传播到 form 响应式状态
+    const input = wrapper.findAll('input')[0]
+    const nativeInput = input.element as HTMLInputElement
+    nativeInput.value = 'https://custom.api.com/v1'
+    await input.trigger('input')
+    await wrapper.vm.$nextTick()
 
-    const buttons = wrapper.findAll('button')
-    const saveBtn = buttons.find(b => b.text().includes('保存设置'))
-    expect(saveBtn).toBeTruthy()
-    await saveBtn!.trigger('click')
+    // 提交表单（保存按钮 type="submit" 在 jsdom 中点击不会自动触发 form submit）
+    const form = wrapper.find('form')
+    await form.trigger('submit')
 
     expect(wrapper.emitted('update')).toBeTruthy()
     const emitted = wrapper.emitted('update')![0][0] as Partial<Settings>

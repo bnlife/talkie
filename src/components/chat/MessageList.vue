@@ -8,7 +8,7 @@ import { MessageCircle } from 'lucide-vue-next'
 import MessageItem from './MessageItem.vue'
 
 const chatStore = useChatStore()
-const scrollRef = ref<HTMLElement | null>(null)
+const scrollRef = ref<InstanceType<typeof ScrollArea> | null>(null)
 
 const messages = computed(() => chatStore.messages)
 
@@ -33,8 +33,9 @@ const allMessages = computed(() => {
 
 function scrollToBottom() {
   nextTick(() => {
-    if (scrollRef.value) {
-      const viewport = scrollRef.value.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]')
+    const el = scrollRef.value?.$el as HTMLElement | undefined
+    if (el) {
+      const viewport = el.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]')
       if (viewport) {
         viewport.scrollTop = viewport.scrollHeight
       }

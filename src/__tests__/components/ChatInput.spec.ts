@@ -15,25 +15,22 @@ function createWrapper(props: { disabled?: boolean; streaming?: boolean } = {}) 
 describe('ChatInput.vue', () => {
   it('disabled=true 时发送按钮禁用', () => {
     const wrapper = createWrapper({ disabled: true })
-    const buttons = wrapper.findAll('button')
-    const sendBtn = buttons.find(b => b.text().includes('发送'))
-    expect(sendBtn).toBeDefined()
-    if (sendBtn) {
-      expect(sendBtn.attributes('disabled')).toBeDefined()
-    }
+    // streaming=false 时只渲染发送按钮（icon-only，无文本）
+    const sendBtn = wrapper.find('button')
+    expect(sendBtn.exists()).toBe(true)
+    expect(sendBtn.attributes('disabled')).toBeDefined()
   })
 
   it('输入文字后按 Enter 触发 send 事件，值正确', async () => {
     const wrapper = createWrapper()
-    // 设置 t-textarea 的值
+    // 找到原生 textarea，设置值并触发 input 事件更新 v-model
     const textarea = wrapper.find('textarea')
     const textareaEl = textarea.element as HTMLTextAreaElement
     textareaEl.value = '你好'
     await textarea.trigger('input')
     await wrapper.vm.$nextTick()
-    // 在包裹 div（@keydown 所在）上触发 Enter
-    const keydownTarget = wrapper.find('div.flex-1')
-    await keydownTarget.trigger('keydown', { key: 'Enter', shiftKey: false })
+    // @keydown 绑定在 <Textarea> 组件上，会透传到原生 textarea
+    await textarea.trigger('keydown', { key: 'Enter', shiftKey: false })
     const emitted = wrapper.emitted('send')
     expect(emitted).toBeTruthy()
     if (emitted) {
@@ -57,8 +54,7 @@ describe('ChatInput.vue', () => {
     textareaEl.value = '  '
     await textarea.trigger('input')
     await wrapper.vm.$nextTick()
-    const keydownTarget = wrapper.find('div.flex-1')
-    await keydownTarget.trigger('keydown', { key: 'Enter', shiftKey: false })
+    await textarea.trigger('keydown', { key: 'Enter', shiftKey: false })
     expect(wrapper.emitted('send')).toBeFalsy()
   })
 })
