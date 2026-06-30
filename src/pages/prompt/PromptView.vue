@@ -13,6 +13,7 @@ const isMaximized = ref(false)
 const editingId = ref<string | null>(null)
 const editName = ref('')
 const editContent = ref('')
+const isCreating = ref(false)
 
 onMounted(async () => {
   isMaximized.value = await appWindow.isMaximized()
@@ -33,6 +34,7 @@ function selectPrompt(id: string) {
     editingId.value = id
     editName.value = prompt.name
     editContent.value = prompt.content
+    isCreating.value = false
   }
 }
 
@@ -40,6 +42,7 @@ function createNew() {
   editingId.value = null
   editName.value = ''
   editContent.value = ''
+  isCreating.value = true
 }
 
 async function save() {
@@ -51,6 +54,7 @@ async function save() {
     const newPrompt = await promptStore.createPrompt(editName.value, editContent.value)
     editingId.value = newPrompt.id
   }
+  isCreating.value = false
 }
 
 async function remove() {
@@ -59,6 +63,7 @@ async function remove() {
   editingId.value = null
   editName.value = ''
   editContent.value = ''
+  isCreating.value = false
 }
 
 async function setDefault() {
@@ -114,7 +119,7 @@ async function setDefault() {
         <!-- 右侧编辑区 -->
         <div class="flex flex-1 flex-col overflow-hidden">
           <div class="flex-1 overflow-y-auto p-4">
-            <div v-if="editingId !== null || editName || editContent" class="flex flex-col gap-4">
+            <div v-if="editingId !== null || isCreating" class="flex flex-col gap-4">
               <div class="flex flex-col gap-2">
                 <label class="text-sm font-medium text-muted-foreground">模板名称</label>
                 <input
