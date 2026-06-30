@@ -128,6 +128,43 @@ export const useChatStore = defineStore('chat', {
       this.messages.push(finalMsg)
       this.streamingId = null
       this.streamingContent = ''
+
+      // Auto-title: 如果标题还是"新对话"，用助手回复自动生成标题
+      try {
+        const conv = this.conversations.find(c => c.id === this.activeConversationId)
+        await log('info', `前端::chatStore::finishStream | 检查自动标题 | conv=${!!conv} title=${conv?.title} assistantCount=${this.messages.filter(m => m.role === 'assistant').length}`)
+        if (conv && conv.title === '新对话') {
+          const assistantCount = this.messages.filter(m => m.role === 'assistant').length
+          if (assistantCount === 1) {
+            const autoTitle = this.extractTitle(finalMsg.content)
+            await log('info', `前端::chatStore::finishStream | extractTitle | raw="${finalMsg.content.slice(0, 50)}" | result="${autoTitle}"`)
+            if (autoTitle) {
+              await log('info', `前端::chatStore::finishStream | 自动设置标题 | title=${autoTitle}`)
+              await this.renameConversation(this.activeConversationId!, autoTitle)
+            } else {
+              await log('info', '前端::chatStore::finishStream | extractTitle 为空，跳过')
+            }
+          }
+        }
+      } catch (e) {
+        await log('error', `前端::chatStore::finishStream | 自动标题失败 | ${e}`)
+      }
+    },
+
+    extractTitle(content: string): string {
+      // 取第一行非空内容
+      const lines = content.split('\n').filter(l => l.trim())
+      if (!lines.length) return ''
+      let title = lines[0].trim()
+      // 去除 markdown 标记
+      title = title.replace(/^#+\s*/, '')         // 标题
+      title = title.replace(/[*_`~]+/g, '')       // 加粗/斜体/代码
+      title = title.replace(/^\s*[-*+]\s*/, '')   // 列表
+      title = title.replace(/^\s*\d+\.\s*/, '')   // 有序列表
+      title = title.replace(/^>\s*/, '')           // 引用
+      // 截断
+      if (title.length > 30) title = title.slice(0, 30) + '...'
+      return title
     },
 
     async deleteMessage(messageId: string): Promise<void> {

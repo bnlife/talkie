@@ -336,6 +336,68 @@ describe('chatStore', () => {
       await store.finishStream()
       expect(store.messages).toHaveLength(0)
     })
+
+    it('auto-title: renames conversation from 新对话 on first assistant reply', async () => {
+      vi.mocked(conversationBridge.updateConversation).mockResolvedValue(undefined)
+
+      const store = useChatStore()
+      store.conversations = [createConv({ id: 'conv-1', title: '新对话' })]
+      store.activeConversationId = 'conv-1'
+      store.messages = [createMsg({ id: 'msg-user', role: 'user', content: '你好' })]
+      store.streamingId = 'msg-ast'
+      store.streamingContent = '你好！有什么可以帮助你的吗？'
+
+      await store.finishStream()
+
+      expect(conversationBridge.updateConversation).toHaveBeenCalledWith('conv-1', '你好！有什么可以帮助你的吗？')
+      expect(store.conversations[0].title).toBe('你好！有什么可以帮助你的吗？')
+    })
+
+    it('auto-title: truncates long title to 30 chars', async () => {
+      vi.mocked(conversationBridge.updateConversation).mockResolvedValue(undefined)
+
+      const store = useChatStore()
+      store.conversations = [createConv({ id: 'conv-1', title: '新对话' })]
+      store.activeConversationId = 'conv-1'
+      store.messages = [createMsg({ id: 'msg-user', role: 'user', content: '介绍一下自己' })]
+      store.streamingId = 'msg-ast'
+      store.streamingContent = '我是一个非常非常非常非常非常非常非常非常非常长的回复内容，应该被截断处理'
+
+      await store.finishStream()
+
+      const calledTitle = vi.mocked(conversationBridge.updateConversation).mock.calls[0][1]
+      expect(calledTitle.length).toBeLessThanOrEqual(33) // 30 + '...'
+    })
+
+    it('auto-title: does not rename if title is not 新对话', async () => {
+      vi.mocked(conversationBridge.updateConversation).mockResolvedValue(undefined)
+
+      const store = useChatStore()
+      store.conversations = [createConv({ id: 'conv-1', title: '自定义标题' })]
+      store.activeConversationId = 'conv-1'
+      store.messages = [createMsg({ id: 'msg-user', role: 'user', content: '你好' })]
+      store.streamingId = 'msg-ast'
+      store.streamingContent = '你好！'
+
+      await store.finishStream()
+
+      expect(conversationBridge.updateConversation).not.toHaveBeenCalled()
+    })
+
+    it('auto-title: strips markdown formatting', async () => {
+      vi.mocked(conversationBridge.updateConversation).mockResolvedValue(undefined)
+
+      const store = useChatStore()
+      store.conversations = [createConv({ id: 'conv-1', title: '新对话' })]
+      store.activeConversationId = 'conv-1'
+      store.messages = [createMsg({ id: 'msg-user', role: 'user', content: '写个函数' })]
+      store.streamingId = 'msg-ast'
+      store.streamingContent = '# 你好世界\n\n这是一个 **加粗** 和 `代码` 的回复'
+
+      await store.finishStream()
+
+      expect(conversationBridge.updateConversation).toHaveBeenCalledWith('conv-1', '你好世界')
+    })
   })
 
   describe('deleteMessage', () => {

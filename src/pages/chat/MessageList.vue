@@ -3,12 +3,12 @@ import { computed, watch, nextTick, ref } from 'vue'
 import type { Message } from '@/types'
 import { useChatStore } from '@/stores/chatStore'
 import { cn } from '@/lib/utils'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { MessageCircle } from 'lucide-vue-next'
 import MessageItem from './MessageItem.vue'
 
 const chatStore = useChatStore()
-const scrollRef = ref<InstanceType<typeof ScrollArea> | null>(null)
+const scrollRef = ref<HTMLDivElement | null>(null)
+const userScrolled = ref(false)
 
 const messages = computed(() => chatStore.messages)
 const modelName = computed(() => chatStore.activeConversation?.model || '')
@@ -37,29 +37,40 @@ const isLastMessage = (msg: Message) => {
   return last && last.id === msg.id
 }
 
+function isNearBottom(): boolean {
+  const el = scrollRef.value
+  if (!el) return true
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 100
+}
+
 function scrollToBottom() {
   nextTick(() => {
-    const el = scrollRef.value?.$el as HTMLElement | undefined
+    const el = scrollRef.value
     if (el) {
-      const viewport = el.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]')
-      if (viewport) {
-        viewport.scrollTop = viewport.scrollHeight
-      }
+      el.scrollTop = el.scrollHeight
     }
   })
+}
+
+function onScroll() {
+  userScrolled.value = !isNearBottom()
 }
 
 watch(
   () => allMessages.value.length,
   () => {
-    scrollToBottom()
+    if (!userScrolled.value) {
+      scrollToBottom()
+    }
   }
 )
 
 watch(
   () => chatStore.streamingContent,
   () => {
-    scrollToBottom()
+    if (!userScrolled.value) {
+      scrollToBottom()
+    }
   }
 )
 
@@ -77,11 +88,12 @@ async function handleRegenerate() {
 </script>
 
 <template>
-  <ScrollArea
+  <div
     ref="scrollRef"
-    :class="cn('flex-1 w-full')"
+    :class="cn('flex-1 w-full overflow-y-auto')"
+    @scroll="onScroll"
   >
-    <div class="flex flex-col gap-3 px-4">
+    <div class="flex flex-col gap-3 px-4 py-2">
       <template v-if="allMessages.length">
         <MessageItem
           v-for="msg in allMessages"
@@ -103,5 +115,5 @@ async function handleRegenerate() {
         <p class="text-sm">暂无消息</p>
       </div>
     </div>
-  </ScrollArea>
+  </div>
 </template>
