@@ -339,3 +339,234 @@ pub fn set_default_prompt(conn: &Connection, id: &str) -> Result<(), AppError> {
     conn.execute("UPDATE prompts SET is_default = 1 WHERE id = ?1", params![id])?;
     Ok(())
 }
+
+/// Get the default prompt, if one exists.
+pub fn get_default_prompt(conn: &Connection) -> Result<Option<Prompt>, AppError> {
+    log::debug!("Rust::store::get_default_prompt | 查询默认提示词");
+    let mut stmt = conn.prepare(
+        "SELECT id, name, content, is_default, created_at, updated_at \
+         FROM prompts WHERE is_default = 1 LIMIT 1",
+    )?;
+    let mut rows = stmt.query_map([], |row| {
+        Ok(Prompt {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            content: row.get(2)?,
+            is_default: row.get::<_, i64>(3)? != 0,
+            created_at: row.get(4)?,
+            updated_at: row.get(5)?,
+        })
+    })?;
+    match rows.next() {
+        Some(Ok(prompt)) => Ok(Some(prompt)),
+        Some(Err(e)) => Err(AppError::DbError(e.to_string())),
+        None => Ok(None),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    fn setup_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS conversations (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                model TEXT NOT NULL,
+                system_prompt TEXT NOT NULL DEFAULT '',
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                pinned INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS messages (
+                id TEXT PRIMARY KEY,
+                conversation_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                token_count INTEGER,
+                FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+            );
+            CREATE TABLE IF NOT EXISTS prompts (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                content TEXT NOT NULL,
+                is_default INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );",
+        ).unwrap();
+        conn
+    }
+
+    #[test]
+    fn create_and_list_prompts() {
+        let conn = setup_db();
+        let p = Prompt {
+            id: "p1".into(),
+            name: "翻译".into(),
+            content: "你是翻译助手".into(),
+            is_default: false,
+            created_at: 1000,
+            updated_at: 1000,
+        };
+        create_prompt(&conn, &p).unwrap();
+        let list = list_prompts(&conn).unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].name, "翻译");
+    }
+
+    #[test]
+    fn update_prompt_changes_content() {
+        let conn = setup_db();
+        let p = Prompt {
+            id: "p1".into(),
+            name: "翻译".into(),
+            content: "旧内容".into(),
+            is_default: false,
+            created_at: 1000,
+            updated_at: 1000,
+        };
+        create_prompt(&conn, &p).unwrap();
+
+        let updated = Prompt {
+            id: "p1".into(),
+            name: "翻译".into(),
+            content: "新内容".into(),
+            is_default: false,
+            created_at: 1000,
+            updated_at: 2000,
+        };
+        update_prompt(&conn, &updated).unwrap();
+
+        let list = list_prompts(&conn).unwrap();
+        assert_eq!(list[0].content, "新内容");
+    }
+
+    #[test]
+    fn delete_prompt_removes_it() {
+        let conn = setup_db();
+        let p = Prompt {
+            id: "p1".into(),
+            name: "翻译".into(),
+            content: "内容".into(),
+            is_default: false,
+            created_at: 1000,
+            updated_at: 1000,
+        };
+        create_prompt(&conn, &p).unwrap();
+        delete_prompt(&conn, "p1").unwrap();
+        let list = list_prompts(&conn).unwrap();
+        assert_eq!(list.len(), 0);
+    }
+
+    #[test]
+    fn set_default_prompt_sets_only_one() {
+        let conn = setup_db();
+        create_prompt(&conn, &Prompt { id: "p1".into(), name: "A".into(), content: "a".into(), is_default: false, created_at: 0, updated_at: 0 }).unwrap();
+        create_prompt(&conn, &Prompt { id: "p2".into(), name: "B".into(), content: "b".into(), is_default: false, created_at: 0, updated_at: 0 }).unwrap();
+
+        set_default_prompt(&conn, "p1").unwrap();
+        let def = get_default_prompt(&conn).unwrap().unwrap();
+        assert_eq!(def.id, "p1");
+
+        set_default_prompt(&conn, "p2").unwrap();
+        let def = get_default_prompt(&conn).unwrap().unwrap();
+        assert_eq!(def.id, "p2");
+
+        // p1 should no longer be default
+        let list = list_prompts(&conn).unwrap();
+        let p1 = list.iter().find(|p| p.id == "p1").unwrap();
+        assert!(!p1.is_default);
+    }
+
+    #[test]
+    fn get_default_prompt_returns_none_when_none_set() {
+        let conn = setup_db();
+        create_prompt(&conn, &Prompt { id: "p1".into(), name: "A".into(), content: "a".into(), is_default: false, created_at: 0, updated_at: 0 }).unwrap();
+        let result = get_default_prompt(&conn).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn system_prompt_injection_uses_default_prompt() {
+        let conn = setup_db();
+
+        // Create a conversation with no system_prompt
+        create_conversation(&conn, &Conversation {
+            id: "c1".into(),
+            title: "test".into(),
+            model: "gpt-4".into(),
+            system_prompt: "".into(),
+            created_at: 0,
+            updated_at: 0,
+            pinned: false,
+        }).unwrap();
+
+        // Create a default prompt
+        create_prompt(&conn, &Prompt {
+            id: "p1".into(),
+            name: "翻译".into(),
+            content: "你是翻译AI助手，所有输入都翻译成中文".into(),
+            is_default: false,
+            created_at: 0,
+            updated_at: 0,
+        }).unwrap();
+        set_default_prompt(&conn, "p1").unwrap();
+
+        // Simulate the injection logic from send_message
+        let conv = get_conversation(&conn, "c1").unwrap().unwrap();
+        let from_conv = if conv.system_prompt.is_empty() { None } else { Some(conv.system_prompt.clone()) };
+        let system_prompt = if from_conv.is_some() {
+            from_conv
+        } else {
+            get_default_prompt(&conn).unwrap().map(|p| p.content)
+        };
+
+        assert!(system_prompt.is_some());
+        assert_eq!(system_prompt.unwrap(), "你是翻译AI助手，所有输入都翻译成中文");
+    }
+
+    #[test]
+    fn system_prompt_injection_prefers_conversation_prompt() {
+        let conn = setup_db();
+
+        // Create a conversation WITH system_prompt
+        create_conversation(&conn, &Conversation {
+            id: "c1".into(),
+            title: "test".into(),
+            model: "gpt-4".into(),
+            system_prompt: "对话专属提示词".into(),
+            created_at: 0,
+            updated_at: 0,
+            pinned: false,
+        }).unwrap();
+
+        // Also create a default prompt
+        create_prompt(&conn, &Prompt {
+            id: "p1".into(),
+            name: "翻译".into(),
+            content: "默认提示词".into(),
+            is_default: false,
+            created_at: 0,
+            updated_at: 0,
+        }).unwrap();
+        set_default_prompt(&conn, "p1").unwrap();
+
+        // Simulate the injection logic
+        let conv = get_conversation(&conn, "c1").unwrap().unwrap();
+        let from_conv = if conv.system_prompt.is_empty() { None } else { Some(conv.system_prompt.clone()) };
+        let system_prompt = if from_conv.is_some() {
+            from_conv
+        } else {
+            get_default_prompt(&conn).unwrap().map(|p| p.content)
+        };
+
+        // Should use conversation's prompt, not the default
+        assert_eq!(system_prompt.unwrap(), "对话专属提示词");
+    }
+}

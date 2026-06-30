@@ -49,6 +49,41 @@ pub async fn send_message(
             .map_err(|e| e.to_string())?
     };
 
+    // 2.1 Determine the system prompt: conversation's own → default template → none.
+    let system_prompt = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conv = store::get_conversation(&db, &conversation_id)
+            .map_err(|e| e.to_string())?;
+        let from_conv = conv.as_ref().and_then(|c| {
+            if c.system_prompt.is_empty() { None } else { Some(c.system_prompt.clone()) }
+        });
+        if from_conv.is_some() {
+            from_conv
+        } else {
+            store::get_default_prompt(&db)
+                .map_err(|e| e.to_string())?
+                .map(|p| p.content)
+        }
+    };
+
+    // Build the messages array with system prompt prepended.
+    let mut messages: Vec<models::Message> = Vec::new();
+    if let Some(ref sys) = system_prompt {
+        log::debug!(
+            "Rust::commands::chat::send_message | 注入 system prompt | len={}",
+            sys.len()
+        );
+        messages.push(models::Message {
+            id: "system".to_string(),
+            conversation_id: conversation_id.clone(),
+            role: "system".to_string(),
+            content: sys.clone(),
+            created_at: 0,
+            token_count: None,
+        });
+    }
+    messages.extend(history.iter().cloned());
+
     // 3. Read the current configuration.
     let (base_url, api_key, model) = {
         let config = state.config.lock().map_err(|e| e.to_string())?;
@@ -81,7 +116,7 @@ pub async fn send_message(
         &base_url,
         &api_key,
         &model,
-        &history,
+        &messages,
         cancel.clone(),
         move |delta| {
             let _ = app_handle.emit(
@@ -225,6 +260,41 @@ pub async fn regenerate_message(
             .map_err(|e| e.to_string())?
     };
 
+    // 1.1 Determine the system prompt: conversation's own → default template → none.
+    let system_prompt = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let conv = store::get_conversation(&db, &conversation_id)
+            .map_err(|e| e.to_string())?;
+        let from_conv = conv.as_ref().and_then(|c| {
+            if c.system_prompt.is_empty() { None } else { Some(c.system_prompt.clone()) }
+        });
+        if from_conv.is_some() {
+            from_conv
+        } else {
+            store::get_default_prompt(&db)
+                .map_err(|e| e.to_string())?
+                .map(|p| p.content)
+        }
+    };
+
+    // Build the messages array with system prompt prepended.
+    let mut messages: Vec<models::Message> = Vec::new();
+    if let Some(ref sys) = system_prompt {
+        log::debug!(
+            "Rust::commands::chat::regenerate_message | 注入 system prompt | len={}",
+            sys.len()
+        );
+        messages.push(models::Message {
+            id: "system".to_string(),
+            conversation_id: conversation_id.clone(),
+            role: "system".to_string(),
+            content: sys.clone(),
+            created_at: 0,
+            token_count: None,
+        });
+    }
+    messages.extend(history.iter().cloned());
+
     // 2. Read the current configuration.
     let (base_url, api_key, model) = {
         let config = state.config.lock().map_err(|e| e.to_string())?;
@@ -254,7 +324,7 @@ pub async fn regenerate_message(
         &base_url,
         &api_key,
         &model,
-        &history,
+        &messages,
         cancel.clone(),
         move |delta| {
             let _ = app_handle.emit(
