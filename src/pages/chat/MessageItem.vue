@@ -62,14 +62,7 @@ async function handleCopy() {
 
       <!-- 消息正文 -->
       <div class="relative">
-        <div
-          :class="cn(
-            'rounded-lg p-3 shadow-xs',
-            isUser
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-muted text-foreground'
-          )"
-        >
+        <div class="p-0">
           <p class="text-sm leading-relaxed whitespace-pre-wrap break-words">
             {{ message.content }}
           </p>
