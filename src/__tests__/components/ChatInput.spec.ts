@@ -1,6 +1,5 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
-import naive from 'naive-ui'
 import ChatInput from '../../components/chat/ChatInput.vue'
 
 function createWrapper(props: { disabled?: boolean; streaming?: boolean } = {}) {
@@ -9,9 +8,6 @@ function createWrapper(props: { disabled?: boolean; streaming?: boolean } = {}) 
       disabled: false,
       streaming: false,
       ...props,
-    },
-    global: {
-      plugins: [naive],
     },
   })
 }

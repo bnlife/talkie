@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { Textarea } from '@/components/ui/textarea'
+import { Button } from '@/components/ui/button'
+import { SendIcon, SquareIcon } from 'lucide-vue-next'
 
 const props = defineProps<{
   disabled: boolean
@@ -29,32 +32,21 @@ function handleKeydown(e: KeyboardEvent) {
 </script>
 
 <template>
-  <div style="display: flex; gap: 6px; align-items: flex-end;">
-    <n-input
-      v-model:value="inputText"
-      type="textarea"
-      :autosize="{ minRows: 2, maxRows: 6 }"
+  <div class="flex gap-normal items-end">
+    <Textarea
+      v-model="inputText"
       :disabled="disabled"
       placeholder="输入消息... (Enter 发送)"
+      class="flex-1 min-h-14"
+      :rows="2"
       @keydown="handleKeydown"
-      style="flex: 1;"
     />
-    <n-button
-      v-if="streaming"
-      type="error"
-      @click="emit('stop-stream')"
-      style="flex-shrink: 0;"
-    >
-      停止
-    </n-button>
-    <n-button
-      v-else
-      type="primary"
-      :disabled="disabled || !inputText.trim()"
-      @click="handleSend"
-      style="flex-shrink: 0;"
-    >
+    <Button v-if="streaming" variant="destructive" size="icon" @click="emit('stop-stream')">
+      <SquareIcon class="size-4" />
+    </Button>
+    <Button v-else :disabled="disabled || !inputText.trim()" @click="handleSend">
+      <SendIcon />
       发送
-    </n-button>
+    </Button>
   </div>
 </template>

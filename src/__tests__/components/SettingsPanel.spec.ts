@@ -1,6 +1,5 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
-import naive from 'naive-ui'
 import SettingsPanel from '@/components/settings/SettingsPanel.vue'
 import type { Settings } from '@/types'
 
@@ -14,7 +13,6 @@ const defaultSettings: Settings = {
 function createWrapper(settings: Settings = defaultSettings) {
   return mount(SettingsPanel, {
     props: { settings },
-    global: { plugins: [naive] },
   })
 }
 

@@ -1,6 +1,5 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
-import naive from 'naive-ui'
 import Sidebar from '@/components/chat/Sidebar.vue'
 import type { Conversation } from '@/types'
 
@@ -20,7 +19,6 @@ function createWrapper(props: {
       activeId: null,
       ...props,
     },
-    global: { plugins: [naive] },
   })
 }
 

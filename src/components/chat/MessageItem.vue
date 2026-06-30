@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { Message } from '../../types'
+import { Card, CardHeader, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 
 const props = defineProps<{
   message: Message
@@ -8,26 +10,29 @@ const props = defineProps<{
 </script>
 
 <template>
-  <n-space
-    :justify="props.message.role === 'user' ? 'end' : 'start'"
-    style="width: 100%;"
+  <div
+    :class="[
+      'flex w-full mb-1',
+      props.message.role === 'user' ? 'justify-end' : 'justify-start'
+    ]"
   >
-    <n-card
-      style="max-width: 70%;"
-      :content-style="{ padding: '6px 12px' }"
-      :bordered="props.message.role === 'assistant'"
-      :embedded="props.message.role === 'user'"
+    <Card
+      :class="[
+        
+        props.message.role === 'user' ? 'bg-page' : 'bg-surface border-border'
+      ]"
     >
-      <n-tag
-        :type="props.message.role === 'user' ? 'primary' : 'info'"
-        :bordered="false"
-        style="margin-bottom: 4px;"
-      >
-        {{ props.message.role === 'user' ? '用户' : '助手' }}
-      </n-tag>
-      <n-text :depth="props.message.role === 'user' ? 1 : 2">
-        {{ props.message.content }}<template v-if="props.isStreaming"><n-text depth="3">|</n-text></template>
-      </n-text>
-    </n-card>
-  </n-space>
+      <CardHeader class="p-normal pb-0">
+        <Badge :variant="props.message.role === 'user' ? 'default' : 'secondary'">
+          {{ props.message.role === 'user' ? '用户' : '助手' }}
+        </Badge>
+      </CardHeader>
+      <CardContent class="p-normal pt-tight">
+        <span class="text-main">
+          {{ props.message.content }}<template v-if="props.isStreaming"><span class="text-hint">|</span></template>
+        </span>
+      </CardContent>
+    </Card>
+  </div>
 </template>
+

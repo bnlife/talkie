@@ -1,9 +1,11 @@
 import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
+import tailwindcss from '@tailwindcss/vite'
+import styleGuard from './src/plugins/style-guard.js'
 import { resolve } from 'path'
 
 export default defineConfig({
-  plugins: [vue()],
+  plugins: [vue(), tailwindcss(), styleGuard()],
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),

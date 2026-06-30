@@ -1,6 +1,5 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
-import naive from 'naive-ui'
 import MessageList from '@/components/chat/MessageList.vue'
 import type { Message } from '@/types'
 
@@ -15,7 +14,6 @@ function createWrapper(props: {
       streamingId: null,
       ...props,
     },
-    global: { plugins: [naive] },
   })
 }
 

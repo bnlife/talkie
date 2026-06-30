@@ -1,6 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import naive from 'naive-ui'
+import './styles/tokens.css'
 import App from './App.vue'
 import { log } from './bridge/log'
 
@@ -12,7 +12,6 @@ app.config.errorHandler = (err, _instance, _info) => {
 }
 
 app.use(createPinia())
-app.use(naive)
 app.mount('#app')
 
 // 未捕获 Promise 拒绝

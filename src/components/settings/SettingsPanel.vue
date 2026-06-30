@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { reactive, watch } from 'vue'
 import type { Settings } from '../../types'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Slider } from '@/components/ui/slider'
+import { Label } from '@/components/ui/label'
 
 const props = defineProps<{
   settings: Settings
@@ -23,48 +27,27 @@ function handleSave() {
 </script>
 
 <template>
-  <n-form label-placement="left" label-width="100px">
-    <n-form-item label="API 地址" path="base_url">
-      <n-input
-        v-model:value="formState.base_url"
-        placeholder="https://api.openai.com/v1"
-      />
-    </n-form-item>
-    <n-form-item label="API Key" path="api_key">
-      <n-input
-        v-model:value="formState.api_key"
-        type="password"
-        placeholder="sk-..."
-        show-password-on="click"
-      />
-    </n-form-item>
-    <n-form-item label="模型" path="model">
-      <n-input
-        v-model:value="formState.model"
-        placeholder="输入模型名称，如 deepseek-chat"
-      />
-    </n-form-item>
-    <n-form-item label="温度" path="temperature">
-      <n-slider
-        v-model:value="formState.temperature"
-        :min="0"
-        :max="2"
-        :step="0.1"
-        style="width: 100%;"
-      />
-      <n-text depth="3" style="margin-left: 12px; min-width: 32px; font-size: 12px;">
-        {{ formState.temperature.toFixed(1) }}
-      </n-text>
-    </n-form-item>
-    <n-form-item>
-      <n-space :size="8">
-        <n-button @click="emit('test-connection')">
-          测试连接
-        </n-button>
-        <n-button type="primary" @click="handleSave">
-          保存设置
-        </n-button>
-      </n-space>
-    </n-form-item>
-  </n-form>
+  <form class="flex flex-col gap-normal">
+    <div class="flex items-center gap-normal">
+      <Label class="w-25 flex-shrink-0 text-sub">API 地址</Label>
+      <Input v-model="formState.base_url" placeholder="https://api.openai.com/v1" class="flex-1" />
+    </div>
+    <div class="flex items-center gap-normal">
+      <Label class="w-25 flex-shrink-0 text-sub">API Key</Label>
+      <Input v-model="formState.api_key" type="password" placeholder="sk-..." class="flex-1" />
+    </div>
+    <div class="flex items-center gap-normal">
+      <Label class="w-25 flex-shrink-0 text-sub">模型</Label>
+      <Input v-model="formState.model" placeholder="输入模型名称，如 deepseek-chat" class="flex-1" />
+    </div>
+    <div class="flex items-center gap-normal">
+      <Label class="w-25 flex-shrink-0 text-sub">温度</Label>
+      <Slider :min="0" :max="2" :step="0.1" :model-value="[formState.temperature]" @update:model-value="formState.temperature = ($event as number[])[0]" class="flex-1" />
+      <span class="text-sub text-small w-8 text-right">{{ formState.temperature.toFixed(1) }}</span>
+    </div>
+    <div class="flex gap-normal">
+      <Button variant="outline" @click="emit('test-connection')">测试连接</Button>
+      <Button @click="handleSave">保存设置</Button>
+    </div>
+  </form>
 </template>

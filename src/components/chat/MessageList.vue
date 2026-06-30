@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Message } from '../../types'
 import MessageItem from './MessageItem.vue'
+import { InboxIcon } from 'lucide-vue-next'
 
 const props = defineProps<{
   messages: Message[]
@@ -14,16 +15,18 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div style="height: 100%; overflow-y: auto;">
-    <n-empty
+  <div class="h-full overflow-y-auto">
+    <div
       v-if="props.messages.length === 0 && !props.streamingId"
-      description="暂无消息"
-      style="margin-top: 48px;"
-    />
-    <div v-for="msg in props.messages" :key="msg.id" style="padding: 3px 0;">
+      class="flex flex-col items-center justify-center mt-12 text-hint gap-normal"
+    >
+      <InboxIcon class="size-8 text-hint" />
+      <span class="text-small">暂无消息</span>
+    </div>
+    <div v-for="msg in props.messages" :key="msg.id" class="py-1">
       <MessageItem :message="msg" />
     </div>
-    <div v-if="props.streamingId" style="padding: 3px 0;">
+    <div v-if="props.streamingId" class="py-1">
       <MessageItem
         :message="{
           id: props.streamingId,
@@ -37,3 +40,5 @@ const emit = defineEmits<{
     </div>
   </div>
 </template>
+
+
