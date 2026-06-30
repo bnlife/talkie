@@ -58,6 +58,7 @@ onMounted(async () => {
     await listen('chat:stream-done', () => chatStore.finishStream()),
     await listen('chat:error', (event) => {
       const { message } = event.payload as { message: string }
+      log('error', `前端::ChatView | 收到错误事件 | ${message}`)
       toast.error(message)
     }),
   ]
