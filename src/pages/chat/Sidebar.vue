@@ -136,33 +136,31 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="flex h-full flex-col bg-background text-sm">
+  <div class="flex h-full flex-col gap-1 text-sm p-2">
     <!-- 搜索栏 -->
-    <div class="px-2 pt-2">
-      <div class="relative">
-        <Search class="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          :model-value="searchQuery"
-          placeholder="搜索对话..."
-          class="h-7 pl-8 text-xs"
-          @update:model-value="(v: string | number) => emit('update:searchQuery', String(v))"
-        />
-      </div>
+    <div class="relative">
+      <Search class="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        :model-value="searchQuery"
+        placeholder="搜索对话..."
+        class="h-7 pl-8 text-xs"
+        @update:model-value="(v: string | number) => emit('update:searchQuery', String(v))"
+      />
     </div>
 
-    <!-- 新建对话（样式同列表项） -->
+    <!-- 新建对话 -->
     <div
-      class="flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-accent/50"
+      class="flex cursor-pointer items-center justify-between rounded-md border border-dashed px-2 py-1.5 text-xs transition-colors hover:bg-accent"
       @click="emit('create')"
     >
-      <div class="flex items-center gap-2 text-xs text-muted-foreground">
+      <div class="flex items-center gap-2">
         <Plus class="size-3.5" />
         <span>新建对话</span>
       </div>
     </div>
 
     <!-- 对话列表 -->
-    <div class="flex-1 overflow-y-auto px-1 py-1">
+    <div class="flex-1 overflow-y-auto">
       <div
         v-for="conv in filteredConversations"
         :key="conv.id"
@@ -206,7 +204,7 @@ onBeforeUnmount(() => {
             </div>
           </template>
           <template v-else>
-            <span class="block truncate text-xs">{{ conv.title }}</span>
+            <span class="block truncate text-xs text-muted-foreground">{{ conv.title }}</span>
           </template>
         </div>
 

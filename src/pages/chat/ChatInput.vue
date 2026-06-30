@@ -35,7 +35,7 @@ function handleSend() {
 <template>
   <div
     :class="cn(
-      'flex items-end gap-2 p-3 border-t bg-background',
+      'flex items-end gap-2 px-3 pt-1 pb-2 bg-background',
     )"
   >
     <Textarea

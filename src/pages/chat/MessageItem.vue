@@ -59,7 +59,7 @@ const avatarColorClass = computed(() => {
         'max-w-[75%] shadow-xs',
         isUser
           ? 'bg-primary text-primary-foreground border-primary'
-          : 'bg-muted'
+          : 'bg-muted text-foreground'
       )"
     >
       <CardContent class="p-3">

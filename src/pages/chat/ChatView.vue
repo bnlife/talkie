@@ -8,7 +8,7 @@ import * as chatBridge from '@/bridge/chat'
 import { log } from '@/bridge/log'
 import { Button } from '@/components/ui/button'
 
-import { PanelLeftOpen, PanelLeftClose, Moon, Sun, Minus, Maximize2, Minimize2, X } from 'lucide-vue-next'
+import { PanelLeftOpen, PanelLeftClose, Minus, Maximize2, Minimize2, X } from 'lucide-vue-next'
 import Sidebar from './Sidebar.vue'
 import MessageList from './MessageList.vue'
 import ChatInput from './ChatInput.vue'
@@ -61,55 +61,59 @@ onUnmounted(() => { cleanupFns.forEach(fn => fn()) })
 </script>
 
 <template>
-  <div class="flex flex-1 overflow-hidden">
-    <aside
-      v-show="!sidebarCollapsed"
-      class="w-60 shrink-0 border-r overflow-hidden"
+  <div class="flex h-full flex-col">
+    <header
+      data-tauri-drag-region
+      class="flex h-9 shrink-0 items-center justify-between bg-muted px-3 select-none"
     >
-      <Sidebar
-        :conversations="chatStore.conversations"
-        :active-id="chatStore.activeConversationId"
-        v-model:search-query="searchQuery"
-        @select="handleSelect"
-        @create="handleCreate"
-        @close="handleClose"
-        @rename="handleRename"
-        @pin="handlePin"
-        @unpin="handleUnpin"
-      />
-    </aside>
-    <main class="relative flex flex-1 flex-col overflow-hidden bg-background">
-      <!-- Window controls absolute -->
-      <div class="absolute right-3 top-2 z-10 flex items-center gap-0.5">
-        <Button variant="ghost" size="xs" @click.stop="settingsStore.updateSettings({ darkMode: !settingsStore.darkMode })">
-          <Moon v-if="!settingsStore.darkMode" class="size-3" />
-          <Sun v-else class="size-3" />
+      <div class="flex items-center gap-2">
+        <Button variant="ghost" size="icon" class="h-6 w-6" @click.stop="toggleSidebar">
+          <PanelLeftClose v-if="!sidebarCollapsed" class="h-3.5 w-3.5" />
+          <PanelLeftOpen v-else class="h-3.5 w-3.5" />
         </Button>
-        <Button variant="ghost" size="xs" @click.stop="minimizeWindow"><Minus class="size-3" /></Button>
-        <Button variant="ghost" size="xs" @click.stop="toggleMaximize">
-          <Maximize2 v-if="!isMaximized" class="size-3" />
-          <Minimize2 v-else class="size-3" />
-        </Button>
-        <Button variant="ghost" size="xs" class="hover:bg-destructive hover:text-destructive-foreground" @click.stop="closeWindow"><X class="size-3" /></Button>
+        <span class="text-sm font-medium text-muted-foreground">对话</span>
       </div>
-      <!-- Collapse button absolute -->
-      <div class="absolute left-2 top-2 z-10">
-        <Button variant="ghost" size="xs" @click.stop="toggleSidebar">
-          <PanelLeftClose v-if="!sidebarCollapsed" class="size-3" />
-          <PanelLeftOpen v-else class="size-3" />
+      <div class="flex items-center gap-0.5">
+        <Button variant="ghost" size="icon" class="h-6 w-6" @click="minimizeWindow"><Minus class="h-3.5 w-3.5" /></Button>
+        <Button variant="ghost" size="icon" class="h-6 w-6" @click="toggleMaximize">
+          <Maximize2 v-if="!isMaximized" class="h-3.5 w-3.5" />
+          <Minimize2 v-else class="h-3.5 w-3.5" />
         </Button>
+        <Button variant="ghost" size="icon" class="h-6 w-6 hover:bg-destructive hover:text-destructive-foreground" @click="closeWindow"><X class="h-3.5 w-3.5" /></Button>
       </div>
-      <MessageList
-        :messages="chatStore.messages"
-        :streaming-id="chatStore.streamingId"
-        :streaming-content="chatStore.streamingContent"
-      />
-      <ChatInput
-        :disabled="!chatStore.activeConversationId"
-        :streaming="!!chatStore.streamingId"
-        @send="handleSend"
-        @stop-stream="handleStopStream"
-      />
-    </main>
+    </header>
+    <div class="flex flex-1 overflow-hidden p-1">
+      <div class="flex flex-1 overflow-hidden rounded-lg border">
+        <aside
+          v-show="!sidebarCollapsed"
+          class="w-60 shrink-0 border-r bg-background overflow-hidden"
+        >
+          <Sidebar
+            :conversations="chatStore.conversations"
+            :active-id="chatStore.activeConversationId"
+            v-model:search-query="searchQuery"
+            @select="handleSelect"
+            @create="handleCreate"
+            @close="handleClose"
+            @rename="handleRename"
+            @pin="handlePin"
+            @unpin="handleUnpin"
+          />
+        </aside>
+        <main class="relative flex flex-1 flex-col overflow-hidden bg-background">
+          <MessageList
+            :messages="chatStore.messages"
+            :streaming-id="chatStore.streamingId"
+            :streaming-content="chatStore.streamingContent"
+          />
+          <ChatInput
+            :disabled="!chatStore.activeConversationId"
+            :streaming="!!chatStore.streamingId"
+            @send="handleSend"
+            @stop-stream="handleStopStream"
+          />
+        </main>
+      </div>
+    </div>
   </div>
 </template>

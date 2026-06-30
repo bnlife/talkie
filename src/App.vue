@@ -22,7 +22,7 @@ watch(
 </script>
 
 <template>
-  <div class="flex h-screen w-screen overflow-hidden bg-background text-foreground">
+  <div class="flex h-screen w-screen overflow-hidden bg-muted text-foreground">
     <Toolstrip :active-view="activeView" @select="activeView = $event" />
     <ChatView v-if="activeView === 'chat'" class="flex flex-1 overflow-hidden" />
     <SettingsView v-else-if="activeView === 'settings'" class="flex flex-1 flex-col overflow-hidden" />
