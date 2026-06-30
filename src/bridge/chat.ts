@@ -16,3 +16,7 @@ export async function getMessages(conversationId: string): Promise<Message[]> {
 export async function deleteMessage(messageId: string): Promise<void> {
   return invoke<void>('delete_message', { messageId })
 }
+
+export async function regenerateMessage(conversationId: string): Promise<void> {
+  return invoke<void>('regenerate_message', { conversationId })
+}

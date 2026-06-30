@@ -73,6 +73,7 @@ pub fn run() {
             commands::chat::stop_stream,
             commands::chat::get_messages,
             commands::chat::delete_message,
+            commands::chat::regenerate_message,
             commands::conversation::list_conversations,
             commands::conversation::create_conversation,
             commands::conversation::update_conversation,

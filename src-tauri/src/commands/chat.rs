@@ -202,3 +202,130 @@ pub fn delete_message(
     let db = state.db.lock().map_err(|e| e.to_string())?;
     store::delete_message(&db, &message_id).map_err(|e| e.to_string())
 }
+
+/// Regenerate the last assistant response without creating a new user message.
+///
+/// Fetches the conversation history and streams a new LLM response.
+/// Emits `chat:stream-chunk` and `chat:stream-done` events like `send_message`.
+#[tauri::command]
+pub async fn regenerate_message(
+    conversation_id: String,
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    log::info!(
+        "Rust::commands::chat::regenerate_message | 重新生成 | conv={}",
+        conversation_id
+    );
+
+    // 1. Retrieve the full conversation history.
+    let history = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        store::list_messages_by_conversation(&db, &conversation_id)
+            .map_err(|e| e.to_string())?
+    };
+
+    // 2. Read the current configuration.
+    let (base_url, api_key, model) = {
+        let config = state.config.lock().map_err(|e| e.to_string())?;
+        (
+            config.base_url.clone(),
+            config.api_key.clone(),
+            config.model.clone(),
+        )
+    };
+
+    // 3. Create a CancellationToken and store it in AppState.
+    let cancel = CancellationToken::new();
+    {
+        let mut c = state.cancel.lock().map_err(|e| e.to_string())?;
+        if let Some(previous) = c.replace(cancel.clone()) {
+            previous.cancel();
+        }
+    }
+
+    // 4. Generate an ID for the assistant message.
+    let message_id = uuid::Uuid::new_v4().to_string();
+
+    // 5. Invoke the streaming LLM call.
+    let app_handle = app.clone();
+    let mid = message_id.clone();
+    let full_text = match llm::stream_chat(
+        &base_url,
+        &api_key,
+        &model,
+        &history,
+        cancel.clone(),
+        move |delta| {
+            let _ = app_handle.emit(
+                "chat:stream-chunk",
+                serde_json::json!({
+                    "message_id": mid,
+                    "delta": delta,
+                }),
+            );
+        },
+    )
+    .await
+    {
+        Ok(text) => text,
+        Err(e) => {
+            if e.contains("请求已取消") {
+                log::warn!(
+                    "Rust::commands::chat::regenerate_message | 助手消息被取消 | conv={}",
+                    conversation_id
+                );
+            } else {
+                log::error!(
+                    "Rust::commands::chat::regenerate_message | 流式请求失败 | err={}",
+                    e
+                );
+            }
+            let _ = app.emit(
+                "chat:error",
+                serde_json::json!({
+                    "message": e,
+                }),
+            );
+            return Ok(());
+        }
+    };
+
+    // 6. Persist the assistant's full response.
+    let assistant_msg = models::Message {
+        id: message_id.clone(),
+        conversation_id,
+        role: "assistant".to_string(),
+        content: full_text,
+        created_at: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i64,
+        token_count: None,
+    };
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        store::create_message(&db, &assistant_msg).map_err(|e| e.to_string())?;
+    }
+    log::info!(
+        "Rust::commands::chat::regenerate_message | 助手消息已保存 | msg_id={} chars={}",
+        assistant_msg.id,
+        assistant_msg.content.len()
+    );
+
+    // 7. Clean up the cancellation token.
+    {
+        let mut c = state.cancel.lock().map_err(|e| e.to_string())?;
+        *c = None;
+    }
+
+    // 8. Signal completion to the frontend.
+    let _ = app.emit(
+        "chat:stream-done",
+        serde_json::json!({
+            "message_id": message_id,
+        }),
+    );
+
+    Ok(())
+}
