@@ -311,6 +311,79 @@ describe('chatStore', () => {
       expect(store.messages).toHaveLength(0)
     })
   })
+
+  describe('deleteMessage', () => {
+    it('calls bridge and removes message from local state', async () => {
+      vi.mocked(chatBridge.deleteMessage).mockResolvedValue(undefined)
+
+      const store = useChatStore()
+      store.messages = [
+        createMsg({ id: 'msg-1', content: 'hello' }),
+        createMsg({ id: 'msg-2', content: 'world' }),
+      ]
+
+      await store.deleteMessage('msg-1')
+
+      expect(chatBridge.deleteMessage).toHaveBeenCalledWith('msg-1')
+      expect(store.messages).toHaveLength(1)
+      expect(store.messages[0].id).toBe('msg-2')
+    })
+
+    it('does nothing when message id does not exist', async () => {
+      vi.mocked(chatBridge.deleteMessage).mockResolvedValue(undefined)
+
+      const store = useChatStore()
+      store.messages = [createMsg({ id: 'msg-1' })]
+
+      await store.deleteMessage('non-existent')
+
+      expect(chatBridge.deleteMessage).toHaveBeenCalledWith('non-existent')
+      expect(store.messages).toHaveLength(1)
+    })
+  })
+
+  describe('regenerateMessage', () => {
+    it('returns early if no active conversation', async () => {
+      const store = useChatStore()
+      store.activeConversationId = null
+
+      await store.regenerateMessage()
+
+      expect(chatBridge.sendMessage).not.toHaveBeenCalled()
+    })
+
+    it('deletes last assistant message and resends last user message', async () => {
+      vi.mocked(chatBridge.deleteMessage).mockResolvedValue(undefined)
+      vi.mocked(chatBridge.sendMessage).mockResolvedValue(undefined)
+
+      const store = useChatStore()
+      store.activeConversationId = 'conv-1'
+      store.messages = [
+        createMsg({ id: 'user-1', role: 'user', content: 'hello' }),
+        createMsg({ id: 'ast-1', role: 'assistant', content: 'hi there' }),
+      ]
+
+      await store.regenerateMessage()
+
+      expect(chatBridge.deleteMessage).toHaveBeenCalledWith('ast-1')
+      expect(store.messages).toHaveLength(1)
+      expect(store.messages[0].id).toBe('user-1')
+      expect(chatBridge.sendMessage).toHaveBeenCalledWith('conv-1', 'hello')
+    })
+
+    it('does nothing if last message is not assistant', async () => {
+      const store = useChatStore()
+      store.activeConversationId = 'conv-1'
+      store.messages = [
+        createMsg({ id: 'user-1', role: 'user', content: 'hello' }),
+      ]
+
+      await store.regenerateMessage()
+
+      expect(chatBridge.deleteMessage).not.toHaveBeenCalled()
+      expect(chatBridge.sendMessage).not.toHaveBeenCalled()
+    })
+  })
 })
 
 // ---------------------------------------------------------------------------

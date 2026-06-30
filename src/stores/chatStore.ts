@@ -137,12 +137,12 @@ export const useChatStore = defineStore('chat', {
     async regenerateMessage(): Promise<void> {
       await log('info', '前端::chatStore::regenerateMessage | 重新生成')
       if (!this.activeConversationId) return
-      // 删除最后一条助手消息
+      // 只有最后一条是助手消息时才重新生成
       const lastMsg = this.messages[this.messages.length - 1]
-      if (lastMsg && lastMsg.role === 'assistant') {
-        this.messages.pop()
-        await chatBridge.deleteMessage(lastMsg.id)
-      }
+      if (!lastMsg || lastMsg.role !== 'assistant') return
+      // 删除最后一条助手消息
+      this.messages.pop()
+      await chatBridge.deleteMessage(lastMsg.id)
       // 重新发送最后一条用户消息
       const lastUserMsg = [...this.messages].reverse().find(m => m.role === 'user')
       if (lastUserMsg) {
