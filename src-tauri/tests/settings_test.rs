@@ -49,6 +49,9 @@ fn test_config_default_none_when_file_missing() {
 
 /// An old-style config JSON *without* `last_active_conversation_id` must
 /// still deserialize correctly (serde(default) on the field).
+///
+/// The config migration converts `{base_url, api_key, model}` into a single
+/// provider in `providers[]` with those values.
 #[test]
 fn test_config_backwards_compat_old_format() {
     let path = temp_config_path();
@@ -61,9 +64,12 @@ fn test_config_backwards_compat_old_format() {
     std::fs::write(&path, old_json).expect("write old-format config");
 
     let settings = config::load(path.clone()).expect("old format should load");
-    assert_eq!(settings.base_url, "https://api.example.com");
-    assert_eq!(settings.api_key, "sk-old");
-    assert_eq!(settings.model, "gpt-3.5");
+    // Migration should create one provider from the old flat fields.
+    assert_eq!(settings.providers.len(), 1);
+    let provider = &settings.providers[0];
+    assert_eq!(provider.base_url, "https://api.example.com");
+    assert_eq!(provider.api_key, "sk-old");
+    assert!(provider.models.contains(&"gpt-3.5".to_string()));
     assert_eq!(settings.temperature, 0.5);
     // The new field should gracefully default to None.
     assert_eq!(settings.last_active_conversation_id, None);

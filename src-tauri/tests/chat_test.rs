@@ -37,6 +37,7 @@ fn insert_conv(conn: &rusqlite::Connection, id: &str) {
     let conv = Conversation {
         id: id.to_string(),
         title: "Test Conversation".into(),
+        provider_id: "prov-1".into(),
         model: "test-model".into(),
         system_prompt: String::new(),
         created_at: 1000,
@@ -235,6 +236,7 @@ fn test_store_list_orders_pinned_first() {
         let conv = Conversation {
             id: format!("conv-{}", i),
             title: format!("Conversation {}", i),
+            provider_id: "prov-1".into(),
             model: "test".into(),
             system_prompt: String::new(),
             created_at: now + i,

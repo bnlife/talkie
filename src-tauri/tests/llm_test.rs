@@ -9,6 +9,10 @@ use talkie::llm::stream_chat;
 use talkie::models::Message;
 use tokio_util::sync::CancellationToken;
 
+fn empty_headers() -> std::collections::HashMap<String, String> {
+    std::collections::HashMap::new()
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -50,6 +54,9 @@ async fn test_single_chunk() {
         &server.url(),
         "test-key",
         "test-model",
+        &empty_headers(),
+        0.7,
+        1.0,
         &messages,
         cancel,
         move |chunk| {
@@ -109,6 +116,9 @@ async fn test_multi_chunk_stream() {
         &server.url(),
         "test-key",
         "test-model",
+        &empty_headers(),
+        0.7,
+        1.0,
         &messages,
         cancel,
         move |chunk| {
@@ -154,6 +164,9 @@ async fn test_cancel_before_request() {
         "http://localhost:0",
         "key",
         "model",
+        &empty_headers(),
+        0.7,
+        1.0,
         &messages,
         cancel,
         |_| {},
@@ -190,6 +203,9 @@ async fn test_http_error_401() {
         &server.url(),
         "bad-key",
         "model",
+        &empty_headers(),
+        0.7,
+        1.0,
         &messages,
         CancellationToken::new(),
         |_| {},
@@ -230,6 +246,9 @@ async fn test_http_error_500() {
         &server.url(),
         "key",
         "model",
+        &empty_headers(),
+        0.7,
+        1.0,
         &messages,
         CancellationToken::new(),
         |_| {},
@@ -285,6 +304,9 @@ data: [DONE]
         &server.url(),
         "key",
         "model",
+        &empty_headers(),
+        0.7,
+        1.0,
         &messages,
         CancellationToken::new(),
         move |chunk| {
