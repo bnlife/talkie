@@ -123,6 +123,7 @@ pub fn run() {
             commands::mcp::start_mcp_instance,
             commands::mcp::stop_mcp_instance,
             commands::mcp::call_mcp_tool,
+            commands::mcp::test_mcp_connection,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -113,7 +113,7 @@ describe('ChatInput.vue', () => {
     const chatStore = useChatStore()
     chatStore.conversations = [{
       id: 'c1', title: '对话一', provider_id: 'prov-1', model: 'gpt-4',
-      prompt_id: null, search_enabled: false, created_at: 1000, updated_at: 1001, pinned: false,
+      prompt_id: null, search_enabled: false, search_engine: '', created_at: 1000, updated_at: 1001, pinned: false,
     }]
     chatStore.activeConversationId = 'c1'
 

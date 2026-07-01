@@ -28,6 +28,7 @@ function createConv(overrides: Partial<ConversationView> = {}): ConversationView
     model: 'deepseek-chat',
     prompt_id: null,
     search_enabled: false,
+    search_engine: '',
     created_at: 0,
     updated_at: 0,
     pinned: false,
@@ -293,19 +294,19 @@ describe('chatStore', () => {
       })
       expect(typeof store.messages[0].id).toBe('string')
       expect(typeof store.messages[0].created_at).toBe('number')
-      expect(chatBridge.sendMessage).toHaveBeenCalledWith('conv-1', 'hello', false)
+      expect(chatBridge.sendMessage).toHaveBeenCalledWith('conv-1', 'hello', false, undefined)
     })
 
     it('sendMessage passes searchEnabled=true when search is on', async () => {
       vi.mocked(chatBridge.sendMessage).mockResolvedValue(undefined)
 
       const store = useChatStore()
-      store.conversations = [createConv({ id: 'conv-1', search_enabled: true })]
+      store.conversations = [createConv({ id: 'conv-1', search_enabled: true, search_engine: 'bocha-search' })]
       store.activeConversationId = 'conv-1'
 
       await store.sendMessage('搜索天气')
 
-      expect(chatBridge.sendMessage).toHaveBeenCalledWith('conv-1', '搜索天气', true)
+      expect(chatBridge.sendMessage).toHaveBeenCalledWith('conv-1', '搜索天气', true, 'bocha-search')
     })
   })
 

@@ -52,6 +52,7 @@ pub fn create_conversation(
         model,
         prompt_id: None,
         search_enabled: false,
+        search_engine: String::new(),
     };
 
     store::create_conversation(&db, &conversation, &config).map_err(|e| e.to_string())?;
@@ -66,6 +67,7 @@ pub fn create_conversation(
         model: config.model,
         prompt_id: config.prompt_id,
         search_enabled: config.search_enabled,
+        search_engine: config.search_engine,
     })
 }
 
@@ -78,9 +80,10 @@ pub fn update_conversation(
     model: Option<String>,
     prompt_id: Option<String>,
     search_enabled: Option<bool>,
+    search_engine: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    log::info!("RS::CMD::conv | update | id={}", id);
+    log::info!("RS::CMD::conv | update | id={} engine={:?}", id, search_engine);
     let db = state.db.lock().map_err(|e| e.to_string())?;
 
     let conv = store::get_conversation(&db, &id)
@@ -103,7 +106,7 @@ pub fn update_conversation(
     }
 
     // Update config fields if any changed
-    if provider_id.is_some() || model.is_some() || prompt_id.is_some() || search_enabled.is_some() {
+    if provider_id.is_some() || model.is_some() || prompt_id.is_some() || search_enabled.is_some() || search_engine.is_some() {
         // Treat empty string as None (clear), missing field keeps old value
         let effective_prompt_id = match prompt_id.as_deref() {
             Some(s) if s.is_empty() => None,
@@ -116,6 +119,7 @@ pub fn update_conversation(
             model: model.unwrap_or(conv.model),
             prompt_id: effective_prompt_id,
             search_enabled: search_enabled.unwrap_or(conv.search_enabled),
+            search_engine: search_engine.unwrap_or(conv.search_engine),
         }).map_err(|e| e.to_string())?;
     }
 

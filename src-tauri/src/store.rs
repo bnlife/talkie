@@ -125,6 +125,12 @@ pub fn init(db_path: &PathBuf) -> Result<Connection, AppError> {
         [],
     );
 
+    // 迁移：为 conversation_configs 表添加 search_engine 列（搜索引擎 server_id）
+    let _ = conn.execute(
+        "ALTER TABLE conversation_configs ADD COLUMN search_engine TEXT NOT NULL DEFAULT ''",
+        [],
+    );
+
     // Seed built-in MCP registry data (skip if already populated).
     seed_mcp_registry(&conn)?;
 
@@ -173,6 +179,8 @@ fn seed_mcp_registry(conn: &Connection) -> Result<(), AppError> {
          None, None, 2000),
         ("search", "local:bocha-search", "博查搜索", "博查 AI 搜索引擎，中国可用（自建 MCP server）", "本地", "local", "local:bocha-search",
          Some(r#"[{"name":"BOCHA_API_KEY","description":"博查 API Key（在 open.bochaai.com 获取）","required":true,"secret":true}]"#), None, 100),
+        ("search", "tavily-search", "Tavily Search", "Tavily AI 搜索引擎，实时高质量搜索（免费 1000 次/月）", "Tavily", "npm", "tavily-mcp",
+         Some(r#"[{"name":"TAVILY_API_KEY","description":"Tavily API Key（在 tavily.com 获取，免费注册）","required":true,"secret":true}]"#), None, 50000),
         ("devtools", "git", "Git", "Git 仓库操作：提交、分支、diff", "Anthropic", "npm", "@modelcontextprotocol/server-git",
          None, Some(r#"[{"type":"positional","valueHint":"repo_path","description":"Git 仓库路径","required":true}]"#), 75000),
         ("devtools", "github", "GitHub", "GitHub API：仓库、Issue、PR", "Anthropic", "npm", "@modelcontextprotocol/server-github",
@@ -212,7 +220,7 @@ pub fn list_conversations(conn: &Connection) -> Result<Vec<ConversationView>, Ap
     log::debug!("RS::list_conversations");
     let mut stmt = conn.prepare(
         "SELECT c.id, c.title, c.created_at, c.updated_at, c.pinned,
-                COALESCE(cfg.provider_id, ''), COALESCE(cfg.model, ''), cfg.prompt_id, COALESCE(cfg.search_enabled, 0)
+                COALESCE(cfg.provider_id, ''), COALESCE(cfg.model, ''), cfg.prompt_id, COALESCE(cfg.search_enabled, 0), COALESCE(cfg.search_engine, '')
          FROM conversations c
          LEFT JOIN conversation_configs cfg ON cfg.conversation_id = c.id
          ORDER BY c.pinned DESC, c.updated_at DESC",
@@ -228,6 +236,7 @@ pub fn list_conversations(conn: &Connection) -> Result<Vec<ConversationView>, Ap
             model: row.get(6)?,
             prompt_id: row.get(7)?,
             search_enabled: row.get::<_, i64>(8)? != 0,
+            search_engine: row.get(9)?,
         })
     })?;
     let mut conversations = Vec::new();
@@ -247,8 +256,8 @@ pub fn create_conversation(conn: &Connection, conv: &Conversation, config: &Conv
         params![conv.id, conv.title, conv.created_at, conv.updated_at, conv.pinned as i64],
     )?;
     conn.execute(
-        "INSERT INTO conversation_configs (conversation_id, provider_id, model, prompt_id, search_enabled) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![config.conversation_id, config.provider_id, config.model, config.prompt_id, config.search_enabled as i64],
+        "INSERT INTO conversation_configs (conversation_id, provider_id, model, prompt_id, search_enabled, search_engine) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![config.conversation_id, config.provider_id, config.model, config.prompt_id, config.search_enabled as i64, config.search_engine],
     )?;
     Ok(())
 }
@@ -258,7 +267,7 @@ pub fn get_conversation(conn: &Connection, id: &str) -> Result<Option<Conversati
     log::debug!("RS::get_conversation | id={}", id);
     let mut stmt = conn.prepare(
         "SELECT c.id, c.title, c.created_at, c.updated_at, c.pinned,
-                COALESCE(cfg.provider_id, ''), COALESCE(cfg.model, ''), cfg.prompt_id, COALESCE(cfg.search_enabled, 0)
+                COALESCE(cfg.provider_id, ''), COALESCE(cfg.model, ''), cfg.prompt_id, COALESCE(cfg.search_enabled, 0), COALESCE(cfg.search_engine, '')
          FROM conversations c
          LEFT JOIN conversation_configs cfg ON cfg.conversation_id = c.id
          WHERE c.id = ?1",
@@ -274,6 +283,7 @@ pub fn get_conversation(conn: &Connection, id: &str) -> Result<Option<Conversati
             model: row.get(6)?,
             prompt_id: row.get(7)?,
             search_enabled: row.get::<_, i64>(8)? != 0,
+            search_engine: row.get(9)?,
         })
     })?;
     match rows.next() {
@@ -297,8 +307,8 @@ pub fn update_conversation(conn: &Connection, conv: &Conversation) -> Result<(),
 pub fn update_conversation_config(conn: &Connection, config: &ConversationConfig) -> Result<(), AppError> {
     log::debug!("RS::update_conversation_config | id={}", config.conversation_id);
     conn.execute(
-        "UPDATE conversation_configs SET provider_id = ?1, model = ?2, prompt_id = ?3, search_enabled = ?4 WHERE conversation_id = ?5",
-        params![config.provider_id, config.model, config.prompt_id, config.search_enabled as i64, config.conversation_id],
+        "UPDATE conversation_configs SET provider_id = ?1, model = ?2, prompt_id = ?3, search_enabled = ?4, search_engine = ?5 WHERE conversation_id = ?6",
+        params![config.provider_id, config.model, config.prompt_id, config.search_enabled as i64, config.search_engine, config.conversation_id],
     )?;
     Ok(())
 }
@@ -753,6 +763,7 @@ mod tests {
                 model TEXT NOT NULL DEFAULT '',
                 prompt_id TEXT,
                 search_enabled INTEGER NOT NULL DEFAULT 0,
+                search_engine TEXT NOT NULL DEFAULT '',
                 FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
             );
         CREATE TABLE IF NOT EXISTS messages (
@@ -904,7 +915,7 @@ mod tests {
         // Create a conversation with no prompt_id
         create_conversation(&conn,
             &Conversation { id: "c1".into(), title: "test".into(), created_at: 0, updated_at: 0, pinned: false },
-            &ConversationConfig { conversation_id: "c1".into(), provider_id: "".into(), model: "gpt-4".into(), prompt_id: None, search_enabled: false },
+            &ConversationConfig { conversation_id: "c1".into(), provider_id: "".into(), model: "gpt-4".into(), prompt_id: None, search_enabled: false, search_engine: String::new() },
         ).unwrap();
 
         // Create a default prompt
@@ -933,7 +944,7 @@ mod tests {
         // Create a conversation with prompt_id pointing to a specific prompt
         create_conversation(&conn,
             &Conversation { id: "c1".into(), title: "test".into(), created_at: 0, updated_at: 0, pinned: false },
-            &ConversationConfig { conversation_id: "c1".into(), provider_id: "".into(), model: "gpt-4".into(), prompt_id: Some("p2".into()), search_enabled: false },
+            &ConversationConfig { conversation_id: "c1".into(), provider_id: "".into(), model: "gpt-4".into(), prompt_id: Some("p2".into()), search_enabled: false, search_engine: String::new() },
         ).unwrap();
 
         // Create two prompts
@@ -963,7 +974,7 @@ mod tests {
         let conn = setup_db();
         create_conversation(&conn,
             &Conversation { id: "c1".into(), title: "test".into(), created_at: 0, updated_at: 0, pinned: false },
-            &ConversationConfig { conversation_id: "c1".into(), provider_id: "prov-1".into(), model: "gpt-4".into(), prompt_id: None, search_enabled: false },
+            &ConversationConfig { conversation_id: "c1".into(), provider_id: "prov-1".into(), model: "gpt-4".into(), prompt_id: None, search_enabled: false, search_engine: String::new() },
         ).unwrap();
 
         let conv = get_conversation(&conn, "c1").unwrap().unwrap();
@@ -980,7 +991,7 @@ mod tests {
         let conn = setup_db();
         create_conversation(&conn,
             &Conversation { id: "c-old".into(), title: "old".into(), created_at: 0, updated_at: 0, pinned: false },
-            &ConversationConfig { conversation_id: "c-old".into(), provider_id: "".into(), model: "deepseek-chat".into(), prompt_id: None, search_enabled: false },
+            &ConversationConfig { conversation_id: "c-old".into(), provider_id: "".into(), model: "deepseek-chat".into(), prompt_id: None, search_enabled: false, search_engine: String::new() },
         ).unwrap();
 
         let conv = get_conversation(&conn, "c-old").unwrap().unwrap();
@@ -992,7 +1003,7 @@ mod tests {
         let conn = setup_db();
         create_conversation(&conn,
             &Conversation { id: "c1".into(), title: "test".into(), created_at: 0, updated_at: 0, pinned: false },
-            &ConversationConfig { conversation_id: "c1".into(), provider_id: "prov-1".into(), model: "gpt-4".into(), prompt_id: None, search_enabled: false },
+            &ConversationConfig { conversation_id: "c1".into(), provider_id: "prov-1".into(), model: "gpt-4".into(), prompt_id: None, search_enabled: false, search_engine: String::new() },
         ).unwrap();
 
         // Update config
@@ -1002,6 +1013,7 @@ mod tests {
             model: "deepseek-chat".into(),
             prompt_id: Some("p1".into()),
             search_enabled: true,
+            search_engine: String::new(),
         }).unwrap();
 
         let conv = get_conversation(&conn, "c1").unwrap().unwrap();
@@ -1117,6 +1129,7 @@ mod tests {
             model: "test".into(),
             prompt_id: None,
             search_enabled: false,
+            search_engine: String::new(),
         };
         create_conversation(&conn, &conv, &config).unwrap();
 
@@ -1173,6 +1186,7 @@ mod tests {
             model: "test".into(),
             prompt_id: None,
             search_enabled: false,
+            search_engine: String::new(),
         };
         create_conversation(&conn, &conv, &config).unwrap();
 

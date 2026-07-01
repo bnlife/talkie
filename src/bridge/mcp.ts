@@ -48,3 +48,7 @@ export async function stopMcpInstance(id: string): Promise<void> {
 export async function callMcpTool(instanceId: string, toolName: string, args: Record<string, unknown>): Promise<unknown> {
   return invoke<unknown>('call_mcp_tool', { instanceId, toolName, args })
 }
+
+export async function testMcpConnection(id: string): Promise<string> {
+  return invoke<string>('test_mcp_connection', { id })
+}

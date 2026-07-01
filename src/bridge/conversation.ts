@@ -15,6 +15,7 @@ export interface ConversationUpdates {
   model?: string
   promptId?: string | null
   searchEnabled?: boolean
+  searchEngine?: string
 }
 
 export async function updateConversation(id: string, updates: ConversationUpdates): Promise<void> {

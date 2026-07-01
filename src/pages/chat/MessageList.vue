@@ -110,6 +110,7 @@ async function handleRegenerate() {
   <div
     ref="scrollRef"
     :class="cn('flex-1 w-full overflow-y-auto')"
+    style="scrollbar-gutter: stable"
     @scroll="onScroll"
   >
     <div class="flex flex-col gap-3 px-4 py-2">

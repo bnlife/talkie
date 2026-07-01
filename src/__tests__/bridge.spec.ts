@@ -36,6 +36,7 @@ describe('chat bridge', () => {
       conversationId: 'conv-1',
       content: 'hello',
       searchEnabled: false,
+      searchEngine: null,
     })
   })
 

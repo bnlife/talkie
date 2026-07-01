@@ -26,6 +26,9 @@ export const useChatStore = defineStore('chat', {
     searchEnabled(state): boolean {
       return state.conversations.find(c => c.id === state.activeConversationId)?.search_enabled ?? false
     },
+    searchEngine(state): string {
+      return state.conversations.find(c => c.id === state.activeConversationId)?.search_engine ?? ''
+    },
   },
 
   actions: {
@@ -117,7 +120,7 @@ export const useChatStore = defineStore('chat', {
 
     async sendMessage(content: string): Promise<void> {
       const conv = this.conversations.find(c => c.id === this.activeConversationId)
-      await log('info', `FE::chatStore | send | len=${content.length} search=${conv?.search_enabled ?? false}`)
+      await log('info', `FE::chatStore | send | len=${content.length} search=${conv?.search_enabled ?? false} engine=${conv?.search_engine ?? ''}`)
       if (!this.activeConversationId || !conv) return
       this.clearDraft(this.activeConversationId)
       const tempMsg: Message = {
@@ -129,16 +132,20 @@ export const useChatStore = defineStore('chat', {
       }
       this.messages.push(tempMsg)
       this.waitingForResponse = true
-      await chatBridge.sendMessage(this.activeConversationId, content, conv.search_enabled)
+      await chatBridge.sendMessage(this.activeConversationId, content, conv.search_enabled, conv.search_engine || undefined)
     },
 
-    async toggleSearch(): Promise<void> {
+    async selectSearchEngine(engine: string): Promise<void> {
       const conv = this.conversations.find(c => c.id === this.activeConversationId)
       if (!conv) return
-      const newValue = !conv.search_enabled
-      await log('info', `FE::chatStore | toggle search | id=${conv.id} enabled=${newValue}`)
-      await conversationBridge.updateConversation(conv.id, { searchEnabled: newValue })
-      conv.search_enabled = newValue
+      // If clicking the same engine, toggle off; otherwise switch engine and enable
+      const isSameEngine = conv.search_engine === engine && conv.search_enabled
+      const newEnabled = !isSameEngine
+      const newEngine = isSameEngine ? '' : engine
+      await log('info', `FE::chatStore | select search engine | id=${conv.id} engine=${newEngine} enabled=${newEnabled}`)
+      await conversationBridge.updateConversation(conv.id, { searchEnabled: newEnabled, searchEngine: newEngine })
+      conv.search_enabled = newEnabled
+      conv.search_engine = newEngine
     },
 
     async selectPrompt(promptId: string | null): Promise<void> {

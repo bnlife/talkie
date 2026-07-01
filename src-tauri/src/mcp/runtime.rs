@@ -1,7 +1,8 @@
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::io::{BufRead, BufReader, Write};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc};
 use std::thread::JoinHandle;
+use std::time::Duration;
 
 use crate::mcp::jsonrpc::{self, JsonRpcRequest, JsonRpcResponse, McpTool};
 use crate::models::McpInstance;
@@ -11,7 +12,8 @@ pub struct McpProcess {
     pub id: String,
     child: Child,
     stdin: ChildStdin,
-    stdout: BufReader<std::process::ChildStdout>,
+    reader_rx: mpsc::Receiver<Result<String, String>>,
+    reader_handle: Option<JoinHandle<()>>,
     stderr_collector: Arc<Mutex<String>>,
     stderr_handle: Option<JoinHandle<()>>,
     next_id: i64,
@@ -76,11 +78,26 @@ impl McpProcess {
             }
         });
 
+        // Persistent stdout reader thread: runs for the lifetime of the process
+        let (reader_tx, reader_rx) = mpsc::channel::<Result<String, String>>();
+        let reader_handle = std::thread::spawn(move || {
+            let mut reader = stdout;
+            loop {
+                let mut line = String::new();
+                match reader.read_line(&mut line) {
+                    Ok(0) => { let _ = reader_tx.send(Err("EOF".to_string())); break; }
+                    Ok(_) => { if reader_tx.send(Ok(line)).is_err() { break; } }
+                    Err(e) => { let _ = reader_tx.send(Err(e.to_string())); break; }
+                }
+            }
+        });
+
         let mut proc = McpProcess {
             id: instance.id.clone(),
             child,
             stdin,
-            stdout,
+            reader_rx,
+            reader_handle: Some(reader_handle),
             stderr_collector,
             stderr_handle: Some(stderr_handle),
             next_id: 1,
@@ -121,10 +138,14 @@ impl McpProcess {
         let id = self.next_id;
         self.next_id += 1;
 
+        log::debug!("RS::mcp::call | method={} id={} | sending request", method, id);
         let req = JsonRpcRequest::new(id, method, params);
         self.send_raw(&req.to_message())?;
+        log::debug!("RS::mcp::call | method={} id={} | request sent, waiting for response", method, id);
 
-        self.read_response(id)
+        let result = self.read_response(id);
+        log::debug!("RS::mcp::call | method={} id={} | result={:?}", method, id, result.is_ok());
+        result
     }
 
     /// List available tools from this MCP server.
@@ -159,44 +180,53 @@ impl McpProcess {
         Ok(())
     }
 
-    /// Read a JSON-RPC response with the expected id.
+    /// Read a JSON-RPC response with the expected id (with 30s timeout).
     fn read_response(&mut self, expected_id: i64) -> Result<JsonRpcResponse, String> {
+        let timeout = Duration::from_secs(30);
+        let start = std::time::Instant::now();
+        log::debug!("RS::mcp::read_response | expected_id={} | waiting (30s timeout)", expected_id);
+
         loop {
-            let mut line = String::new();
-            let bytes = self.stdout.read_line(&mut line)
-                .map_err(|e| format!("读取 stdout 失败: {}", e))?;
-            if bytes == 0 {
-                // Process exited — read stderr for diagnostics
-                let stderr_output = self.get_stderr();
-                let stderr_trimmed = stderr_output.trim();
-                if stderr_trimmed.is_empty() {
-                    return Err("MCP 进程已关闭 (EOF)，stderr 无输出".to_string());
-                } else {
-                    log::error!("RS::mcp | stderr: {}", stderr_trimmed);
-                    return Err(format!("MCP 进程已关闭 (EOF)，stderr: {}", stderr_trimmed));
-                }
-            }
-
-            let line = line.trim();
-            if line.is_empty() {
-                continue;
-            }
-
-            log::trace!("RS::mcp | <<< {}", line);
-
-            // Try parsing as response
-            match jsonrpc::parse_response(line) {
-                Ok(resp) => {
-                    // Match by id (notifications have no id, skip them)
-                    if resp.id == Some(expected_id) {
-                        return Ok(resp);
+            match self.reader_rx.recv_timeout(timeout) {
+                Ok(Ok(line)) => {
+                    let trimmed = line.trim().to_string();
+                    log::debug!("RS::mcp::read_response | got line (elapsed={:.1}s, len={})", start.elapsed().as_secs_f64(), trimmed.len());
+                    if trimmed.is_empty() { continue; }
+                    log::trace!("RS::mcp | <<< {}", trimmed);
+                    match jsonrpc::parse_response(&trimmed) {
+                        Ok(resp) if resp.id == Some(expected_id) => {
+                            log::debug!("RS::mcp::read_response | matched id={} (elapsed={:.1}s)", expected_id, start.elapsed().as_secs_f64());
+                            return Ok(resp);
+                        }
+                        Ok(resp) => {
+                            log::debug!("RS::mcp | skip non-target resp | id={:?}", resp.id);
+                        }
+                        Err(e) => {
+                            log::warn!("RS::mcp | parse: {}", e);
+                        }
                     }
-                    // Otherwise it's a notification or different response, skip
-                    log::debug!("RS::mcp | skip non-target resp | id={:?}", resp.id);
                 }
-                Err(e) => {
-                    log::warn!("RS::mcp | {}", e);
-                    continue;
+                Ok(Err(e)) if e == "EOF" => {
+                    let stderr = self.get_stderr();
+                    let stderr_trimmed = stderr.trim();
+                    log::error!("RS::mcp::read_response | EOF (elapsed={:.1}s) stderr={}", start.elapsed().as_secs_f64(), stderr_trimmed);
+                    if stderr_trimmed.is_empty() {
+                        return Err("MCP 进程已关闭 (EOF)，stderr 无输出".to_string());
+                    } else {
+                        return Err(format!("MCP 进程已关闭 (EOF)，stderr: {}", stderr_trimmed));
+                    }
+                }
+                Ok(Err(e)) => {
+                    log::error!("RS::mcp::read_response | read error: {} (elapsed={:.1}s)", e, start.elapsed().as_secs_f64());
+                    return Err(format!("读取 stdout 失败: {}", e));
+                }
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    log::error!("RS::mcp::read_response | TIMEOUT (30s) | id={}", self.id);
+                    return Err("MCP 响应超时 (30秒)，进程可能未正确启动".to_string());
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    log::error!("RS::mcp::read_response | channel disconnected (elapsed={:.1}s)", start.elapsed().as_secs_f64());
+                    return Err("MCP 读取线程已退出".to_string());
                 }
             }
         }
@@ -207,6 +237,10 @@ impl McpProcess {
         log::info!("RS::mcp::shutdown | id={}", self.id);
         let _ = self.child.kill();
         let _ = self.child.wait();
+        // Wait for reader thread to finish (pipe closes after kill, read_line returns)
+        if let Some(handle) = self.reader_handle.take() {
+            let _ = handle.join();
+        }
         // Wait for stderr thread to finish
         if let Some(handle) = self.stderr_handle.take() {
             let _ = handle.join();

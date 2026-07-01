@@ -58,6 +58,7 @@ fn insert_conversation(state: &talkie::AppState, conv_id: &str) {
         model: "test".into(),
         prompt_id: None,
         search_enabled: true,
+        search_engine: String::new(),
     };
     let db = state.db.lock().unwrap();
     store::create_conversation(&db, &conv, &config).unwrap();

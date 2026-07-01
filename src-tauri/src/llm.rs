@@ -40,7 +40,7 @@ where
     );
 
     let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
+        .connect_timeout(std::time::Duration::from_secs(30))
         .build()
         .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))?;
 
@@ -116,7 +116,16 @@ where
             return Err("请求已取消".to_string());
         }
 
-        let chunk = response.chunk().await.map_err(|e| format!("读取响应分块失败: {}", e))?;
+        let chunk = match tokio::time::timeout(
+            std::time::Duration::from_secs(60),
+            response.chunk()
+        ).await {
+            Ok(result) => result.map_err(|e| format!("读取响应分块失败: {}", e))?,
+            Err(_) => {
+                log::error!("RS::llm | chunk timeout (60s)");
+                return Err("读取响应超时 (60秒无数据)".to_string());
+            }
+        };
         let chunk = match chunk {
             Some(c) => c,
             None => break,

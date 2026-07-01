@@ -7,6 +7,7 @@ import { Send, Square, ChevronDown, Bot, Sparkles, Brain, Diamond, Server, Setti
 import { useSettingsStore } from '@/stores/settingsStore'
 import { usePromptStore } from '@/stores/promptStore'
 import { useChatStore } from '@/stores/chatStore'
+import { useMcpStore } from '@/stores/mcpStore'
 
 const props = defineProps<{
   disabled?: boolean
@@ -21,10 +22,12 @@ const emit = defineEmits<{
 const settingsStore = useSettingsStore()
 const promptStore = usePromptStore()
 const chatStore = useChatStore()
+const mcpStore = useMcpStore()
 
 const input = ref(chatStore.activeConversationId ? chatStore.getDraft(chatStore.activeConversationId) : '')
 const showModelMenu = ref(false)
 const showPromptMenu = ref(false)
+const showSearchMenu = ref(false)
 
 // Restore draft when conversation changes
 watch(() => chatStore.activeConversationId, (newId) => {
@@ -42,10 +45,31 @@ watch(input, (val) => {
   }
 })
 
-// Search toggle — per-conversation, persisted to DB
+// Search state
 const searchEnabled = computed(() => chatStore.searchEnabled)
-async function toggleSearch() {
-  await chatStore.toggleSearch()
+const searchEngine = computed(() => chatStore.searchEngine)
+
+// Installed search MCP instances
+const searchInstances = computed(() => {
+  return mcpStore.instances.filter(i =>
+    i.server_id === 'brave-search' || i.server_id === 'duckduckgo'
+    || i.server_id === 'bocha-search' || i.server_id === 'local:bocha-search'
+    || i.server_id === 'tavily-search' || i.server_id.contains('search')
+  )
+})
+
+// Display name for current search engine
+const searchEngineName = computed(() => {
+  if (!searchEnabled.value) return null
+  const engine = searchEngine.value
+  if (!engine) return '搜索'
+  const inst = mcpStore.instances.find(i => i.server_id === engine)
+  return inst?.name ?? engine
+})
+
+async function selectSearchEngine(engine: string) {
+  await chatStore.selectSearchEngine(engine)
+  showSearchMenu.value = false
 }
 
 const iconMap: Record<string, any> = { Bot, Sparkles, Brain, Diamond, Server, Settings }
@@ -100,9 +124,10 @@ function handleSend() {
 
 function handleOutsideClick(e: MouseEvent) {
   const target = e.target as HTMLElement
-  if (!target.closest('[data-model-menu]') && !target.closest('[data-prompt-menu]')) {
+  if (!target.closest('[data-model-menu]') && !target.closest('[data-prompt-menu]') && !target.closest('[data-search-menu]')) {
     showModelMenu.value = false
     showPromptMenu.value = false
+    showSearchMenu.value = false
   }
 }
 </script>
@@ -171,6 +196,31 @@ function handleOutsideClick(e: MouseEvent) {
       </div>
     </div>
 
+    <!-- Search Engine Switcher Dropdown -->
+    <div v-if="showSearchMenu" class="absolute bottom-full left-3 z-50 mb-1 w-56 rounded-lg border bg-popover p-1 shadow-md" data-search-menu>
+      <div class="max-h-64 overflow-y-auto">
+        <div
+          v-if="searchInstances.length === 0"
+          class="px-2 py-1.5 text-xs text-muted-foreground italic"
+        >
+          无已安装的搜索引擎
+        </div>
+        <div
+          v-for="inst in searchInstances"
+          :key="inst.id"
+          :class="cn(
+            'flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-foreground/5',
+            searchEnabled && searchEngine === inst.server_id && 'bg-accent',
+          )"
+          @click="selectSearchEngine(inst.server_id)"
+        >
+          <Globe class="size-3 shrink-0" />
+          <span>{{ inst.name }}</span>
+          <span v-if="searchEnabled && searchEngine === inst.server_id" class="ml-auto text-xs text-muted-foreground">✓</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Input Area -->
     <div :class="cn('flex items-end gap-2')">
       <Textarea
@@ -203,7 +253,7 @@ function handleOutsideClick(e: MouseEvent) {
       </Button>
     </div>
 
-    <!-- Search Toggle + Prompt Switcher + Model Switcher -->
+    <!-- Search + Prompt Switcher + Model Switcher -->
     <div class="mt-1.5 flex items-center gap-1.5">
       <button
         :class="cn(
@@ -212,10 +262,11 @@ function handleOutsideClick(e: MouseEvent) {
             ? 'border-foreground/30 bg-foreground/10 text-foreground font-medium'
             : 'border-transparent text-muted-foreground hover:bg-foreground/5 hover:border-border',
         )"
-        @click="toggleSearch"
+        @click="showSearchMenu = !showSearchMenu; showModelMenu = false; showPromptMenu = false"
       >
         <Globe class="size-3 shrink-0" />
-        <span>搜索</span>
+        <span>{{ searchEnabled ? (searchEngineName ?? '搜索') : '搜索' }}</span>
+        <ChevronDown class="size-2.5 shrink-0 opacity-60" />
       </button>
       <button
         :class="cn(
@@ -224,7 +275,7 @@ function handleOutsideClick(e: MouseEvent) {
             ? 'border-foreground/30 bg-foreground/10 text-foreground'
             : 'border-transparent text-muted-foreground hover:bg-foreground/5 hover:border-border',
         )"
-        @click="showPromptMenu = !showPromptMenu; showModelMenu = false"
+        @click="showPromptMenu = !showPromptMenu; showModelMenu = false; showSearchMenu = false"
       >
         <FileText class="size-3 shrink-0" />
         <span class="truncate">{{ currentPrompt?.name ?? '提示词' }}</span>
@@ -237,7 +288,7 @@ function handleOutsideClick(e: MouseEvent) {
             ? 'border-foreground/30 bg-foreground/10 text-foreground'
             : 'border-transparent text-muted-foreground hover:bg-foreground/5 hover:border-border',
         )"
-        @click="showModelMenu = !showModelMenu; showPromptMenu = false"
+        @click="showModelMenu = !showModelMenu; showPromptMenu = false; showSearchMenu = false"
       >
         <component :is="getIcon(currentModel?.provider?.icon)" class="size-3 shrink-0" />
         <span class="truncate">{{ currentModel?.model ?? '模型' }}</span>

@@ -127,5 +127,10 @@ export const useMcpStore = defineStore('mcp', {
       const created = await mcpBridge.addMcpInstance(instance)
       this.instances.unshift(created)
     },
+
+    async testInstance(id: string): Promise<string> {
+      await log('info', `FE::mcpStore | test | id=${id}`)
+      return await mcpBridge.testMcpConnection(id)
+    },
   },
 })

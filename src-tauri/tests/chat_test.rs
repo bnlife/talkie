@@ -47,6 +47,7 @@ fn insert_conv(conn: &rusqlite::Connection, id: &str) {
         model: "test-model".into(),
         prompt_id: None,
         search_enabled: false,
+        search_engine: String::new(),
     };
     store::create_conversation(conn, &conv, &config).unwrap();
 }
@@ -255,6 +256,7 @@ fn test_store_list_orders_pinned_first() {
             model: "test".into(),
             prompt_id: None,
             search_enabled: false,
+            search_engine: String::new(),
         };
         store::create_conversation(&conn, &conv, &config).unwrap();
     }

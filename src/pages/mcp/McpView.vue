@@ -21,6 +21,8 @@ const showInstallDialog = ref(false)
 const installServer = ref<McpServer | null>(null)
 const installConfig = ref<Record<string, string>>({})
 const showCustomDialog = ref(false)
+const testingId = ref<string | null>(null)
+const testResult = ref<{ id: string; ok: boolean; msg: string } | null>(null)
 const customForm = ref({
   name: '',
   command: 'npx',
@@ -153,6 +155,22 @@ async function handleToggle(id: string, enabled: boolean) {
   } catch (e) {
     toast.error(`操作失败: ${e}`)
     mcpStore.startingIds.delete(id)
+  }
+}
+
+async function handleTest(id: string) {
+  testingId.value = id
+  testResult.value = null
+  try {
+    const msg = await mcpStore.testInstance(id)
+    testResult.value = { id, ok: true, msg }
+    toast.success(msg)
+  } catch (e) {
+    const errMsg = String(e)
+    testResult.value = { id, ok: false, msg: errMsg }
+    toast.error(errMsg)
+  } finally {
+    testingId.value = null
   }
 }
 
@@ -365,11 +383,28 @@ const selectedServer = computed(() => {
                 </Button>
                 <Button
                   size="sm"
+                  variant="outline"
+                  :disabled="testingId === mcpStore.activeInstance.id"
+                  @click="handleTest(mcpStore.activeInstance.id)"
+                >
+                  {{ testingId === mcpStore.activeInstance.id ? '测试中...' : '测试连接' }}
+                </Button>
+                <Button
+                  size="sm"
                   variant="destructive"
                   @click="handleUninstall(mcpStore.activeInstance.id)"
                 >
                   移除
                 </Button>
+              </div>
+              <div
+                v-if="testResult && testResult.id === mcpStore.activeInstance.id"
+                :class="cn(
+                  'mt-2 rounded-md border px-3 py-2 text-xs',
+                  testResult.ok ? 'border-green-500/30 bg-green-500/5 text-green-600' : 'border-red-500/30 bg-red-500/5 text-red-600',
+                )"
+              >
+                {{ testResult.msg }}
               </div>
             </div>
           </template>

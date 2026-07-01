@@ -25,6 +25,7 @@ impl McpPool {
     pub fn start(&self, instance: &McpInstance) -> Result<(), String> {
         let mut procs = self.processes.lock().map_err(|e| e.to_string())?;
         if procs.contains_key(&instance.id) {
+            log::debug!("RS::mcp::pool | start | already running | id={}", instance.id);
             return Err(format!("MCP 实例已在运行: {}", instance.id));
         }
 
@@ -38,8 +39,11 @@ impl McpPool {
             log::info!("RS::mcp::pool | local script | path={}", script_path.display());
         }
 
+        log::info!("RS::mcp::pool | start | spawning | id={} name={}", instance.id, instance.name);
         let proc = McpProcess::spawn(&resolved)?;
+        log::info!("RS::mcp::pool | start | spawned ok | id={} | inserting into pool", instance.id);
         procs.insert(instance.id.clone(), proc);
+        log::info!("RS::mcp::pool | start | done | id={} | pool size={}", instance.id, procs.len());
         Ok(())
     }
 
@@ -63,7 +67,12 @@ impl McpPool {
 
     /// List tools for a running instance.
     pub fn list_tools(&self, id: &str) -> Result<Vec<McpTool>, String> {
+        log::debug!("RS::mcp::pool | list_tools | id={}", id);
         let mut procs = self.processes.lock().map_err(|e| e.to_string())?;
+        log::debug!("RS::mcp::pool | list_tools | pool size={} | id={}", procs.len(), id);
+        for key in procs.keys() {
+            log::debug!("RS::mcp::pool | list_tools | pool has: {}", key);
+        }
         let proc = procs.get_mut(id).ok_or(format!("MCP 实例未运行: {}", id))?;
         proc.list_tools()
     }

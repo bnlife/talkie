@@ -68,6 +68,8 @@ pub struct ConversationConfig {
     pub prompt_id: Option<String>,
     #[serde(default)]
     pub search_enabled: bool,
+    #[serde(default)]
+    pub search_engine: String,
 }
 
 /// Merged view of Conversation + ConversationConfig (returned to frontend).
@@ -88,6 +90,8 @@ pub struct ConversationView {
     pub prompt_id: Option<String>,
     #[serde(default)]
     pub search_enabled: bool,
+    #[serde(default)]
+    pub search_engine: String,
 }
 
 /// Application settings persisted in a JSON config file.

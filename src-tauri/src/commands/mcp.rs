@@ -161,3 +161,51 @@ pub async fn call_mcp_tool(
     log::info!("RS::CMD::mcp | call | instance={} tool={}", instance_id, tool_name);
     state.mcp_pool.call_tool(&instance_id, &tool_name, args)
 }
+
+/// Test MCP instance connectivity by listing its tools.
+/// If the instance is not running, attempts to start it first.
+#[tauri::command]
+pub async fn test_mcp_connection(
+    id: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    log::info!("RS::CMD::mcp::test | start | id={}", id);
+
+    // If not running, try to start
+    let was_running = state.mcp_pool.is_running(&id);
+    log::debug!("RS::CMD::mcp::test | was_running={} | id={}", was_running, id);
+
+    if !was_running {
+        let instance = {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            crate::store::get_mcp_instance(&db, &id)
+                .map_err(|e| e.to_string())?
+                .ok_or_else(|| "MCP 实例不存在".to_string())?
+        };
+        log::info!("RS::CMD::mcp::test | starting | id={} name={}", id, instance.name);
+        state.mcp_pool.start(&instance).map_err(|e| {
+            log::error!("RS::CMD::mcp::test | start fail | id={} err={}", id, e);
+            format!("启动失败: {}", e)
+        })?;
+        log::info!("RS::CMD::mcp::test | start ok | id={}", id);
+    }
+
+    // Verify it's running
+    let running = state.mcp_pool.is_running(&id);
+    log::debug!("RS::CMD::mcp::test | is_running={} after start | id={}", running, id);
+
+    if !running {
+        return Err("MCP 实例启动后未在运行池中".to_string());
+    }
+
+    // Call list_tools to verify connectivity
+    log::debug!("RS::CMD::mcp::test | calling list_tools | id={}", id);
+    let tools = state.mcp_pool.list_tools(&id).map_err(|e| {
+        log::error!("RS::CMD::mcp::test | list_tools fail | id={} err={}", id, e);
+        format!("连接失败: {}", e)
+    })?;
+
+    let msg = format!("连接成功，发现 {} 个工具", tools.len());
+    log::info!("RS::CMD::mcp::test | ok | id={} tools={}", id, tools.len());
+    Ok(msg)
+}

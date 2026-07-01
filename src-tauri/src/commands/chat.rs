@@ -258,12 +258,13 @@ pub async fn send_message(
     conversation_id: String,
     content: String,
     search_enabled: bool,
+    search_engine: Option<String>,
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     log::info!(
-        "RS::CMD::chat::send | conv={} len={} search={}",
-        conversation_id, content.len(), search_enabled
+        "RS::CMD::chat::send | conv={} len={} search={} engine={:?}",
+        conversation_id, content.len(), search_enabled, search_engine
     );
 
     // 1. Create and persist the user message.
@@ -287,7 +288,7 @@ pub async fn send_message(
 
     // 2. If search is enabled, find a running search MCP instance and call it.
     let (search_context, search_results) = if search_enabled {
-        match perform_search(&state, &content) {
+        match perform_search(&state, &content, search_engine.as_deref()) {
             Ok((text, results)) => {
                 log::info!("RS::CMD::chat | search ok | results={} text_len={}", results.len(), text.len());
                 (Some(text), Some(results))
@@ -325,8 +326,8 @@ pub async fn regenerate_message(
 
 /// Find a running MCP search instance and call it with the user's query.
 /// Returns (text_for_llm, structured_results).
-pub fn perform_search(state: &AppState, query: &str) -> Result<(String, Vec<models::SearchResult>), String> {
-    log::info!("RS::CMD::search | start | query={}", query);
+pub fn perform_search(state: &AppState, query: &str, search_engine: Option<&str>) -> Result<(String, Vec<models::SearchResult>), String> {
+    log::info!("RS::CMD::search | start | query={} engine={:?}", query, search_engine);
 
     // Find a running MCP instance that provides search
     let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -339,11 +340,25 @@ pub fn perform_search(state: &AppState, query: &str) -> Result<(String, Vec<mode
     }
 
     // Look for an enabled instance whose server is a search server
-    let search_instance = instances.iter().find(|i| {
-        i.enabled && (i.server_id == "brave-search" || i.server_id == "duckduckgo"
-            || i.server_id == "bocha-search" || i.server_id == "local:bocha-search"
-            || i.server_id.contains("search"))
-    });
+    // If search_engine is specified, match by server_id; otherwise use first match
+    let search_instance = if let Some(engine) = search_engine {
+        instances.iter().find(|i| {
+            i.enabled && i.server_id == engine
+        }).or_else(|| {
+            // Fallback: try contains match
+            instances.iter().find(|i| {
+                i.enabled && (i.server_id == "brave-search" || i.server_id == "duckduckgo"
+                    || i.server_id == "bocha-search" || i.server_id == "local:bocha-search"
+                    || i.server_id.contains("search"))
+            })
+        })
+    } else {
+        instances.iter().find(|i| {
+            i.enabled && (i.server_id == "brave-search" || i.server_id == "duckduckgo"
+                || i.server_id == "bocha-search" || i.server_id == "local:bocha-search"
+                || i.server_id.contains("search"))
+        })
+    };
 
     let instance = match search_instance {
         Some(i) => {
@@ -356,28 +371,34 @@ pub fn perform_search(state: &AppState, query: &str) -> Result<(String, Vec<mode
         }
     };
 
-    // If instance is not running in the pool, auto-start it
+    // If instance is not running, return error — user should enable it from MCP settings page
     if !state.mcp_pool.is_running(&instance.id) {
-        log::info!("RS::CMD::search | auto-start | id={}", instance.id);
-        state.mcp_pool.start(instance).map_err(|e| {
-            log::error!("RS::CMD::search | auto-start failed | err={}", e);
-            format!("搜索 MCP 实例启动失败: {}", e)
-        })?;
+        log::warn!("RS::CMD::search | not running | id={}", instance.id);
+        return Err("搜索引擎未启动，请在 MCP 设置页面启用".to_string());
     }
 
     // Call the search tool
     let tool_name = if instance.server_id.contains("bocha") {
         "bocha_search"
+    } else if instance.server_id.contains("tavily") {
+        "tavily-search"
     } else {
         "search" // Generic fallback
     };
 
-    let args = serde_json::json!({
-        "query": query,
-        "count": 5,
-        "freshness": "noLimit",
-        "summary": true,
-    });
+    let args = if instance.server_id.contains("tavily") {
+        serde_json::json!({
+            "query": query,
+            "max_results": 5,
+        })
+    } else {
+        serde_json::json!({
+            "query": query,
+            "count": 5,
+            "freshness": "noLimit",
+            "summary": true,
+        })
+    };
 
     let result = state.mcp_pool.call_tool(&instance.id, tool_name, args)?;
     log::debug!("RS::CMD::search | raw | {}", serde_json::to_string(&result).unwrap_or_default());

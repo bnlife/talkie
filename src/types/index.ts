@@ -40,6 +40,7 @@ export interface ConversationConfig {
   model: string
   prompt_id: string | null
   search_enabled: boolean
+  search_engine: string
 }
 
 export type ConversationView = Conversation & ConversationConfig
