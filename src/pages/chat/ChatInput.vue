@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Send, Square, ChevronDown, Bot, Sparkles, Brain, Diamond, Server, Settings } from 'lucide-vue-next'
+import { Send, Square, ChevronDown, Bot, Sparkles, Brain, Diamond, Server, Settings, Globe } from 'lucide-vue-next'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useChatStore } from '@/stores/chatStore'
 import * as conversationBridge from '@/bridge/conversation'
@@ -24,6 +24,12 @@ const chatStore = useChatStore()
 const input = ref('')
 const showModelMenu = ref(false)
 
+// Search toggle connected to chatStore
+const searchEnabled = computed({
+  get: () => chatStore.searchEnabled,
+  set: (v: boolean) => { chatStore.searchEnabled = v },
+})
+
 const iconMap: Record<string, any> = { Bot, Sparkles, Brain, Diamond, Server, Settings }
 
 function getIcon(icon?: string) {
@@ -40,13 +46,9 @@ const currentModel = computed(() => {
 async function selectModel(providerId: string, model: string) {
   const conv = chatStore.activeConversation
   if (!conv) return
-  await conversationBridge.updateConversation(conv.id, conv.title)
-  // Update conversation locally
+  await conversationBridge.updateConversation(conv.id, undefined, providerId, model)
   conv.provider_id = providerId
   conv.model = model
-  // Persist via a dedicated update (we need to update the conversation's provider_id + model)
-  // For now, we'll use the Rust update_conversation which only updates title
-  // TODO: add update_conversation_model command or extend update_conversation
   showModelMenu.value = false
 }
 
@@ -109,7 +111,7 @@ function handleOutsideClick(e: MouseEvent) {
         :rows="1"
         placeholder="输入消息..."
         :class="cn(
-          'min-h-[40px] max-h-[120px] resize-none flex-1 text-sm leading-relaxed',
+          'min-h-[80px] max-h-[240px] resize-none flex-1 text-sm leading-relaxed',
         )"
         @keydown="handleKeydown"
       />
@@ -133,8 +135,18 @@ function handleOutsideClick(e: MouseEvent) {
       </Button>
     </div>
 
-    <!-- Model Switcher Button -->
-    <div class="mt-1 flex items-center">
+    <!-- Model Switcher + Search Toggle -->
+    <div class="mt-1 flex items-center gap-1">
+      <button
+        :class="cn(
+          'flex items-center gap-1 rounded px-1.5 py-0.5 text-xs transition-colors hover:bg-foreground/5',
+          searchEnabled ? 'text-blue-500 bg-blue-500/10' : 'text-muted-foreground',
+        )"
+        @click="searchEnabled = !searchEnabled"
+      >
+        <Globe class="size-3" />
+        <span>搜索</span>
+      </button>
       <button
         class="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-foreground/5"
         @click="showModelMenu = !showModelMenu"

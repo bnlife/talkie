@@ -87,3 +87,88 @@ pub struct Prompt {
     pub created_at: i64,
     pub updated_at: i64,
 }
+
+// ---------------------------------------------------------------------------
+// MCP models
+// ---------------------------------------------------------------------------
+
+/// A market category grouping MCP servers.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpCategory {
+    pub id: String,
+    pub name: String,
+    pub icon: String,
+}
+
+/// Environment variable definition for an MCP server.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpEnvVar {
+    pub name: String,
+    pub description: String,
+    #[serde(default)]
+    pub required: bool,
+    #[serde(default)]
+    pub secret: bool,
+    #[serde(default)]
+    pub default: Option<String>,
+    #[serde(default)]
+    pub choices: Option<Vec<String>>,
+}
+
+/// Argument definition for an MCP server.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpArg {
+    #[serde(rename = "type")]
+    pub arg_type: String, // "positional" or "named"
+    #[serde(default)]
+    pub name: Option<String>,
+    #[serde(default)]
+    pub value_hint: Option<String>,
+    pub description: String,
+    #[serde(default)]
+    pub required: bool,
+    #[serde(default)]
+    pub default: Option<String>,
+    #[serde(default)]
+    pub choices: Option<Vec<String>>,
+    #[serde(default)]
+    pub repeated: bool,
+}
+
+/// An MCP server definition from the registry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpServer {
+    pub id: String,
+    pub category_id: String,
+    pub name: String,
+    pub description: String,
+    pub publisher: String,
+    pub registry_type: String,
+    pub identifier: String,
+    pub transport: String, // "stdio", "sse", "http"
+    #[serde(default)]
+    pub env_vars: Option<Vec<McpEnvVar>>,
+    #[serde(default)]
+    pub args: Option<Vec<McpArg>>,
+    #[serde(default)]
+    pub github_stars: Option<i64>,
+}
+
+/// An installed MCP service instance.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpInstance {
+    pub id: String,
+    pub server_id: String,
+    pub name: String,
+    pub enabled: bool,
+    pub transport: String, // "stdio", "sse", "http"
+    #[serde(default)]
+    pub command: Option<String>,
+    #[serde(default)]
+    pub args: Option<Vec<String>>,
+    #[serde(default)]
+    pub env: Option<std::collections::HashMap<String, String>>,
+    #[serde(default)]
+    pub url: Option<String>,
+    pub installed_at: i64,
+}

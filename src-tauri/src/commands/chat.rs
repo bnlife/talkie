@@ -231,13 +231,13 @@ fn finalize_response(
 pub async fn send_message(
     conversation_id: String,
     content: String,
+    search_enabled: bool,
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     log::info!(
-        "Rust::commands::chat::send_message | 发送消息 | conv={} len={}",
-        conversation_id,
-        content.len()
+        "Rust::commands::chat::send_message | 发送消息 | conv={} len={} search_enabled={}",
+        conversation_id, content.len(), search_enabled
     );
 
     // 1. Create and persist the user message.
@@ -257,7 +257,23 @@ pub async fn send_message(
         store::create_message(&db, &msg).map_err(|e| e.to_string())?;
     }
 
-    do_generate(&app, &state, &conversation_id).await
+    // 2. If search is enabled, find a running search MCP instance and call it.
+    let search_context = if search_enabled {
+        match perform_search(&state, &content) {
+            Ok(results) => {
+                log::info!("Rust::chat | 搜索完成 | results_len={}", results.len());
+                Some(results)
+            }
+            Err(e) => {
+                log::warn!("Rust::chat | 搜索失败，继续不带搜索 | err={}", e);
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    do_generate(&app, &state, &conversation_id, search_context).await
 }
 
 /// Regenerate the last assistant response without creating a new user message.
@@ -272,7 +288,82 @@ pub async fn regenerate_message(
         conversation_id
     );
 
-    do_generate(&app, &state, &conversation_id).await
+    do_generate(&app, &state, &conversation_id, None).await
+}
+
+// ---------------------------------------------------------------------------
+// Search integration
+// ---------------------------------------------------------------------------
+
+/// Find a running MCP search instance and call it with the user's query.
+fn perform_search(state: &AppState, query: &str) -> Result<String, String> {
+    log::info!("Rust::chat::perform_search | 开始搜索 | query={}", query);
+
+    // Find a running MCP instance that provides search
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let instances = store::list_mcp_instances(&db).map_err(|e| e.to_string())?;
+    drop(db);
+
+    log::debug!("Rust::chat::perform_search | 已安装实例数={}", instances.len());
+    for inst in &instances {
+        log::debug!("Rust::chat::perform_search | 实例 | id={} server_id={} enabled={}", inst.id, inst.server_id, inst.enabled);
+    }
+
+    // Look for an enabled instance whose server is a search server
+    let search_instance = instances.iter().find(|i| {
+        i.enabled && (i.server_id == "brave-search" || i.server_id == "duckduckgo"
+            || i.server_id == "bocha-search" || i.server_id == "local:bocha-search"
+            || i.server_id.contains("search"))
+    });
+
+    let instance = match search_instance {
+        Some(i) => {
+            log::info!("Rust::chat::perform_search | 找到搜索实例 | id={} server_id={}", i.id, i.server_id);
+            i
+        }
+        None => {
+            log::warn!("Rust::chat::perform_search | 没有运行中的搜索 MCP 实例");
+            return Err("没有运行中的搜索 MCP 实例".to_string());
+        }
+    };
+
+    // Call the search tool
+    let tool_name = if instance.server_id.contains("bocha") {
+        "bocha_search"
+    } else {
+        "search" // Generic fallback
+    };
+
+    let args = serde_json::json!({
+        "query": query,
+        "count": 5,
+        "freshness": "noLimit",
+        "summary": true,
+    });
+
+    let result = state.mcp_pool.call_tool(&instance.id, tool_name, args)?;
+
+    // Format the result as a readable string
+    Ok(format_search_results(&result))
+}
+
+/// Format MCP search tool results into a readable context string.
+fn format_search_results(result: &serde_json::Value) -> String {
+    // Try to extract text content from MCP tool result
+    if let Some(content) = result.get("content").and_then(|c| c.as_array()) {
+        let mut texts = Vec::new();
+        for item in content {
+            if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
+                texts.push(text.to_string());
+            }
+        }
+        if !texts.is_empty() {
+            return texts.join("\n");
+        }
+    }
+
+    // Fallback: use the raw JSON
+    serde_json::to_string_pretty(result).unwrap_or_default()
 }
 
 // ---------------------------------------------------------------------------
@@ -284,16 +375,33 @@ async fn do_generate(
     app: &AppHandle,
     state: &State<'_, AppState>,
     conversation_id: &str,
+    search_context: Option<String>,
 ) -> Result<(), String> {
     // 1. Gather context (history + system prompt).
-    let ctx = gather_context(state, conversation_id)?;
+    let mut ctx = gather_context(state, conversation_id)?;
     if let Some(ref sys) = ctx.system_prompt {
         log::debug!("Rust::chat | 注入 system prompt | len={}", sys.len());
     }
 
+    // 2. If we have search results, inject as a system message after system prompt.
+    if let Some(ref search_text) = search_context {
+        let search_msg = models::Message {
+            id: "search-result".to_string(),
+            conversation_id: conversation_id.to_string(),
+            role: "system".to_string(),
+            content: format!("以下是联网搜索结果，请参考这些信息回答用户的问题：\n\n{}", search_text),
+            created_at: 0,
+            token_count: None,
+        };
+        // Insert after system prompt (index 0 if present) or at the beginning
+        let insert_pos = if ctx.system_prompt.is_some() { 1 } else { 0 };
+        ctx.messages.insert(insert_pos, search_msg);
+        log::debug!("Rust::chat | 注入搜索结果 | role=system len={}", search_text.len());
+    }
+
     // 2. Resolve LLM provider config.
     let cfg = resolve_llm_config(state, conversation_id)?;
-    log::debug!("Rust::chat | 使用 model={}", cfg.model);
+    log::info!("Rust::chat | 使用 model={} provider={}", cfg.model, cfg.base_url);
 
     // 3. Set up cancellation token.
     let cancel = setup_cancel_token(state)?;

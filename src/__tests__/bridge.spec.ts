@@ -35,6 +35,7 @@ describe('chat bridge', () => {
     expect(mockedInvoke).toHaveBeenCalledWith('send_message', {
       conversationId: 'conv-1',
       content: 'hello',
+      searchEnabled: false,
     })
   })
 
@@ -104,6 +105,8 @@ describe('conversation bridge', () => {
     expect(mockedInvoke).toHaveBeenCalledWith('update_conversation', {
       id: 'c1',
       title: 'Renamed',
+      providerId: undefined,
+      model: undefined,
     })
   })
 

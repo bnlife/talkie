@@ -46,3 +46,60 @@ export interface Prompt {
   created_at: number
   updated_at: number
 }
+
+// ---------------------------------------------------------------------------
+// MCP types
+// ---------------------------------------------------------------------------
+
+export interface McpCategory {
+  id: string
+  name: string
+  icon: string
+}
+
+export interface McpEnvVar {
+  name: string
+  description: string
+  required: boolean
+  secret: boolean
+  default?: string
+  choices?: string[]
+}
+
+export interface McpArg {
+  type: 'positional' | 'named'
+  name?: string
+  valueHint?: string
+  description: string
+  required: boolean
+  default?: string
+  choices?: string[]
+  repeated?: boolean
+}
+
+export interface McpServer {
+  id: string
+  category_id: string
+  name: string
+  description: string
+  publisher: string
+  registry_type: string
+  identifier: string
+  transport: 'stdio' | 'sse' | 'http'
+  env_vars?: McpEnvVar[]
+  args?: McpArg[]
+  github_stars?: number
+}
+
+export interface McpInstance {
+  id: string
+  server_id: string
+  name: string
+  enabled: boolean
+  transport: 'stdio' | 'sse' | 'http'
+  command?: string
+  args?: string[]
+  env?: Record<string, string>
+  url?: string
+  installed_at: number
+}

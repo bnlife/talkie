@@ -2,10 +2,12 @@ pub mod commands;
 pub mod config;
 pub mod error;
 pub mod llm;
+pub mod mcp;
 pub mod models;
 pub mod store;
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
@@ -19,6 +21,8 @@ pub struct AppState {
     /// Token used to cancel an in-flight streaming LLM response.
     /// `send_message` creates it; `stop_stream` takes it and calls `.cancel()`.
     pub cancel: std::sync::Mutex<Option<CancellationToken>>,
+    /// Pool of running MCP server processes.
+    pub mcp_pool: Arc<mcp::pool::McpPool>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -58,12 +62,23 @@ pub fn run() {
             let config_path = app_data_dir.join("config.json");
             let settings = config::load(config_path.clone())?;
 
+            // Copy bundled MCP server scripts to app data dir (always overwrite)
+            let mcp_servers_dir = app_data_dir.join("mcp-servers");
+            std::fs::create_dir_all(&mcp_servers_dir)?;
+            let bocha_dir = mcp_servers_dir.join("bocha-search");
+            std::fs::create_dir_all(&bocha_dir)?;
+            let bocha_script = bocha_dir.join("index.js");
+            let script_content = include_str!("../mcp-servers/bocha-search/index.js");
+            std::fs::write(&bocha_script, script_content)?;
+            log::info!("Rust::lib | 已部署博查 MCP 脚本 | path={}", bocha_script.display());
+
             // Inject state so Tauri commands can access it via State<>.
             app.manage(AppState {
                 db: std::sync::Mutex::new(db),
                 config: std::sync::Mutex::new(settings),
                 config_path,
                 cancel: std::sync::Mutex::new(None),
+                mcp_pool: Arc::new(mcp::pool::McpPool::new(app_data_dir)),
             });
 
             Ok(())
@@ -91,6 +106,15 @@ pub fn run() {
             commands::settings::fetch_provider_models,
             commands::settings::log_message,
             commands::settings::open_url,
+            commands::mcp::list_mcp_categories,
+            commands::mcp::list_mcp_servers,
+            commands::mcp::list_mcp_instances,
+            commands::mcp::add_mcp_instance,
+            commands::mcp::remove_mcp_instance,
+            commands::mcp::toggle_mcp_instance,
+            commands::mcp::start_mcp_instance,
+            commands::mcp::stop_mcp_instance,
+            commands::mcp::call_mcp_tool,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { useMcpStore } from '@/stores/mcpStore'
 import { watch } from 'vue'
 import 'vue-sonner/style.css'
 import { Toaster } from 'vue-sonner'
@@ -9,9 +10,15 @@ import ChatView from '@/pages/chat/ChatView.vue'
 import SettingsView from '@/pages/settings/SettingsView.vue'
 import KnowledgeView from '@/pages/knowledge/KnowledgeView.vue'
 import PromptView from '@/pages/prompt/PromptView.vue'
+import McpView from '@/pages/mcp/McpView.vue'
 
 const settingsStore = useSettingsStore()
+const mcpStore = useMcpStore()
 const activeView = ref('chat')
+
+onMounted(() => {
+  mcpStore.listenEvents()
+})
 
 watch(
   () => settingsStore.darkMode,
@@ -32,5 +39,6 @@ watch(
     <SettingsView v-else-if="activeView === 'settings'" class="flex flex-1 flex-col overflow-hidden" />
     <KnowledgeView v-else-if="activeView === 'knowledge'" class="flex flex-1 flex-col overflow-hidden" />
     <PromptView v-else-if="activeView === 'prompt'" class="flex flex-1 flex-col overflow-hidden" />
+    <McpView v-else-if="activeView === 'mcp'" class="flex flex-1 flex-col overflow-hidden" />
   </div>
 </template>

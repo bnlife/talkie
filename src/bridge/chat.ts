@@ -1,8 +1,8 @@
 import { invoke } from '@tauri-apps/api/core'
 import type { Message } from '../types'
 
-export async function sendMessage(conversationId: string, content: string): Promise<void> {
-  return invoke<void>('send_message', { conversationId, content })
+export async function sendMessage(conversationId: string, content: string, searchEnabled?: boolean): Promise<void> {
+  return invoke<void>('send_message', { conversationId, content, searchEnabled: searchEnabled ?? false })
 }
 
 export async function stopStream(): Promise<void> {

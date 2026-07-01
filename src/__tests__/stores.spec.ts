@@ -290,7 +290,19 @@ describe('chatStore', () => {
       })
       expect(typeof store.messages[0].id).toBe('string')
       expect(typeof store.messages[0].created_at).toBe('number')
-      expect(chatBridge.sendMessage).toHaveBeenCalledWith('conv-1', 'hello')
+      expect(chatBridge.sendMessage).toHaveBeenCalledWith('conv-1', 'hello', false)
+    })
+
+    it('sendMessage passes searchEnabled=true when search is on', async () => {
+      vi.mocked(chatBridge.sendMessage).mockResolvedValue(undefined)
+
+      const store = useChatStore()
+      store.activeConversationId = 'conv-1'
+      store.searchEnabled = true
+
+      await store.sendMessage('搜索天气')
+
+      expect(chatBridge.sendMessage).toHaveBeenCalledWith('conv-1', '搜索天气', true)
     })
   })
 
@@ -365,7 +377,7 @@ describe('chatStore', () => {
 
       await store.finishStream()
 
-      const calledTitle = vi.mocked(conversationBridge.updateConversation).mock.calls[0][1]
+      const calledTitle = vi.mocked(conversationBridge.updateConversation).mock.calls[0][1] as string
       expect(calledTitle.length).toBeLessThanOrEqual(33) // 30 + '...'
     })
 

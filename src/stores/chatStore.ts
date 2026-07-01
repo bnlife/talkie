@@ -12,6 +12,7 @@ export const useChatStore = defineStore('chat', {
     messages: [] as Message[],
     streamingId: null as string | null,
     streamingContent: '',
+    searchEnabled: false,
   }),
 
   getters: {
@@ -97,7 +98,7 @@ export const useChatStore = defineStore('chat', {
     },
 
     async sendMessage(content: string): Promise<void> {
-      await log('info', `前端::chatStore::sendMessage | 发送消息 | len=${content.length}`)
+      await log('info', `前端::chatStore::sendMessage | 发送消息 | len=${content.length} search=${this.searchEnabled}`)
       if (!this.activeConversationId) return
       const tempMsg: Message = {
         id: crypto.randomUUID(),
@@ -107,7 +108,7 @@ export const useChatStore = defineStore('chat', {
         created_at: Date.now(),
       }
       this.messages.push(tempMsg)
-      await chatBridge.sendMessage(this.activeConversationId, content)
+      await chatBridge.sendMessage(this.activeConversationId, content, this.searchEnabled)
     },
 
     appendStreamChunk(messageId: string, delta: string): void {
