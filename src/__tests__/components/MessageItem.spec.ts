@@ -129,4 +129,23 @@ describe('MessageItem.vue', () => {
     })
     expect(wrapper.findAll('button').length).toBe(0)
   })
+
+  it('assistant message renders markdown (v-html)', () => {
+    const wrapper = mount(MessageItem, {
+      props: { message: createMsg({ role: 'assistant', content: '**加粗** 和 `代码`' }) },
+    })
+    const mdBody = wrapper.find('.markdown-body')
+    expect(mdBody.exists()).toBe(true)
+    expect(mdBody.html()).toContain('<strong>加粗</strong>')
+    expect(mdBody.html()).toContain('<code')
+    expect(mdBody.html()).toContain('代码')
+  })
+
+  it('user message uses plain text (not markdown)', () => {
+    const wrapper = mount(MessageItem, {
+      props: { message: createMsg({ role: 'user', content: '**不会加粗**' }) },
+    })
+    expect(wrapper.find('.markdown-body').exists()).toBe(false)
+    expect(wrapper.text()).toContain('**不会加粗**')
+  })
 })

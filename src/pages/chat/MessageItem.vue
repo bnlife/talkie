@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue'
 import type { Message } from '@/types'
 import { cn } from '@/lib/utils'
+import { renderMarkdown } from '@/lib/markdown'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Copy, Trash2, RefreshCw, Check } from 'lucide-vue-next'
@@ -21,6 +22,7 @@ const emit = defineEmits<{
 
 const isUser = computed(() => props.message.role === 'user')
 const isCopied = ref(false)
+const renderedHtml = computed(() => isUser.value ? '' : renderMarkdown(props.message.content))
 
 const avatarInitial = computed(() => isUser.value ? '你' : 'AI')
 
@@ -63,9 +65,14 @@ async function handleCopy() {
       <!-- 消息正文 -->
       <div class="relative">
         <div class="p-0">
-          <p class="text-sm leading-relaxed whitespace-pre-wrap break-words">
+          <p v-if="isUser" class="text-sm leading-relaxed whitespace-pre-wrap break-words">
             {{ message.content }}
           </p>
+          <div
+            v-else
+            class="markdown-body text-sm"
+            v-html="renderedHtml"
+          />
           <span
             v-if="streaming"
             class="inline-block h-4 ml-0.5 -mb-0.5 text-muted-foreground animate-pulse"
