@@ -9,7 +9,7 @@ use crate::models::{Conversation, ConversationConfig, ConversationView, McpCateg
 ///
 /// Foreign key constraints are enabled automatically.
 pub fn init(db_path: &PathBuf) -> Result<Connection, AppError> {
-    log::info!("Rust::store::init | 初始化数据库 | path={:?}", db_path);
+    log::info!("RS::init | path={:?}", db_path);
     if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent)?;
     }
@@ -22,7 +22,10 @@ pub fn init(db_path: &PathBuf) -> Result<Connection, AppError> {
             title TEXT NOT NULL,
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL,
-            pinned INTEGER NOT NULL DEFAULT 0
+            pinned INTEGER NOT NULL DEFAULT 0,
+            provider_id TEXT NOT NULL DEFAULT '',
+            model TEXT NOT NULL DEFAULT '',
+            system_prompt TEXT NOT NULL DEFAULT ''
         );
         CREATE TABLE IF NOT EXISTS conversation_configs (
             conversation_id TEXT PRIMARY KEY,
@@ -110,10 +113,16 @@ pub fn init(db_path: &PathBuf) -> Result<Connection, AppError> {
         [],
     );
 
+    // 迁移：为 messages 表添加 search_results 列（JSON 数组，存储搜索来源）
+    let _ = conn.execute(
+        "ALTER TABLE messages ADD COLUMN search_results TEXT",
+        [],
+    );
+
     // Seed built-in MCP registry data (skip if already populated).
     seed_mcp_registry(&conn)?;
 
-    log::info!("Rust::store::init | 数据库初始化完成");
+    log::info!("RS::init | ok");
     Ok(conn)
 }
 
@@ -123,7 +132,7 @@ pub fn init(db_path: &PathBuf) -> Result<Connection, AppError> {
 
 /// Seed built-in MCP categories and servers. Idempotent (INSERT OR IGNORE).
 fn seed_mcp_registry(conn: &Connection) -> Result<(), AppError> {
-    log::debug!("Rust::store::seed_mcp_registry | 初始化内置 MCP 数据");
+    log::debug!("RS::seed_mcp_registry | start");
 
     // Categories
     let categories: Vec<(&str, &str, &str)> = vec![
@@ -194,7 +203,7 @@ fn seed_mcp_registry(conn: &Connection) -> Result<(), AppError> {
 
 /// List all conversations with their configs, ordered by most recently updated first.
 pub fn list_conversations(conn: &Connection) -> Result<Vec<ConversationView>, AppError> {
-    log::debug!("Rust::store::list_conversations | 查询所有对话");
+    log::debug!("RS::list_conversations");
     let mut stmt = conn.prepare(
         "SELECT c.id, c.title, c.created_at, c.updated_at, c.pinned,
                 COALESCE(cfg.provider_id, ''), COALESCE(cfg.model, ''), cfg.prompt_id, COALESCE(cfg.search_enabled, 0)
@@ -224,9 +233,11 @@ pub fn list_conversations(conn: &Connection) -> Result<Vec<ConversationView>, Ap
 
 /// Insert a new conversation and its config into the database.
 pub fn create_conversation(conn: &Connection, conv: &Conversation, config: &ConversationConfig) -> Result<(), AppError> {
-    log::info!("Rust::store::create_conversation | 创建对话 | id={}", conv.id);
+    log::info!("RS::create_conversation | id={}", conv.id);
+    // Include legacy columns (provider_id, model, system_prompt) for old databases
+    // where they have NOT NULL constraints. Empty defaults satisfy the constraint.
     conn.execute(
-        "INSERT INTO conversations (id, title, created_at, updated_at, pinned) VALUES (?1, ?2, ?3, ?4, ?5)",
+        "INSERT INTO conversations (id, title, created_at, updated_at, pinned, provider_id, model, system_prompt) VALUES (?1, ?2, ?3, ?4, ?5, '', '', '')",
         params![conv.id, conv.title, conv.created_at, conv.updated_at, conv.pinned as i64],
     )?;
     conn.execute(
@@ -238,7 +249,7 @@ pub fn create_conversation(conn: &Connection, conv: &Conversation, config: &Conv
 
 /// Retrieve a single conversation with its config by ID.
 pub fn get_conversation(conn: &Connection, id: &str) -> Result<Option<ConversationView>, AppError> {
-    log::debug!("Rust::store::get_conversation | 查询对话 | id={}", id);
+    log::debug!("RS::get_conversation | id={}", id);
     let mut stmt = conn.prepare(
         "SELECT c.id, c.title, c.created_at, c.updated_at, c.pinned,
                 COALESCE(cfg.provider_id, ''), COALESCE(cfg.model, ''), cfg.prompt_id, COALESCE(cfg.search_enabled, 0)
@@ -268,7 +279,7 @@ pub fn get_conversation(conn: &Connection, id: &str) -> Result<Option<Conversati
 
 /// Update conversation core fields (title, pinned, timestamps).
 pub fn update_conversation(conn: &Connection, conv: &Conversation) -> Result<(), AppError> {
-    log::debug!("Rust::store::update_conversation | 更新对话 | id={}", conv.id);
+    log::debug!("RS::update_conversation | id={}", conv.id);
     conn.execute(
         "UPDATE conversations SET title = ?1, pinned = ?2, updated_at = ?3 WHERE id = ?4",
         params![conv.title, conv.pinned as i64, conv.updated_at, conv.id],
@@ -278,7 +289,7 @@ pub fn update_conversation(conn: &Connection, conv: &Conversation) -> Result<(),
 
 /// Update conversation config fields.
 pub fn update_conversation_config(conn: &Connection, config: &ConversationConfig) -> Result<(), AppError> {
-    log::debug!("Rust::store::update_conversation_config | 更新配置 | id={}", config.conversation_id);
+    log::debug!("RS::update_conversation_config | id={}", config.conversation_id);
     conn.execute(
         "UPDATE conversation_configs SET provider_id = ?1, model = ?2, prompt_id = ?3, search_enabled = ?4 WHERE conversation_id = ?5",
         params![config.provider_id, config.model, config.prompt_id, config.search_enabled as i64, config.conversation_id],
@@ -288,14 +299,14 @@ pub fn update_conversation_config(conn: &Connection, config: &ConversationConfig
 
 /// Delete a conversation and all its associated messages (via ON DELETE CASCADE).
 pub fn delete_conversation(conn: &Connection, id: &str) -> Result<(), AppError> {
-    log::info!("Rust::store::delete_conversation | 删除对话及关联消息 | id={}", id);
+    log::info!("RS::delete_conversation | id={}", id);
     conn.execute("DELETE FROM conversations WHERE id = ?1", params![id])?;
     Ok(())
 }
 
 /// Pin a conversation (set pinned = 1).
 pub fn pin_conversation(conn: &Connection, id: &str) -> Result<(), AppError> {
-    log::info!("Rust::store::pin_conversation | 置顶对话 | id={}", id);
+    log::info!("RS::pin_conversation | id={}", id);
     conn.execute(
         "UPDATE conversations SET pinned = 1 WHERE id = ?1",
         params![id],
@@ -305,7 +316,7 @@ pub fn pin_conversation(conn: &Connection, id: &str) -> Result<(), AppError> {
 
 /// Unpin a conversation (set pinned = 0).
 pub fn unpin_conversation(conn: &Connection, id: &str) -> Result<(), AppError> {
-    log::info!("Rust::store::unpin_conversation | 取消置顶 | id={}", id);
+    log::info!("RS::unpin_conversation | id={}", id);
     conn.execute(
         "UPDATE conversations SET pinned = 0 WHERE id = ?1",
         params![id],
@@ -322,12 +333,15 @@ pub fn list_messages_by_conversation(
     conn: &Connection,
     conversation_id: &str,
 ) -> Result<Vec<Message>, AppError> {
-    log::debug!("Rust::store::list_messages_by_conversation | 查询消息列表 | conv={}", conversation_id);
+    log::debug!("RS::list_messages | conv={}", conversation_id);
     let mut stmt = conn.prepare(
-        "SELECT id, conversation_id, role, content, created_at, token_count \
+        "SELECT id, conversation_id, role, content, created_at, token_count, search_results \
          FROM messages WHERE conversation_id = ?1 ORDER BY created_at ASC",
     )?;
     let rows = stmt.query_map(params![conversation_id], |row| {
+        let search_results_json: Option<String> = row.get(6)?;
+        let search_results = search_results_json
+            .and_then(|json| serde_json::from_str::<Vec<crate::models::SearchResult>>(&json).ok());
         Ok(Message {
             id: row.get(0)?,
             conversation_id: row.get(1)?,
@@ -335,6 +349,7 @@ pub fn list_messages_by_conversation(
             content: row.get(3)?,
             created_at: row.get(4)?,
             token_count: row.get(5)?,
+            search_results,
         })
     })?;
     let mut messages = Vec::new();
@@ -346,10 +361,12 @@ pub fn list_messages_by_conversation(
 
 /// Insert a single message into the database.
 pub fn create_message(conn: &Connection, message: &Message) -> Result<(), AppError> {
-    log::debug!("Rust::store::create_message | 创建消息 | conv={} role={}", message.conversation_id, message.role);
+    log::debug!("RS::create_message | conv={} role={}", message.conversation_id, message.role);
+    let search_results_json = message.search_results.as_ref()
+        .map(|sr| serde_json::to_string(sr).unwrap_or_default());
     conn.execute(
-        "INSERT INTO messages (id, conversation_id, role, content, created_at, token_count) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT INTO messages (id, conversation_id, role, content, created_at, token_count, search_results) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
         params![
             message.id,
             message.conversation_id,
@@ -357,6 +374,7 @@ pub fn create_message(conn: &Connection, message: &Message) -> Result<(), AppErr
             message.content,
             message.created_at,
             message.token_count,
+            search_results_json,
         ],
     )?;
     Ok(())
@@ -364,12 +382,14 @@ pub fn create_message(conn: &Connection, message: &Message) -> Result<(), AppErr
 
 /// Insert multiple messages in a single transaction.
 pub fn batch_create_messages(conn: &Connection, messages: &[Message]) -> Result<(), AppError> {
-    log::debug!("Rust::store::batch_create_messages | 批量创建消息 | count={}", messages.len());
+    log::debug!("RS::batch_create_messages | count={}", messages.len());
     let tx = conn.unchecked_transaction()?;
     for msg in messages {
+        let search_results_json = msg.search_results.as_ref()
+            .map(|sr| serde_json::to_string(sr).unwrap_or_default());
         tx.execute(
-            "INSERT INTO messages (id, conversation_id, role, content, created_at, token_count) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            "INSERT INTO messages (id, conversation_id, role, content, created_at, token_count, search_results) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
                 msg.id,
                 msg.conversation_id,
@@ -377,6 +397,7 @@ pub fn batch_create_messages(conn: &Connection, messages: &[Message]) -> Result<
                 msg.content,
                 msg.created_at,
                 msg.token_count,
+                search_results_json,
             ],
         )?;
     }
@@ -389,7 +410,7 @@ pub fn delete_messages_by_conversation(
     conn: &Connection,
     conversation_id: &str,
 ) -> Result<(), AppError> {
-    log::debug!("Rust::store::delete_messages_by_conversation | 删除消息 | conv={}", conversation_id);
+    log::debug!("RS::delete_messages | conv={}", conversation_id);
     conn.execute(
         "DELETE FROM messages WHERE conversation_id = ?1",
         params![conversation_id],
@@ -399,7 +420,7 @@ pub fn delete_messages_by_conversation(
 
 /// Delete a single message by its ID.
 pub fn delete_message(conn: &Connection, message_id: &str) -> Result<(), AppError> {
-    log::info!("Rust::store::delete_message | 删除单条消息 | id={}", message_id);
+    log::info!("RS::delete_message | id={}", message_id);
     conn.execute("DELETE FROM messages WHERE id = ?1", params![message_id])?;
     Ok(())
 }
@@ -410,7 +431,7 @@ pub fn delete_message(conn: &Connection, message_id: &str) -> Result<(), AppErro
 
 /// List all prompts, ordered by most recently updated first.
 pub fn list_prompts(conn: &Connection) -> Result<Vec<Prompt>, AppError> {
-    log::debug!("Rust::store::list_prompts | 查询所有提示词");
+    log::debug!("RS::list_prompts");
     let mut stmt = conn.prepare(
         "SELECT id, name, content, is_default, created_at, updated_at \
          FROM prompts ORDER BY updated_at DESC",
@@ -434,7 +455,7 @@ pub fn list_prompts(conn: &Connection) -> Result<Vec<Prompt>, AppError> {
 
 /// Insert a new prompt into the database.
 pub fn create_prompt(conn: &Connection, prompt: &Prompt) -> Result<(), AppError> {
-    log::info!("Rust::store::create_prompt | 创建提示词 | id={} name={}", prompt.id, prompt.name);
+    log::info!("RS::create_prompt | id={} name={}", prompt.id, prompt.name);
     conn.execute(
         "INSERT INTO prompts (id, name, content, is_default, created_at, updated_at) \
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -452,7 +473,7 @@ pub fn create_prompt(conn: &Connection, prompt: &Prompt) -> Result<(), AppError>
 
 /// Update name, content, and updated_at of an existing prompt.
 pub fn update_prompt(conn: &Connection, prompt: &Prompt) -> Result<(), AppError> {
-    log::debug!("Rust::store::update_prompt | 更新提示词 | id={}", prompt.id);
+    log::debug!("RS::update_prompt | id={}", prompt.id);
     conn.execute(
         "UPDATE prompts SET name = ?1, content = ?2, updated_at = ?3 \
          WHERE id = ?4",
@@ -468,14 +489,14 @@ pub fn update_prompt(conn: &Connection, prompt: &Prompt) -> Result<(), AppError>
 
 /// Delete a prompt by its ID.
 pub fn delete_prompt(conn: &Connection, id: &str) -> Result<(), AppError> {
-    log::info!("Rust::store::delete_prompt | 删除提示词 | id={}", id);
+    log::info!("RS::delete_prompt | id={}", id);
     conn.execute("DELETE FROM prompts WHERE id = ?1", params![id])?;
     Ok(())
 }
 
 /// Set a prompt as default (clear others, set this one).
 pub fn set_default_prompt(conn: &Connection, id: &str) -> Result<(), AppError> {
-    log::info!("Rust::store::set_default_prompt | 设置默认提示词 | id={}", id);
+    log::info!("RS::set_default_prompt | id={}", id);
     conn.execute("UPDATE prompts SET is_default = 0 WHERE is_default = 1", [])?;
     conn.execute("UPDATE prompts SET is_default = 1 WHERE id = ?1", params![id])?;
     Ok(())
@@ -483,7 +504,7 @@ pub fn set_default_prompt(conn: &Connection, id: &str) -> Result<(), AppError> {
 
 /// Get the default prompt, if one exists.
 pub fn get_default_prompt(conn: &Connection) -> Result<Option<Prompt>, AppError> {
-    log::debug!("Rust::store::get_default_prompt | 查询默认提示词");
+    log::debug!("RS::get_default_prompt");
     let mut stmt = conn.prepare(
         "SELECT id, name, content, is_default, created_at, updated_at \
          FROM prompts WHERE is_default = 1 LIMIT 1",
@@ -507,7 +528,7 @@ pub fn get_default_prompt(conn: &Connection) -> Result<Option<Prompt>, AppError>
 
 /// Get a prompt by its ID.
 pub fn get_prompt_by_id(conn: &Connection, id: &str) -> Result<Option<Prompt>, AppError> {
-    log::debug!("Rust::store::get_prompt_by_id | 查询提示词 | id={}", id);
+    log::debug!("RS::get_prompt_by_id | id={}", id);
     let mut stmt = conn.prepare(
         "SELECT id, name, content, is_default, created_at, updated_at \
          FROM prompts WHERE id = ?1",
@@ -535,7 +556,7 @@ pub fn get_prompt_by_id(conn: &Connection, id: &str) -> Result<Option<Prompt>, A
 
 /// List all MCP market categories.
 pub fn list_mcp_categories(conn: &Connection) -> Result<Vec<McpCategory>, AppError> {
-    log::debug!("Rust::store::list_mcp_categories | 查询 MCP 分类");
+    log::debug!("RS::list_mcp_categories");
     let mut stmt = conn.prepare(
         "SELECT id, name, icon FROM mcp_categories ORDER BY name",
     )?;
@@ -555,7 +576,7 @@ pub fn list_mcp_categories(conn: &Connection) -> Result<Vec<McpCategory>, AppErr
 
 /// List MCP servers, optionally filtered by category.
 pub fn list_mcp_servers(conn: &Connection, category_id: Option<&str>) -> Result<Vec<McpServer>, AppError> {
-    log::debug!("Rust::store::list_mcp_servers | category={:?}", category_id);
+    log::debug!("RS::list_mcp_servers | cat={:?}", category_id);
     let (sql, param_values): (&str, Vec<Box<dyn rusqlite::types::ToSql>>) = match category_id {
         Some(cid) => (
             "SELECT id, category_id, name, description, publisher, registry_type, identifier, \
@@ -598,7 +619,7 @@ pub fn list_mcp_servers(conn: &Connection, category_id: Option<&str>) -> Result<
 
 /// List all installed MCP instances.
 pub fn list_mcp_instances(conn: &Connection) -> Result<Vec<McpInstance>, AppError> {
-    log::debug!("Rust::store::list_mcp_instances | 查询已安装实例");
+    log::debug!("RS::list_mcp_instances");
     let mut stmt = conn.prepare(
         "SELECT id, server_id, name, enabled, transport, command, args_json, env_json, url, installed_at \
          FROM mcp_instances ORDER BY installed_at DESC",
@@ -628,7 +649,7 @@ pub fn list_mcp_instances(conn: &Connection) -> Result<Vec<McpInstance>, AppErro
 
 /// Get a single MCP instance by ID.
 pub fn get_mcp_instance(conn: &Connection, id: &str) -> Result<Option<McpInstance>, AppError> {
-    log::debug!("Rust::store::get_mcp_instance | id={}", id);
+    log::debug!("RS::get_mcp_instance | id={}", id);
     let mut stmt = conn.prepare(
         "SELECT id, server_id, name, enabled, transport, command, args_json, env_json, url, installed_at \
          FROM mcp_instances WHERE id = ?1",
@@ -658,7 +679,7 @@ pub fn get_mcp_instance(conn: &Connection, id: &str) -> Result<Option<McpInstanc
 
 /// Create (install) a new MCP instance.
 pub fn create_mcp_instance(conn: &Connection, inst: &McpInstance) -> Result<(), AppError> {
-    log::info!("Rust::store::create_mcp_instance | 创建实例 | id={} name={}", inst.id, inst.name);
+    log::info!("RS::create_mcp_instance | id={} name={}", inst.id, inst.name);
     let args_json = inst.args.as_ref().map(|a| serde_json::to_string(a).unwrap_or_default());
     let env_json = inst.env.as_ref().map(|e| serde_json::to_string(e).unwrap_or_default());
     conn.execute(
@@ -682,14 +703,14 @@ pub fn create_mcp_instance(conn: &Connection, inst: &McpInstance) -> Result<(), 
 
 /// Delete an MCP instance by ID.
 pub fn delete_mcp_instance(conn: &Connection, id: &str) -> Result<(), AppError> {
-    log::info!("Rust::store::delete_mcp_instance | 删除实例 | id={}", id);
+    log::info!("RS::delete_mcp_instance | id={}", id);
     conn.execute("DELETE FROM mcp_instances WHERE id = ?1", params![id])?;
     Ok(())
 }
 
 /// Toggle an MCP instance enabled/disabled.
 pub fn toggle_mcp_instance(conn: &Connection, id: &str, enabled: bool) -> Result<(), AppError> {
-    log::info!("Rust::store::toggle_mcp_instance | 切换状态 | id={} enabled={}", id, enabled);
+    log::info!("RS::toggle_mcp_instance | id={} enabled={}", id, enabled);
     conn.execute(
         "UPDATE mcp_instances SET enabled = ?1 WHERE id = ?2",
         params![enabled as i64, id],
@@ -711,7 +732,10 @@ mod tests {
                 title TEXT NOT NULL,
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL,
-                pinned INTEGER NOT NULL DEFAULT 0
+                pinned INTEGER NOT NULL DEFAULT 0,
+                provider_id TEXT NOT NULL DEFAULT '',
+                model TEXT NOT NULL DEFAULT '',
+                system_prompt TEXT NOT NULL DEFAULT ''
             );
             CREATE TABLE IF NOT EXISTS conversation_configs (
                 conversation_id TEXT PRIMARY KEY,
@@ -728,6 +752,7 @@ mod tests {
                 content TEXT NOT NULL,
                 created_at INTEGER NOT NULL,
                 token_count INTEGER,
+                search_results TEXT,
                 FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
             );
             CREATE TABLE IF NOT EXISTS prompts (
@@ -1063,5 +1088,95 @@ mod tests {
         delete_mcp_instance(&conn, "inst-1").unwrap();
         let list = list_mcp_instances(&conn).unwrap();
         assert_eq!(list.len(), 0);
+    }
+
+    #[test]
+    fn message_search_results_persistence() {
+        let conn = setup_db();
+        let conv = Conversation {
+            id: "conv-sr".into(),
+            title: "Test".into(),
+            created_at: 1000,
+            updated_at: 1000,
+            pinned: false,
+        };
+        let config = ConversationConfig {
+            conversation_id: "conv-sr".into(),
+            provider_id: "prov-1".into(),
+            model: "test".into(),
+            prompt_id: None,
+            search_enabled: false,
+        };
+        create_conversation(&conn, &conv, &config).unwrap();
+
+        let search_results = vec![
+            crate::models::SearchResult {
+                title: "Rust 语言官网".into(),
+                url: "https://www.rust-lang.org".into(),
+                snippet: Some("Rust 是一门系统编程语言".into()),
+            },
+            crate::models::SearchResult {
+                title: "Cargo 手册".into(),
+                url: "https://doc.rust-lang.org/cargo".into(),
+                snippet: None,
+            },
+        ];
+
+        let msg = Message {
+            id: "msg-sr".into(),
+            conversation_id: "conv-sr".into(),
+            role: "assistant".into(),
+            content: "根据搜索结果...".into(),
+            created_at: 2000,
+            token_count: Some(100),
+            search_results: Some(search_results),
+        };
+        create_message(&conn, &msg).unwrap();
+
+        let messages = list_messages_by_conversation(&conn, "conv-sr").unwrap();
+        assert_eq!(messages.len(), 1);
+
+        let sr = messages[0].search_results.as_ref().unwrap();
+        assert_eq!(sr.len(), 2);
+        assert_eq!(sr[0].title, "Rust 语言官网");
+        assert_eq!(sr[0].url, "https://www.rust-lang.org");
+        assert_eq!(sr[0].snippet, Some("Rust 是一门系统编程语言".into()));
+        assert_eq!(sr[1].title, "Cargo 手册");
+        assert_eq!(sr[1].snippet, None);
+    }
+
+    #[test]
+    fn message_without_search_results_returns_none() {
+        let conn = setup_db();
+        let conv = Conversation {
+            id: "conv-nosr".into(),
+            title: "Test".into(),
+            created_at: 1000,
+            updated_at: 1000,
+            pinned: false,
+        };
+        let config = ConversationConfig {
+            conversation_id: "conv-nosr".into(),
+            provider_id: "prov-1".into(),
+            model: "test".into(),
+            prompt_id: None,
+            search_enabled: false,
+        };
+        create_conversation(&conn, &conv, &config).unwrap();
+
+        let msg = Message {
+            id: "msg-nosr".into(),
+            conversation_id: "conv-nosr".into(),
+            role: "user".into(),
+            content: "你好".into(),
+            created_at: 2000,
+            token_count: None,
+            search_results: None,
+        };
+        create_message(&conn, &msg).unwrap();
+
+        let messages = list_messages_by_conversation(&conn, "conv-nosr").unwrap();
+        assert_eq!(messages.len(), 1);
+        assert!(messages[0].search_results.is_none());
     }
 }

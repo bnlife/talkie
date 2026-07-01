@@ -9,7 +9,7 @@ use crate::models;
 pub fn list_conversations(
     state: State<'_, AppState>,
 ) -> Result<Vec<models::ConversationView>, String> {
-    log::debug!("Rust::commands::conversation::list_conversations | 查询对话列表");
+    log::debug!("RS::CMD::conv | list");
     let db = state.db.lock().map_err(|e| e.to_string())?;
     store::list_conversations(&db).map_err(|e| e.to_string())
 }
@@ -21,7 +21,7 @@ pub fn create_conversation(
     title: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<models::ConversationView, String> {
-    log::info!("Rust::commands::conversation::create_conversation | 创建新对话 | title={:?} provider_id={}", title, provider_id);
+    log::info!("RS::CMD::conv | create | title={:?} provider={}", title, provider_id);
     let model = {
         let config = state.config.lock().map_err(|e| e.to_string())?;
         config.providers.iter()
@@ -80,7 +80,7 @@ pub fn update_conversation(
     search_enabled: Option<bool>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    log::info!("Rust::commands::conversation::update_conversation | 更新对话 | id={}", id);
+    log::info!("RS::CMD::conv | update | id={}", id);
     let db = state.db.lock().map_err(|e| e.to_string())?;
 
     let conv = store::get_conversation(&db, &id)
@@ -104,11 +104,17 @@ pub fn update_conversation(
 
     // Update config fields if any changed
     if provider_id.is_some() || model.is_some() || prompt_id.is_some() || search_enabled.is_some() {
+        // Treat empty string as None (clear), missing field keeps old value
+        let effective_prompt_id = match prompt_id.as_deref() {
+            Some(s) if s.is_empty() => None,
+            Some(s) => Some(s.to_string()),
+            None => conv.prompt_id.clone(),
+        };
         store::update_conversation_config(&db, &models::ConversationConfig {
             conversation_id: id,
             provider_id: provider_id.unwrap_or(conv.provider_id),
             model: model.unwrap_or(conv.model),
-            prompt_id: prompt_id.or(conv.prompt_id),
+            prompt_id: effective_prompt_id,
             search_enabled: search_enabled.unwrap_or(conv.search_enabled),
         }).map_err(|e| e.to_string())?;
     }
@@ -122,7 +128,7 @@ pub fn delete_conversation(
     id: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    log::info!("Rust::commands::conversation::delete_conversation | 删除对话 | id={}", id);
+    log::info!("RS::CMD::conv | delete | id={}", id);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     store::delete_conversation(&db, &id).map_err(|e| e.to_string())
 }
@@ -133,7 +139,7 @@ pub fn pin_conversation(
     id: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    log::info!("Rust::commands::conversation::pin_conversation | 置顶对话 | id={}", id);
+    log::info!("RS::CMD::conv | pin | id={}", id);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     store::pin_conversation(&db, &id).map_err(|e| e.to_string())
 }
@@ -144,7 +150,7 @@ pub fn unpin_conversation(
     id: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    log::info!("Rust::commands::conversation::unpin_conversation | 取消置顶 | id={}", id);
+    log::info!("RS::CMD::conv | unpin | id={}", id);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     store::unpin_conversation(&db, &id).map_err(|e| e.to_string())
 }

@@ -148,4 +148,108 @@ describe('MessageItem.vue', () => {
     expect(wrapper.find('.markdown-body').exists()).toBe(false)
     expect(wrapper.text()).toContain('**不会加粗**')
   })
+
+  describe('search results', () => {
+    it('renders search results card when assistant message has search_results', () => {
+      const wrapper = mount(MessageItem, {
+        props: {
+          message: createMsg({
+            role: 'assistant',
+            content: '根据搜索结果...',
+            search_results: [
+              { title: 'Rust 官网', url: 'https://www.rust-lang.org', snippet: 'Rust 是一门系统编程语言' },
+              { title: 'Cargo 手册', url: 'https://doc.rust-lang.org/cargo' },
+            ],
+          }),
+        },
+      })
+      expect(wrapper.text()).toContain('搜索了 2 个来源')
+      expect(wrapper.text()).toContain('Rust 官网')
+      expect(wrapper.text()).toContain('Cargo 手册')
+    })
+
+    it('does not render search results card when search_results is empty', () => {
+      const wrapper = mount(MessageItem, {
+        props: {
+          message: createMsg({ role: 'assistant', content: '你好', search_results: [] }),
+        },
+      })
+      expect(wrapper.text()).not.toContain('搜索了')
+    })
+
+    it('does not render search results card when search_results is undefined', () => {
+      const wrapper = mount(MessageItem, {
+        props: {
+          message: createMsg({ role: 'assistant', content: '你好' }),
+        },
+      })
+      expect(wrapper.text()).not.toContain('搜索了')
+    })
+
+    it('does not render search results for user messages', () => {
+      const wrapper = mount(MessageItem, {
+        props: {
+          message: createMsg({
+            role: 'user',
+            content: '搜索 Rust',
+            search_results: [{ title: 'Rust', url: 'https://rust-lang.org' }],
+          }),
+        },
+      })
+      expect(wrapper.text()).not.toContain('搜索了')
+    })
+
+    it('shows collapse button when more than 3 results', async () => {
+      const wrapper = mount(MessageItem, {
+        props: {
+          message: createMsg({
+            role: 'assistant',
+            content: '根据搜索结果...',
+            search_results: [
+              { title: '结果1', url: 'https://a.com' },
+              { title: '结果2', url: 'https://b.com' },
+              { title: '结果3', url: 'https://c.com' },
+              { title: '结果4', url: 'https://d.com' },
+            ],
+          }),
+        },
+      })
+      // Shows first 3 and collapse button
+      expect(wrapper.text()).toContain('结果1')
+      expect(wrapper.text()).toContain('结果2')
+      expect(wrapper.text()).toContain('结果3')
+      expect(wrapper.text()).not.toContain('结果4')
+      expect(wrapper.text()).toContain('展开更多')
+    })
+
+    it('renders snippet when present', () => {
+      const wrapper = mount(MessageItem, {
+        props: {
+          message: createMsg({
+            role: 'assistant',
+            content: '根据搜索结果...',
+            search_results: [
+              { title: 'Rust 官网', url: 'https://www.rust-lang.org', snippet: 'Rust 是一门系统编程语言' },
+            ],
+          }),
+        },
+      })
+      expect(wrapper.text()).toContain('Rust 是一门系统编程语言')
+    })
+
+    it('shows domain name for source', () => {
+      const wrapper = mount(MessageItem, {
+        props: {
+          message: createMsg({
+            role: 'assistant',
+            content: '根据搜索结果...',
+            search_results: [
+              { title: 'Rust 官网', url: 'https://www.rust-lang.org/learn' },
+            ],
+          }),
+        },
+      })
+      expect(wrapper.text()).toContain('rust-lang.org')
+    })
+  })
 })

@@ -1,5 +1,14 @@
 use serde::{Deserialize, Serialize};
 
+/// A single search result from web search.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SearchResult {
+    pub title: String,
+    pub url: String,
+    #[serde(default)]
+    pub snippet: Option<String>,
+}
+
 /// A single chat message within a conversation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
@@ -10,6 +19,8 @@ pub struct Message {
     pub content: String,
     pub created_at: i64,
     pub token_count: Option<i64>,
+    #[serde(default)]
+    pub search_results: Option<Vec<SearchResult>>,
 }
 
 /// A model provider (e.g. OpenAI, DeepSeek, Ollama).
@@ -89,6 +100,8 @@ pub struct Settings {
     pub top_p: f32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub last_active_conversation_id: Option<String>,
+    #[serde(default, rename = "darkMode")]
+    pub dark_mode: bool,
 }
 
 fn default_top_p() -> f32 {
@@ -103,6 +116,7 @@ impl Default for Settings {
             temperature: 0.7,
             top_p: 1.0,
             last_active_conversation_id: None,
+            dark_mode: false,
         }
     }
 }

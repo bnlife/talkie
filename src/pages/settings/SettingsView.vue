@@ -50,6 +50,12 @@ function selectProvider(id: string) {
   editingId.value = id
 }
 
+function startRename(id: string) {
+  renamingId.value = id
+  const p = settingsStore.providers.find(p => p.id === id)
+  renameValue.value = p?.name ?? ''
+}
+
 async function handleDelete(id: string) {
   await settingsStore.removeProvider(id)
   if (editingId.value === id) editingId.value = null
@@ -183,7 +189,7 @@ function isDefault(id: string) {
                   variant="ghost"
                   size="icon-sm"
                   class="size-5"
-                  @click.stop="selectProvider(provider.id)"
+                  @click.stop="startRename(provider.id)"
                 >
                   <Edit2 class="size-3" />
                 </Button>

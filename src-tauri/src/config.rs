@@ -9,31 +9,31 @@ use crate::models::{ModelProvider, Settings};
 /// If the file uses the old format (no `providers` field), automatically
 /// migrates it to the new multi-provider format.
 pub fn load(path: PathBuf) -> Result<Settings, AppError> {
-    log::debug!("Rust::config::load | 加载配置 | path={:?}", path);
+    log::debug!("RS::config::load | path={:?}", path);
     if !path.exists() {
         return Ok(Settings::default());
     }
     let content = std::fs::read_to_string(&path).map_err(|e| {
-        log::error!("Rust::config::load | 读取配置文件失败 | path={:?} error={}", path, e);
+        log::error!("RS::config::load | read fail | path={:?} err={}", path, e);
         AppError::ConfigError(e.to_string())
     })?;
     let raw: serde_json::Value = serde_json::from_str(&content).map_err(|e| {
-        log::error!("Rust::config::load | 解析配置文件失败 | path={:?} error={}", path, e);
+        log::error!("RS::config::load | parse fail | path={:?} err={}", path, e);
         AppError::ConfigError(e.to_string())
     })?;
 
     // Detect old format: has base_url/api_key but no providers
     if raw.get("providers").is_none() && raw.get("base_url").is_some() {
-        log::info!("Rust::config::load | 检测到旧格式配置，开始迁移");
+        log::info!("RS::config::load | migrating old format");
         let settings = migrate_old_format(&raw, &path)?;
         return Ok(settings);
     }
 
     let settings: Settings = serde_json::from_value(raw).map_err(|e| {
-        log::error!("Rust::config::load | 解析配置文件失败 | path={:?} error={}", path, e);
+        log::error!("RS::config::load | parse fail | path={:?} err={}", path, e);
         AppError::ConfigError(e.to_string())
     })?;
-    log::info!("Rust::config::load | 配置加载完成 | providers={}", settings.providers.len());
+    log::info!("RS::config::load | ok | providers={}", settings.providers.len());
     Ok(settings)
 }
 
@@ -64,13 +64,14 @@ fn migrate_old_format(raw: &serde_json::Value, path: &PathBuf) -> Result<Setting
         temperature,
         top_p,
         last_active_conversation_id: last_active,
+        dark_mode: false,
     };
 
     // Save migrated config
     if let Err(e) = save(path.clone(), &settings) {
-        log::warn!("Rust::config::migrate_old_format | 迁移后保存失败 | error={}", e);
+        log::warn!("RS::config::migrate | save fail | err={}", e);
     } else {
-        log::info!("Rust::config::migrate_old_format | 迁移完成 | provider_name=默认 Provider");
+        log::info!("RS::config::migrate | ok");
     }
 
     Ok(settings)
@@ -80,19 +81,19 @@ fn migrate_old_format(raw: &serde_json::Value, path: &PathBuf) -> Result<Setting
 ///
 /// Creates parent directories if they do not exist.
 pub fn save(path: PathBuf, settings: &Settings) -> Result<(), AppError> {
-    log::info!("Rust::config::save | 保存配置 | path={:?}", path);
+    log::info!("RS::config::save | path={:?}", path);
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| {
-            log::error!("Rust::config::save | 创建配置目录失败 | path={:?} error={}", path, e);
+            log::error!("RS::config::save | mkdir fail | path={:?} err={}", path, e);
             AppError::ConfigError(e.to_string())
         })?;
     }
     let content = serde_json::to_string_pretty(settings).map_err(|e| {
-        log::error!("Rust::config::save | 序列化配置失败 | error={}", e);
+        log::error!("RS::config::save | serialize fail | err={}", e);
         AppError::ConfigError(e.to_string())
     })?;
     std::fs::write(&path, content).map_err(|e| {
-        log::error!("Rust::config::save | 写入配置文件失败 | path={:?} error={}", path, e);
+        log::error!("RS::config::save | write fail | path={:?} err={}", path, e);
         AppError::ConfigError(e.to_string())
     })?;
     Ok(())

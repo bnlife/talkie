@@ -1,3 +1,9 @@
+export interface SearchResult {
+  title: string
+  url: string
+  snippet?: string
+}
+
 export interface Message {
   id: string
   conversation_id: string
@@ -5,6 +11,7 @@ export interface Message {
   content: string
   created_at: number
   token_count?: number
+  search_results?: SearchResult[]
 }
 
 export interface ModelProvider {

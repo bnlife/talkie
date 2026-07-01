@@ -12,6 +12,7 @@ export const useChatStore = defineStore('chat', {
     messages: [] as Message[],
     streamingId: null as string | null,
     streamingContent: '',
+    drafts: {} as Record<string, string>,
   }),
 
   getters: {
@@ -24,6 +25,17 @@ export const useChatStore = defineStore('chat', {
   },
 
   actions: {
+    getDraft(conversationId: string): string {
+      return this.drafts[conversationId] ?? ''
+    },
+
+    setDraft(conversationId: string, text: string): void {
+      this.drafts[conversationId] = text
+    },
+
+    clearDraft(conversationId: string): void {
+      delete this.drafts[conversationId]
+    },
     async loadConversations(): Promise<void> {
       this.conversations = await conversationBridge.listConversations()
       const settingsStore = useSettingsStore()
@@ -32,16 +44,16 @@ export const useChatStore = defineStore('chat', {
           c => c.id === settingsStore.last_active_conversation_id
         )
         if (exists) {
-          await log('info', `前端::chatStore::loadConversations | 恢复最后对话 | id=${settingsStore.last_active_conversation_id}`)
+          await log('info', `FE::chatStore | restore last | id=${settingsStore.last_active_conversation_id}`)
           await this.switchConversation(settingsStore.last_active_conversation_id)
           return
         } else {
-          await log('info', `前端::chatStore::loadConversations | 最后对话已不存在，跳过 | id=${settingsStore.last_active_conversation_id}`)
+          await log('info', `FE::chatStore | last conv gone | id=${settingsStore.last_active_conversation_id}`)
         }
       }
       // Fallback: activate the most recent conversation
       if (this.conversations.length > 0) {
-        await log('info', `前端::chatStore::loadConversations | 自动激活最近对话 | id=${this.conversations[0].id}`)
+        await log('info', `FE::chatStore | auto activate recent | id=${this.conversations[0].id}`)
         await this.switchConversation(this.conversations[0].id)
       }
     },
@@ -49,7 +61,7 @@ export const useChatStore = defineStore('chat', {
     async createConversation(): Promise<void> {
       const settingsStore = useSettingsStore()
       const providerId = settingsStore.active_provider_id
-      await log('info', `前端::chatStore::createConversation | 新建对话 | provider_id=${providerId}`)
+      await log('info', `FE::chatStore | create | provider=${providerId}`)
       const conv = await conversationBridge.createConversation(providerId)
       this.conversations.unshift(conv)
       this.activeConversationId = conv.id
@@ -57,7 +69,7 @@ export const useChatStore = defineStore('chat', {
     },
 
     async deleteConversation(id: string): Promise<void> {
-      await log('info', `前端::chatStore::deleteConversation | 删除对话 | id=${id}`)
+      await log('info', `FE::chatStore | delete | id=${id}`)
       await conversationBridge.deleteConversation(id)
       this.conversations = this.conversations.filter(c => c.id !== id)
       if (this.activeConversationId === id) {
@@ -67,28 +79,28 @@ export const useChatStore = defineStore('chat', {
     },
 
     async renameConversation(id: string, title: string): Promise<void> {
-      await log('info', `前端::chatStore::renameConversation | 重命名对话 | id=${id}`)
+      await log('info', `FE::chatStore | rename | id=${id}`)
       await conversationBridge.updateConversation(id, { title })
       const conv = this.conversations.find(c => c.id === id)
       if (conv) conv.title = title
     },
 
     async pinConversation(id: string): Promise<void> {
-      await log('info', `前端::chatStore::pinConversation | 置顶对话 | id=${id}`)
+      await log('info', `FE::chatStore | pin | id=${id}`)
       await conversationBridge.pinConversation(id)
       const conv = this.conversations.find(c => c.id === id)
       if (conv) conv.pinned = true
     },
 
     async unpinConversation(id: string): Promise<void> {
-      await log('info', `前端::chatStore::unpinConversation | 取消置顶 | id=${id}`)
+      await log('info', `FE::chatStore | unpin | id=${id}`)
       await conversationBridge.unpinConversation(id)
       const conv = this.conversations.find(c => c.id === id)
       if (conv) conv.pinned = false
     },
 
     async switchConversation(id: string): Promise<void> {
-      await log('info', `前端::chatStore::switchConversation | 切换对话 | id=${id}`)
+      await log('info', `FE::chatStore | switch | id=${id}`)
       if (this.activeConversationId === id) return
       this.activeConversationId = id
       this.messages = await chatBridge.getMessages(id)
@@ -101,8 +113,9 @@ export const useChatStore = defineStore('chat', {
 
     async sendMessage(content: string): Promise<void> {
       const conv = this.conversations.find(c => c.id === this.activeConversationId)
-      await log('info', `前端::chatStore::sendMessage | 发送消息 | len=${content.length} search=${conv?.search_enabled ?? false}`)
+      await log('info', `FE::chatStore | send | len=${content.length} search=${conv?.search_enabled ?? false}`)
       if (!this.activeConversationId || !conv) return
+      this.clearDraft(this.activeConversationId)
       const tempMsg: Message = {
         id: crypto.randomUUID(),
         conversation_id: this.activeConversationId,
@@ -118,7 +131,7 @@ export const useChatStore = defineStore('chat', {
       const conv = this.conversations.find(c => c.id === this.activeConversationId)
       if (!conv) return
       const newValue = !conv.search_enabled
-      await log('info', `前端::chatStore::toggleSearch | 切换搜索 | id=${conv.id} enabled=${newValue}`)
+      await log('info', `FE::chatStore | toggle search | id=${conv.id} enabled=${newValue}`)
       await conversationBridge.updateConversation(conv.id, { searchEnabled: newValue })
       conv.search_enabled = newValue
     },
@@ -126,9 +139,18 @@ export const useChatStore = defineStore('chat', {
     async selectPrompt(promptId: string | null): Promise<void> {
       const conv = this.conversations.find(c => c.id === this.activeConversationId)
       if (!conv) return
-      await log('info', `前端::chatStore::selectPrompt | 选择提示词 | id=${conv.id} promptId=${promptId}`)
-      await conversationBridge.updateConversation(conv.id, { promptId })
+      await log('info', `FE::chatStore | select prompt | id=${conv.id} promptId=${promptId}`)
+      await conversationBridge.updateConversation(conv.id, { promptId: promptId ?? '' })
       conv.prompt_id = promptId
+    },
+
+    async switchModel(providerId: string, model: string): Promise<void> {
+      const conv = this.conversations.find(c => c.id === this.activeConversationId)
+      if (!conv) return
+      await log('info', `FE::chatStore | switch model | id=${conv.id} provider=${providerId} model=${model}`)
+      await conversationBridge.updateConversation(conv.id, { providerId, model })
+      conv.provider_id = providerId
+      conv.model = model
     },
 
     appendStreamChunk(messageId: string, delta: string): void {
@@ -136,8 +158,8 @@ export const useChatStore = defineStore('chat', {
       this.streamingContent += delta
     },
 
-    async finishStream(tokenCount?: number): Promise<void> {
-      await log('info', '前端::chatStore::finishStream | 流式完成')
+    async finishStream(tokenCount?: number, searchResults?: import('@/types').SearchResult[]): Promise<void> {
+      await log('info', 'FE::chatStore | stream done')
       if (!this.streamingId) return
       const finalMsg: Message = {
         id: this.streamingId,
@@ -146,6 +168,7 @@ export const useChatStore = defineStore('chat', {
         content: this.streamingContent,
         created_at: Date.now(),
         token_count: tokenCount ?? undefined,
+        search_results: searchResults && searchResults.length > 0 ? searchResults : undefined,
       }
       this.messages.push(finalMsg)
       this.streamingId = null
@@ -153,22 +176,22 @@ export const useChatStore = defineStore('chat', {
 
       try {
         const conv = this.conversations.find(c => c.id === this.activeConversationId)
-        await log('info', `前端::chatStore::finishStream | 检查自动标题 | conv=${!!conv} title=${conv?.title} assistantCount=${this.messages.filter(m => m.role === 'assistant').length}`)
+        await log('info', `FE::chatStore | auto title check | conv=${!!conv} title=${conv?.title} asst=${this.messages.filter(m => m.role === 'assistant').length}`)
         if (conv && conv.title === '新对话') {
           const assistantCount = this.messages.filter(m => m.role === 'assistant').length
           if (assistantCount === 1) {
             const autoTitle = this.extractTitle(finalMsg.content)
-            await log('info', `前端::chatStore::finishStream | extractTitle | raw="${finalMsg.content.slice(0, 50)}" | result="${autoTitle}"`)
+            await log('info', `FE::chatStore | extractTitle | raw="${finalMsg.content.slice(0, 50)}" → "${autoTitle}"`)
             if (autoTitle) {
-              await log('info', `前端::chatStore::finishStream | 自动设置标题 | title=${autoTitle}`)
+              await log('info', `FE::chatStore | set title | title=${autoTitle}`)
               await this.renameConversation(this.activeConversationId!, autoTitle)
             } else {
-              await log('info', '前端::chatStore::finishStream | extractTitle 为空，跳过')
+              await log('info', 'FE::chatStore | extractTitle empty, skip')
             }
           }
         }
       } catch (e) {
-        await log('error', `前端::chatStore::finishStream | 自动标题失败 | ${e}`)
+        await log('error', `FE::chatStore | auto title fail | ${e}`)
       }
     },
 
@@ -186,13 +209,13 @@ export const useChatStore = defineStore('chat', {
     },
 
     async deleteMessage(messageId: string): Promise<void> {
-      await log('info', `前端::chatStore::deleteMessage | 删除消息 | id=${messageId}`)
+      await log('info', `FE::chatStore | del msg | id=${messageId}`)
       await chatBridge.deleteMessage(messageId)
       this.messages = this.messages.filter(m => m.id !== messageId)
     },
 
     async regenerateMessage(): Promise<void> {
-      await log('info', '前端::chatStore::regenerateMessage | 重新生成')
+      await log('info', 'FE::chatStore | regen')
       if (!this.activeConversationId) return
       const lastMsg = this.messages[this.messages.length - 1]
       if (!lastMsg || lastMsg.role !== 'assistant') return

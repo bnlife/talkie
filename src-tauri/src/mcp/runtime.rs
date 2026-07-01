@@ -21,7 +21,7 @@ impl McpProcess {
     /// Spawn an MCP server process from an instance config.
     /// Returns the process handle after sending `initialize` and `notifications/initialized`.
     pub fn spawn(instance: &McpInstance) -> Result<Self, String> {
-        log::info!("Rust::mcp::runtime::spawn | 启动 MCP 进程 | id={} name={}", instance.id, instance.name);
+        log::info!("RS::mcp::spawn | id={} name={}", instance.id, instance.name);
 
         let (cmd, args) = match instance.transport.as_str() {
             "stdio" => {
@@ -32,7 +32,7 @@ impl McpProcess {
             _ => return Err(format!("不支持的传输方式: {}", instance.transport)),
         };
 
-        log::info!("Rust::mcp::runtime::spawn | 命令={} args={:?}", cmd, args);
+        log::info!("RS::mcp::spawn | cmd={} args={:?}", cmd, args);
 
         let mut command = Command::new(&cmd);
         command.args(&args);
@@ -48,7 +48,7 @@ impl McpProcess {
         }
 
         let mut child = command.spawn().map_err(|e| {
-            log::error!("Rust::mcp::runtime::spawn | 进程启动失败 | err={}", e);
+            log::error!("RS::mcp::spawn | err={}", e);
             format!("MCP 进程启动失败: {}", e)
         })?;
 
@@ -65,7 +65,7 @@ impl McpProcess {
             for line in reader.lines() {
                 match line {
                     Ok(l) => {
-                        log::debug!("Rust::mcp::runtime | [stderr] {}", l);
+                        log::debug!("RS::mcp | [stderr] {}", l);
                         if let Ok(mut buf) = stderr_clone.lock() {
                             buf.push_str(&l);
                             buf.push('\n');
@@ -89,7 +89,7 @@ impl McpProcess {
         // Initialize handshake
         proc.initialize()?;
 
-        log::info!("Rust::mcp::runtime::spawn | MCP 进程就绪 | id={}", instance.id);
+        log::info!("RS::mcp::spawn | ready | id={}", instance.id);
         Ok(proc)
     }
 
@@ -153,7 +153,7 @@ impl McpProcess {
 
     /// Write raw bytes to stdin.
     fn send_raw(&mut self, data: &str) -> Result<(), String> {
-        log::trace!("Rust::mcp::runtime | >>> {}", data.trim());
+        log::trace!("RS::mcp | >>> {}", data.trim());
         self.stdin.write_all(data.as_bytes()).map_err(|e| format!("写入 stdin 失败: {}", e))?;
         self.stdin.flush().map_err(|e| format!("flush stdin 失败: {}", e))?;
         Ok(())
@@ -172,7 +172,7 @@ impl McpProcess {
                 if stderr_trimmed.is_empty() {
                     return Err("MCP 进程已关闭 (EOF)，stderr 无输出".to_string());
                 } else {
-                    log::error!("Rust::mcp::runtime | MCP 进程 stderr | {}", stderr_trimmed);
+                    log::error!("RS::mcp | stderr: {}", stderr_trimmed);
                     return Err(format!("MCP 进程已关闭 (EOF)，stderr: {}", stderr_trimmed));
                 }
             }
@@ -182,7 +182,7 @@ impl McpProcess {
                 continue;
             }
 
-            log::trace!("Rust::mcp::runtime | <<< {}", line);
+            log::trace!("RS::mcp | <<< {}", line);
 
             // Try parsing as response
             match jsonrpc::parse_response(line) {
@@ -192,10 +192,10 @@ impl McpProcess {
                         return Ok(resp);
                     }
                     // Otherwise it's a notification or different response, skip
-                    log::debug!("Rust::mcp::runtime | 跳过非目标响应 | id={:?}", resp.id);
+                    log::debug!("RS::mcp | skip non-target resp | id={:?}", resp.id);
                 }
                 Err(e) => {
-                    log::warn!("Rust::mcp::runtime | {}", e);
+                    log::warn!("RS::mcp | {}", e);
                     continue;
                 }
             }
@@ -204,7 +204,7 @@ impl McpProcess {
 
     /// Gracefully shut down the process.
     pub fn shutdown(&mut self) {
-        log::info!("Rust::mcp::runtime::shutdown | 关闭 MCP 进程 | id={}", self.id);
+        log::info!("RS::mcp::shutdown | id={}", self.id);
         let _ = self.child.kill();
         let _ = self.child.wait();
         // Wait for stderr thread to finish
@@ -213,7 +213,7 @@ impl McpProcess {
         }
         let stderr = self.get_stderr();
         if !stderr.trim().is_empty() {
-            log::debug!("Rust::mcp::runtime::shutdown | 最终 stderr | {}", stderr.trim());
+            log::debug!("RS::mcp::shutdown | stderr: {}", stderr.trim());
         }
     }
 }

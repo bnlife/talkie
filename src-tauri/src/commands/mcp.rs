@@ -9,7 +9,7 @@ use crate::AppState;
 pub fn list_mcp_categories(
     state: State<'_, AppState>,
 ) -> Result<Vec<models::McpCategory>, String> {
-    log::debug!("Rust::commands::mcp::list_mcp_categories | 查询分类列表");
+    log::debug!("RS::CMD::mcp | categories");
     let db = state.db.lock().map_err(|e| e.to_string())?;
     crate::store::list_mcp_categories(&db).map_err(|e| e.to_string())
 }
@@ -20,7 +20,7 @@ pub fn list_mcp_servers(
     category_id: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<Vec<models::McpServer>, String> {
-    log::debug!("Rust::commands::mcp::list_mcp_servers | 查询服务列表 | category={:?}", category_id);
+    log::debug!("RS::CMD::mcp | servers | cat={:?}", category_id);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     crate::store::list_mcp_servers(&db, category_id.as_deref()).map_err(|e| e.to_string())
 }
@@ -30,7 +30,7 @@ pub fn list_mcp_servers(
 pub fn list_mcp_instances(
     state: State<'_, AppState>,
 ) -> Result<Vec<models::McpInstance>, String> {
-    log::debug!("Rust::commands::mcp::list_mcp_instances | 查询已安装实例");
+    log::debug!("RS::CMD::mcp | instances");
     let db = state.db.lock().map_err(|e| e.to_string())?;
     crate::store::list_mcp_instances(&db).map_err(|e| e.to_string())
 }
@@ -41,7 +41,7 @@ pub fn add_mcp_instance(
     instance: models::McpInstance,
     state: State<'_, AppState>,
 ) -> Result<models::McpInstance, String> {
-    log::info!("Rust::commands::mcp::add_mcp_instance | 添加实例 | name={} server_id={}", instance.name, instance.server_id);
+    log::info!("RS::CMD::mcp | add | name={} server_id={}", instance.name, instance.server_id);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     crate::store::create_mcp_instance(&db, &instance).map_err(|e| e.to_string())?;
     Ok(instance)
@@ -53,7 +53,7 @@ pub fn remove_mcp_instance(
     id: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    log::info!("Rust::commands::mcp::remove_mcp_instance | 移除实例 | id={}", id);
+    log::info!("RS::CMD::mcp | remove | id={}", id);
     // Stop if running
     let _ = state.mcp_pool.stop(&id);
     let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -70,7 +70,7 @@ pub async fn toggle_mcp_instance(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    log::info!("Rust::commands::mcp::toggle_mcp_instance | 切换状态 | id={} enabled={}", id, enabled);
+    log::info!("RS::CMD::mcp | toggle | id={} enabled={}", id, enabled);
 
     // Update DB immediately
     {
@@ -91,17 +91,17 @@ pub async fn toggle_mcp_instance(
         let pool = Arc::clone(&state.mcp_pool);
         let instance_id = id.clone();
         std::thread::spawn(move || {
-            log::info!("Rust::mcp | 后台线程开始 | id={}", instance_id);
+            log::info!("RS::CMD::mcp | thread start | id={}", instance_id);
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 pool.start(&instance)
             }));
             match result {
                 Ok(Ok(())) => {
-                    log::info!("Rust::mcp | MCP 启动成功 | id={}", instance_id);
+                    log::info!("RS::CMD::mcp | started | id={}", instance_id);
                     let _ = app.emit("mcp:started", serde_json::json!({ "id": instance_id }));
                 }
                 Ok(Err(e)) => {
-                    log::error!("Rust::mcp | MCP 启动失败 | id={} err={}", instance_id, e);
+                    log::error!("RS::CMD::mcp | start fail | id={} err={}", instance_id, e);
                     let _ = app.emit("mcp:error", serde_json::json!({ "id": instance_id, "error": e }));
                 }
                 Err(panic) => {
@@ -112,7 +112,7 @@ pub async fn toggle_mcp_instance(
                     } else {
                         "unknown panic".to_string()
                     };
-                    log::error!("Rust::mcp | MCP 启动 panic | id={} err={}", instance_id, msg);
+                    log::error!("RS::CMD::mcp | panic | id={} err={}", instance_id, msg);
                     let _ = app.emit("mcp:error", serde_json::json!({ "id": instance_id, "error": format!("panic: {}", msg) }));
                 }
             }
@@ -131,7 +131,7 @@ pub fn start_mcp_instance(
     id: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    log::info!("Rust::commands::mcp::start_mcp_instance | 启动实例 | id={}", id);
+    log::info!("RS::CMD::mcp | start | id={}", id);
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let instance = crate::store::get_mcp_instance(&db, &id)
         .map_err(|e| e.to_string())?
@@ -146,7 +146,7 @@ pub fn stop_mcp_instance(
     id: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    log::info!("Rust::commands::mcp::stop_mcp_instance | 停止实例 | id={}", id);
+    log::info!("RS::CMD::mcp | stop | id={}", id);
     state.mcp_pool.stop(&id)
 }
 
@@ -158,6 +158,6 @@ pub async fn call_mcp_tool(
     args: serde_json::Value,
     state: State<'_, AppState>,
 ) -> Result<serde_json::Value, String> {
-    log::info!("Rust::commands::mcp::call_mcp_tool | 调用工具 | instance={} tool={}", instance_id, tool_name);
+    log::info!("RS::CMD::mcp | call | instance={} tool={}", instance_id, tool_name);
     state.mcp_pool.call_tool(&instance_id, &tool_name, args)
 }

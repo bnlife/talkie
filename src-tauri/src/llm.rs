@@ -20,13 +20,13 @@ where
     F: Fn(String) + Send + 'static,
 {
     if cancel.is_cancelled() {
-        log::warn!("Rust::llm::stream_chat | 流式请求被取消");
+        log::warn!("RS::llm | cancelled");
         return Err("请求已取消".to_string());
     }
 
     let has_system = messages.first().map_or(false, |m| m.role == "system");
     log::info!(
-        "Rust::llm::stream_chat | 开始流式请求 | url={} model={} messages={} temperature={} top_p={} system_prompt={}",
+        "RS::llm::stream | url={} model={} msgs={} temp={} top_p={} sys={}",
         base_url, model, messages.len(), temperature, top_p, has_system
     );
 
@@ -67,7 +67,7 @@ where
         .header("Content-Type", "application/json");
 
     for (key, value) in headers {
-        log::trace!("Rust::llm::stream_chat | 自定义 header | {}={}", key, value);
+        log::trace!("RS::llm | header | {}={}", key, value);
         request = request.header(key.as_str(), value.as_str());
     }
 
@@ -83,12 +83,12 @@ where
             } else {
                 format!("请求失败: {}", e)
             };
-            log::error!("Rust::llm::stream_chat | ERR_net_connect | 请求失败: {}", msg);
+            log::error!("RS::llm | net err: {}", msg);
             msg
         })?;
 
     let status = response.status();
-    log::debug!("Rust::llm::stream_chat | HTTP 响应 | status={}", status);
+    log::debug!("RS::llm | HTTP status={}", status);
     if !status.is_success() {
         return Err(format!("HTTP error: {}", status));
     }
@@ -99,7 +99,7 @@ where
 
     loop {
         if cancel.is_cancelled() {
-            log::warn!("Rust::llm::stream_chat | 流式请求被取消");
+            log::warn!("RS::llm | cancelled");
             return Err("请求已取消".to_string());
         }
 
@@ -109,7 +109,7 @@ where
             None => break,
         };
 
-        log::trace!("Rust::llm::stream_chat | 收到 chunk | len={}", chunk.len());
+        log::trace!("RS::llm | chunk len={}", chunk.len());
 
         let text = String::from_utf8_lossy(&chunk);
         buffer.push_str(&text);
@@ -126,7 +126,7 @@ where
                 let data = data.trim();
 
                 if data == "[DONE]" {
-                    log::info!("Rust::llm::stream_chat | 流式完成 | total_chars={} tokens={:?}", accumulated.len(), total_tokens);
+                    log::info!("RS::llm::stream | done | chars={} tokens={:?}", accumulated.len(), total_tokens);
                     return Ok((accumulated, total_tokens));
                 }
 
@@ -152,13 +152,13 @@ where
                         }
                     }
                 } else {
-                    log::warn!("Rust::llm::stream_chat | SSE 解析异常 | line={}", data);
+                    log::warn!("RS::llm | SSE parse err | line={}", data);
                 }
             }
         }
     }
 
-    log::info!("Rust::llm::stream_chat | 流式完成 | total_chars={} tokens={:?}", accumulated.len(), total_tokens);
+    log::info!("RS::llm::stream | done | chars={} tokens={:?}", accumulated.len(), total_tokens);
     Ok((accumulated, total_tokens))
 }
 
@@ -179,7 +179,7 @@ mod tests {
     }
 
     #[test]
-    fn request_body_contains_temperature_top_p_and_system_prompt() {
+    fn stream_chat_with_params_and_sse_parsing() {
         run_with_mock(|mut server| {
             let sse_body = "data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"}}]}\n\ndata: [DONE]\n\n";
             let mock = server.mock("POST", "/chat/completions")
@@ -202,8 +202,8 @@ mod tests {
                 .create();
 
             let messages = vec![
-                Message { id: "system".into(), conversation_id: "c1".into(), role: "system".into(), content: "你是翻译助手".into(), created_at: 0, token_count: None },
-                Message { id: "u1".into(), conversation_id: "c1".into(), role: "user".into(), content: "hello".into(), created_at: 0, token_count: None },
+                Message { id: "system".into(), conversation_id: "c1".into(), role: "system".into(), content: "你是翻译助手".into(), created_at: 0, token_count: None, search_results: None },
+                Message { id: "u1".into(), conversation_id: "c1".into(), role: "user".into(), content: "hello".into(), created_at: 0, token_count: None, search_results: None },
             ];
 
             let mut headers = std::collections::HashMap::new();
@@ -240,7 +240,7 @@ mod tests {
                 .create();
 
             let messages = vec![
-                Message { id: "u1".into(), conversation_id: "c1".into(), role: "user".into(), content: "hi".into(), created_at: 0, token_count: None },
+                Message { id: "u1".into(), conversation_id: "c1".into(), role: "user".into(), content: "hi".into(), created_at: 0, token_count: None, search_results: None },
             ];
 
             let rt = tokio::runtime::Runtime::new().unwrap();

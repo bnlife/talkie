@@ -72,4 +72,71 @@ describe('ChatInput.vue', () => {
     await textarea.trigger('keydown', { key: 'Enter', shiftKey: false })
     expect(wrapper.emitted('send')).toBeFalsy()
   })
+
+  it('Shift+Enter 换行不发送', async () => {
+    const wrapper = createWrapper()
+    const textarea = wrapper.find('textarea')
+    const textareaEl = textarea.element as HTMLTextAreaElement
+    textareaEl.value = '你好'
+    await textarea.trigger('input')
+    await wrapper.vm.$nextTick()
+    await textarea.trigger('keydown', { key: 'Enter', shiftKey: true })
+    expect(wrapper.emitted('send')).toBeFalsy()
+  })
+
+  it('disabled=true 时按 Enter 不触发 send', async () => {
+    const wrapper = createWrapper({ disabled: true })
+    const textarea = wrapper.find('textarea')
+    const textareaEl = textarea.element as HTMLTextAreaElement
+    textareaEl.value = '你好'
+    await textarea.trigger('input')
+    await wrapper.vm.$nextTick()
+    await textarea.trigger('keydown', { key: 'Enter', shiftKey: false })
+    expect(wrapper.emitted('send')).toBeFalsy()
+  })
+
+  it('streaming=true 时按 Enter 不触发 send', async () => {
+    const wrapper = createWrapper({ streaming: true })
+    const textarea = wrapper.find('textarea')
+    const textareaEl = textarea.element as HTMLTextAreaElement
+    textareaEl.value = '你好'
+    await textarea.trigger('input')
+    await wrapper.vm.$nextTick()
+    await textarea.trigger('keydown', { key: 'Enter', shiftKey: false })
+    expect(wrapper.emitted('send')).toBeFalsy()
+  })
+
+  it('输入文字后重新挂载组件，文字保留（draft）', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const { useChatStore } = await import('@/stores/chatStore')
+    const chatStore = useChatStore()
+    chatStore.conversations = [{
+      id: 'c1', title: '对话一', provider_id: 'prov-1', model: 'gpt-4',
+      prompt_id: null, search_enabled: false, created_at: 1000, updated_at: 1001, pinned: false,
+    }]
+    chatStore.activeConversationId = 'c1'
+
+    // First mount: type something
+    const wrapper1 = mount(ChatInput, { props: { disabled: false, streaming: false } })
+    const textarea1 = wrapper1.find('textarea')
+    const el1 = textarea1.element as HTMLTextAreaElement
+    el1.value = '草稿内容'
+    await textarea1.trigger('input')
+    await wrapper1.vm.$nextTick()
+
+    // Verify draft is saved in store
+    expect(chatStore.getDraft('c1')).toBe('草稿内容')
+
+    // Unmount and remount (simulates page navigation)
+    wrapper1.unmount()
+    const wrapper2 = mount(ChatInput, { props: { disabled: false, streaming: false } })
+    const textarea2 = wrapper2.find('textarea')
+    const el2 = textarea2.element as HTMLTextAreaElement
+
+    // Draft should be restored
+    expect(el2.value).toBe('草稿内容')
+
+    wrapper2.unmount()
+  })
 })

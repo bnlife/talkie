@@ -488,6 +488,31 @@ describe('chatStore', () => {
       expect(chatBridge.sendMessage).not.toHaveBeenCalled()
     })
   })
+
+  describe('switchModel', () => {
+    it('updates conversation model via bridge and local state', async () => {
+      vi.mocked(conversationBridge.updateConversation).mockResolvedValue(undefined)
+
+      const store = useChatStore()
+      store.conversations = [createConv({ id: 'conv-1', provider_id: 'prov-1', model: 'gpt-4' })]
+      store.activeConversationId = 'conv-1'
+
+      await store.switchModel('prov-2', 'deepseek-chat')
+
+      expect(conversationBridge.updateConversation).toHaveBeenCalledWith('conv-1', { providerId: 'prov-2', model: 'deepseek-chat' })
+      expect(store.conversations[0].provider_id).toBe('prov-2')
+      expect(store.conversations[0].model).toBe('deepseek-chat')
+    })
+
+    it('does nothing when no active conversation', async () => {
+      const store = useChatStore()
+      store.activeConversationId = null
+
+      await store.switchModel('prov-1', 'gpt-4')
+
+      expect(conversationBridge.updateConversation).not.toHaveBeenCalled()
+    })
+  })
 })
 
 // ---------------------------------------------------------------------------

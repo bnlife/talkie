@@ -4,6 +4,7 @@ import { toast } from 'vue-sonner'
 import type { McpCategory, McpServer, McpInstance } from '../types'
 import * as mcpBridge from '../bridge/mcp'
 import { log } from '../bridge/log'
+import { EVENTS } from '../lib/events'
 
 export const useMcpStore = defineStore('mcp', {
   state: () => ({
@@ -34,7 +35,7 @@ export const useMcpStore = defineStore('mcp', {
 
   actions: {
     async loadData(): Promise<void> {
-      await log('info', '前端::mcpStore::loadData | 加载 MCP 数据')
+      await log('info', 'FE::mcpStore | load')
       const [cats, servers, instances] = await Promise.all([
         mcpBridge.listMcpCategories(),
         mcpBridge.listMcpServers(),
@@ -49,9 +50,9 @@ export const useMcpStore = defineStore('mcp', {
     },
 
     async listenEvents(): Promise<void> {
-      await listen('mcp:started', (event) => {
+      await listen(EVENTS.MCP_STARTED, (event) => {
         const payload = event.payload as { id: string }
-        log('info', `前端::mcpStore | MCP 启动成功 | id=${payload.id}`)
+        log('info', `FE::mcpStore | started | id=${payload.id}`)
         this.startingIds.delete(payload.id)
         delete this.errorMap[payload.id]
         const inst = this.instances.find(i => i.id === payload.id)
@@ -61,9 +62,9 @@ export const useMcpStore = defineStore('mcp', {
         }
       })
 
-      await listen('mcp:error', (event) => {
+      await listen(EVENTS.MCP_ERROR, (event) => {
         const payload = event.payload as { id: string; error: string }
-        log('error', `前端::mcpStore | MCP 启动失败 | id=${payload.id} err=${payload.error}`)
+        log('error', `FE::mcpStore | start fail | id=${payload.id} err=${payload.error}`)
         this.startingIds.delete(payload.id)
         this.errorMap[payload.id] = payload.error
         const inst = this.instances.find(i => i.id === payload.id)
@@ -75,7 +76,7 @@ export const useMcpStore = defineStore('mcp', {
     },
 
     async installServer(server: McpServer, config: Record<string, string>): Promise<void> {
-      await log('info', `前端::mcpStore::installServer | 安装服务 | server=${server.id}`)
+      await log('info', `FE::mcpStore | install | server=${server.id}`)
       const now = Math.floor(Date.now() / 1000)
       const instance: McpInstance = {
         id: crypto.randomUUID(),
@@ -93,7 +94,7 @@ export const useMcpStore = defineStore('mcp', {
     },
 
     async uninstallInstance(id: string): Promise<void> {
-      await log('info', `前端::mcpStore::uninstallInstance | 卸载实例 | id=${id}`)
+      await log('info', `FE::mcpStore | uninstall | id=${id}`)
       await mcpBridge.removeMcpInstance(id)
       this.instances = this.instances.filter(i => i.id !== id)
       this.startingIds.delete(id)
@@ -102,7 +103,7 @@ export const useMcpStore = defineStore('mcp', {
     },
 
     async toggleInstance(id: string, enabled: boolean): Promise<void> {
-      await log('info', `前端::mcpStore::toggleInstance | 切换状态 | id=${id} enabled=${enabled}`)
+      await log('info', `FE::mcpStore | toggle | id=${id} enabled=${enabled}`)
 
       if (enabled) {
         // Mark as starting — UI shows "启动中..."
@@ -122,7 +123,7 @@ export const useMcpStore = defineStore('mcp', {
     },
 
     async addInstance(instance: McpInstance): Promise<void> {
-      await log('info', `前端::mcpStore::addInstance | 添加自定义实例 | name=${instance.name}`)
+      await log('info', `FE::mcpStore | add custom | name=${instance.name}`)
       const created = await mcpBridge.addMcpInstance(instance)
       this.instances.unshift(created)
     },

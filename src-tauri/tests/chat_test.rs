@@ -13,12 +13,12 @@
 //!   `AppState`.
 
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use tokio_util::sync::CancellationToken;
 
-use talkie::models::{Conversation, Message};
+use talkie::models::{Conversation, ConversationConfig, Message};
 use talkie::store;
 
 // ---------------------------------------------------------------------------
@@ -37,14 +37,18 @@ fn insert_conv(conn: &rusqlite::Connection, id: &str) {
     let conv = Conversation {
         id: id.to_string(),
         title: "Test Conversation".into(),
-        provider_id: "prov-1".into(),
-        model: "test-model".into(),
-        system_prompt: String::new(),
         created_at: 1000,
         updated_at: 1000,
         pinned: false,
     };
-    store::create_conversation(conn, &conv).unwrap();
+    let config = ConversationConfig {
+        conversation_id: id.to_string(),
+        provider_id: "prov-1".into(),
+        model: "test-model".into(),
+        prompt_id: None,
+        search_enabled: false,
+    };
+    store::create_conversation(conn, &conv, &config).unwrap();
 }
 
 // ===========================================================================
@@ -67,6 +71,7 @@ fn test_store_save_user_message() {
         content: "你好，世界！".into(),
         created_at: 1001,
         token_count: None,
+        search_results: None,
     };
     store::create_message(&conn, &msg).unwrap();
 
@@ -93,6 +98,7 @@ fn test_store_messages_chronological_order() {
             content: format!("Message {}", i),
             created_at: 1000 + i,
             token_count: Some(i * 10),
+            search_results: None,
         };
         store::create_message(&conn, &msg).unwrap();
     }
@@ -130,6 +136,7 @@ fn test_store_batch_create_messages() {
             content: format!("Batch message {}", i),
             created_at: 2000 + i,
             token_count: None,
+            search_results: None,
         })
         .collect();
 
@@ -152,6 +159,7 @@ fn test_store_delete_messages_by_conversation() {
         content: "Will be deleted".into(),
         created_at: 3000,
         token_count: None,
+        search_results: None,
     };
     store::create_message(&conn, &msg).unwrap();
 
@@ -184,6 +192,7 @@ fn test_store_message_with_token_count() {
         content: "Response with token tracking".into(),
         created_at: 4000,
         token_count: Some(42),
+        search_results: None,
     };
     store::create_message(&conn, &msg).unwrap();
 
@@ -236,14 +245,18 @@ fn test_store_list_orders_pinned_first() {
         let conv = Conversation {
             id: format!("conv-{}", i),
             title: format!("Conversation {}", i),
-            provider_id: "prov-1".into(),
-            model: "test".into(),
-            system_prompt: String::new(),
             created_at: now + i,
             updated_at: now + i,
             pinned: false,
         };
-        store::create_conversation(&conn, &conv).unwrap();
+        let config = ConversationConfig {
+            conversation_id: format!("conv-{}", i),
+            provider_id: "prov-1".into(),
+            model: "test".into(),
+            prompt_id: None,
+            search_enabled: false,
+        };
+        store::create_conversation(&conn, &conv, &config).unwrap();
     }
 
     // Pin conv-1 (middle one)
@@ -478,6 +491,7 @@ fn test_real_appstate_cancel_field() {
         config: Mutex::new(talkie::models::Settings::default()),
         config_path: PathBuf::from(":memory:"),
         cancel: Mutex::new(None),
+        mcp_pool: Arc::new(talkie::mcp::pool::McpPool::new(PathBuf::from(":memory:"))),
     };
 
     // Slot starts empty.
@@ -494,4 +508,71 @@ fn test_real_appstate_cancel_field() {
     taken.cancel();
     assert!(state.cancel.lock().unwrap().is_none());
     assert!(token.is_cancelled());
+}
+
+// ===========================================================================
+// parse_search_results tests
+// ===========================================================================
+
+#[test]
+fn test_parse_search_results_bocha_format() {
+    // Simulate Bocha MCP response: text content with markdown-formatted results
+    let mcp_response = serde_json::json!({
+        "content": [{
+            "type": "text",
+            "text": "Search results for \"Rust 编程\":\n\n1. [Rust 语言官网](https://www.rust-lang.org)\n   Rust 是一门系统编程语言\n   Published: 2024-01-01\n\n2. [Rust 程序设计语言](https://kaisery.github.io/trpl-zh-cn)\n   Rust 程序设计语言中文翻译\n   Published: 2023-06-15"
+        }]
+    });
+
+    let results = talkie::commands::chat::parse_search_results(&mcp_response);
+    assert_eq!(results.len(), 2);
+    assert_eq!(results[0].title, "Rust 语言官网");
+    assert_eq!(results[0].url, "https://www.rust-lang.org");
+    assert_eq!(results[0].snippet, Some("Rust 是一门系统编程语言".into()));
+    assert_eq!(results[1].title, "Rust 程序设计语言");
+    assert_eq!(results[1].url, "https://kaisery.github.io/trpl-zh-cn");
+    assert_eq!(results[1].snippet, Some("Rust 程序设计语言中文翻译".into()));
+}
+
+#[test]
+fn test_parse_search_results_no_snippet() {
+    let mcp_response = serde_json::json!({
+        "content": [{
+            "type": "text",
+            "text": "Search results:\n\n1. [Example](https://example.com)\n\n2. [Another](https://another.com)"
+        }]
+    });
+
+    let results = talkie::commands::chat::parse_search_results(&mcp_response);
+    assert_eq!(results.len(), 2);
+    assert_eq!(results[0].title, "Example");
+    assert_eq!(results[0].url, "https://example.com");
+    assert_eq!(results[0].snippet, None);
+}
+
+#[test]
+fn test_parse_search_results_empty() {
+    let mcp_response = serde_json::json!({
+        "content": [{
+            "type": "text",
+            "text": "No results found"
+        }]
+    });
+
+    let results = talkie::commands::chat::parse_search_results(&mcp_response);
+    assert_eq!(results.len(), 0);
+}
+
+#[test]
+fn test_parse_search_results_fallback_json() {
+    // Fallback: no text content, use raw JSON
+    let mcp_response = serde_json::json!({
+        "content": [{
+            "type": "text",
+            "text": "Some unexpected format"
+        }]
+    });
+
+    let results = talkie::commands::chat::parse_search_results(&mcp_response);
+    assert_eq!(results.len(), 0);
 }

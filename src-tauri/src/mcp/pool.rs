@@ -35,7 +35,7 @@ impl McpPool {
             let script_path = self.app_data_dir.join("mcp-servers").join(name).join("index.js");
             resolved.command = Some("node".to_string());
             resolved.args = Some(vec![script_path.to_string_lossy().to_string()]);
-            log::info!("Rust::mcp::pool | 解析本地脚本 | path={}", script_path.display());
+            log::info!("RS::mcp::pool | local script | path={}", script_path.display());
         }
 
         let proc = McpProcess::spawn(&resolved)?;
@@ -48,10 +48,10 @@ impl McpPool {
         let mut procs = self.processes.lock().map_err(|e| e.to_string())?;
         if let Some(mut proc) = procs.remove(id) {
             proc.shutdown();
-            log::info!("Rust::mcp::pool | 已停止实例 | id={}", id);
+            log::info!("RS::mcp::pool | stopped | id={}", id);
             Ok(())
         } else {
-            log::debug!("Rust::mcp::pool | 实例未运行 | id={}", id);
+            log::debug!("RS::mcp::pool | not running | id={}", id);
             Ok(())
         }
     }

@@ -3,6 +3,7 @@ import { reactive, watch, ref } from 'vue'
 import type { ModelProvider } from '@/types'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { cn } from '@/lib/utils'
+import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
@@ -56,6 +57,8 @@ async function toggleEnabled() {
 }
 
 async function handleTest() {
+  if (!form.base_url.trim()) { toast.warning('请先填写 API 地址'); return }
+  if (!form.api_key.trim()) { toast.warning('请先填写 API Key'); return }
   isTesting.value = true
   testResult.value = null
   await settingsStore.updateProvider(props.provider.id, {
@@ -71,6 +74,8 @@ async function handleTest() {
 }
 
 async function handleFetchModels() {
+  if (!form.base_url.trim()) { toast.warning('请先填写 API 地址'); return }
+  if (!form.api_key.trim()) { toast.warning('请先填写 API Key'); return }
   isFetching.value = true
   await settingsStore.fetchModels(props.provider.id)
   isFetching.value = false

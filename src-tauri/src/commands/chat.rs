@@ -57,6 +57,7 @@ fn gather_context(
             content: sys.clone(),
             created_at: 0,
             token_count: None,
+            search_results: None,
         });
     }
     messages.extend(history.iter().cloned());
@@ -165,9 +166,9 @@ async fn execute_stream(
         Ok((text, tokens)) => Ok(Some((text, tokens))),
         Err(e) => {
             if e.contains("请求已取消") {
-                log::warn!("Rust::chat | 流式被取消 | conv={}", conversation_id);
+                log::warn!("RS::CMD::chat | stream cancelled | conv={}", conversation_id);
             } else {
-                log::error!("Rust::chat | 流式请求失败 | err={}", e);
+                log::error!("RS::CMD::chat | stream failed | err={}", e);
             }
             let _ = app.emit(
                 "chat:error",
@@ -186,7 +187,9 @@ fn finalize_response(
     message_id: String,
     full_text: String,
     usage_tokens: Option<i64>,
+    search_results: Option<Vec<models::SearchResult>>,
 ) -> Result<(), String> {
+    let search_results_clone = search_results.clone();
     let assistant_msg = models::Message {
         id: message_id.clone(),
         conversation_id,
@@ -197,13 +200,14 @@ fn finalize_response(
             .unwrap()
             .as_secs() as i64,
         token_count: usage_tokens,
+        search_results,
     };
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         store::create_message(&db, &assistant_msg).map_err(|e| e.to_string())?;
     }
     log::info!(
-        "Rust::chat | 助手消息已保存 | msg_id={} chars={}",
+        "RS::CMD::chat | assistant msg saved | msg_id={} chars={}",
         assistant_msg.id,
         assistant_msg.content.len()
     );
@@ -219,6 +223,7 @@ fn finalize_response(
         serde_json::json!({
             "message_id": message_id,
             "token_count": usage_tokens,
+            "search_results": search_results_clone,
         }),
     );
 
@@ -243,7 +248,7 @@ pub async fn send_message(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     log::info!(
-        "Rust::commands::chat::send_message | 发送消息 | conv={} len={} search_enabled={}",
+        "RS::CMD::chat::send | conv={} len={} search={}",
         conversation_id, content.len(), search_enabled
     );
 
@@ -258,6 +263,7 @@ pub async fn send_message(
             .unwrap()
             .as_secs() as i64,
         token_count: None,
+        search_results: None,
     };
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -265,22 +271,22 @@ pub async fn send_message(
     }
 
     // 2. If search is enabled, find a running search MCP instance and call it.
-    let search_context = if search_enabled {
+    let (search_context, search_results) = if search_enabled {
         match perform_search(&state, &content) {
-            Ok(results) => {
-                log::info!("Rust::chat | 搜索完成 | results_len={}", results.len());
-                Some(results)
+            Ok((text, results)) => {
+                log::info!("RS::CMD::chat | search ok | results={} text_len={}", results.len(), text.len());
+                (Some(text), Some(results))
             }
             Err(e) => {
-                log::warn!("Rust::chat | 搜索失败，继续不带搜索 | err={}", e);
-                None
+                log::warn!("RS::CMD::chat | search failed, skip | err={}", e);
+                (None, None)
             }
         }
     } else {
-        None
+        (None, None)
     };
 
-    do_generate(&app, &state, &conversation_id, search_context).await
+    do_generate(&app, &state, &conversation_id, search_context, search_results).await
 }
 
 /// Regenerate the last assistant response without creating a new user message.
@@ -291,11 +297,11 @@ pub async fn regenerate_message(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     log::info!(
-        "Rust::commands::chat::regenerate_message | 重新生成 | conv={}",
+        "RS::CMD::chat::regen | conv={}",
         conversation_id
     );
 
-    do_generate(&app, &state, &conversation_id, None).await
+    do_generate(&app, &state, &conversation_id, None, None).await
 }
 
 // ---------------------------------------------------------------------------
@@ -303,17 +309,18 @@ pub async fn regenerate_message(
 // ---------------------------------------------------------------------------
 
 /// Find a running MCP search instance and call it with the user's query.
-fn perform_search(state: &AppState, query: &str) -> Result<String, String> {
-    log::info!("Rust::chat::perform_search | 开始搜索 | query={}", query);
+/// Returns (text_for_llm, structured_results).
+pub fn perform_search(state: &AppState, query: &str) -> Result<(String, Vec<models::SearchResult>), String> {
+    log::info!("RS::CMD::search | start | query={}", query);
 
     // Find a running MCP instance that provides search
     let db = state.db.lock().map_err(|e| e.to_string())?;
     let instances = store::list_mcp_instances(&db).map_err(|e| e.to_string())?;
     drop(db);
 
-    log::debug!("Rust::chat::perform_search | 已安装实例数={}", instances.len());
+    log::debug!("RS::CMD::search | installed={}", instances.len());
     for inst in &instances {
-        log::debug!("Rust::chat::perform_search | 实例 | id={} server_id={} enabled={}", inst.id, inst.server_id, inst.enabled);
+        log::debug!("RS::CMD::search | instance | id={} server_id={} enabled={}", inst.id, inst.server_id, inst.enabled);
     }
 
     // Look for an enabled instance whose server is a search server
@@ -325,14 +332,23 @@ fn perform_search(state: &AppState, query: &str) -> Result<String, String> {
 
     let instance = match search_instance {
         Some(i) => {
-            log::info!("Rust::chat::perform_search | 找到搜索实例 | id={} server_id={}", i.id, i.server_id);
+            log::info!("RS::CMD::search | found | id={} server_id={}", i.id, i.server_id);
             i
         }
         None => {
-            log::warn!("Rust::chat::perform_search | 没有运行中的搜索 MCP 实例");
-            return Err("没有运行中的搜索 MCP 实例".to_string());
+            log::warn!("RS::CMD::search | no search instance");
+            return Err("没有启用的搜索 MCP 实例".to_string());
         }
     };
+
+    // If instance is not running in the pool, auto-start it
+    if !state.mcp_pool.is_running(&instance.id) {
+        log::info!("RS::CMD::search | auto-start | id={}", instance.id);
+        state.mcp_pool.start(instance).map_err(|e| {
+            log::error!("RS::CMD::search | auto-start failed | err={}", e);
+            format!("搜索 MCP 实例启动失败: {}", e)
+        })?;
+    }
 
     // Call the search tool
     let tool_name = if instance.server_id.contains("bocha") {
@@ -349,9 +365,17 @@ fn perform_search(state: &AppState, query: &str) -> Result<String, String> {
     });
 
     let result = state.mcp_pool.call_tool(&instance.id, tool_name, args)?;
+    log::debug!("RS::CMD::search | raw | {}", serde_json::to_string(&result).unwrap_or_default());
 
-    // Format the result as a readable string
-    Ok(format_search_results(&result))
+    // Parse structured results and format text for LLM
+    let search_results = parse_search_results(&result);
+    let text = format_search_results(&result);
+    for (i, sr) in search_results.iter().enumerate() {
+        log::info!("RS::CMD::search | parsed[{}] | title={} url={} snippet={:?}", i, sr.title, sr.url, sr.snippet);
+    }
+    log::info!("RS::CMD::search | done | results={} text_len={}", search_results.len(), text.len());
+
+    Ok((text, search_results))
 }
 
 /// Format MCP search tool results into a readable context string.
@@ -373,6 +397,45 @@ fn format_search_results(result: &serde_json::Value) -> String {
     serde_json::to_string_pretty(result).unwrap_or_default()
 }
 
+/// Parse MCP search tool results into structured `SearchResult` items.
+///
+/// Tries to extract `[title](url)` links from the text content.
+/// Returns an empty vec if no structured results can be parsed.
+pub fn parse_search_results(result: &serde_json::Value) -> Vec<models::SearchResult> {
+    let mut results = Vec::new();
+
+    let text = match result.get("content").and_then(|c| c.as_array()) {
+        Some(items) => {
+            items.iter()
+                .filter_map(|item| item.get("text").and_then(|t| t.as_str()))
+                .collect::<Vec<_>>()
+                .join("\n")
+        }
+        None => return results,
+    };
+
+    // Pattern: "N. [title](url)" followed by optional snippet line (non-URL, non-numbered)
+    let re = regex::Regex::new(r"(?m)^\d+\.\s+\[([^\]]+)\]\(([^)]+)\)(?:\n[ \t]+([^\n\d][^\n]*))?")
+        .expect("invalid regex");
+
+    for cap in re.captures_iter(&text) {
+        let title = cap.get(1).map(|m| m.as_str().to_string()).unwrap_or_default();
+        let url = cap.get(2).map(|m| m.as_str().to_string()).unwrap_or_default();
+        let snippet = cap.get(3).map(|m| {
+            let s = m.as_str().trim();
+            // Filter out "Published:" lines from snippet
+            if s.starts_with("Published:") { None } else { Some(s.to_string()) }
+        }).flatten();
+
+        if !title.is_empty() && !url.is_empty() {
+            results.push(models::SearchResult { title, url, snippet });
+        }
+    }
+
+    log::info!("RS::CMD::parse | count={}", results.len());
+    results
+}
+
 // ---------------------------------------------------------------------------
 // Shared generation logic
 // ---------------------------------------------------------------------------
@@ -383,11 +446,12 @@ async fn do_generate(
     state: &State<'_, AppState>,
     conversation_id: &str,
     search_context: Option<String>,
+    search_results: Option<Vec<models::SearchResult>>,
 ) -> Result<(), String> {
     // 1. Gather context (history + system prompt).
     let mut ctx = gather_context(state, conversation_id)?;
     if let Some(ref sys) = ctx.system_prompt {
-        log::debug!("Rust::chat | 注入 system prompt | len={}", sys.len());
+        log::debug!("RS::CMD::chat | inject sys prompt | len={}", sys.len());
     }
 
     // 2. If we have search results, inject as a system message after system prompt.
@@ -399,16 +463,17 @@ async fn do_generate(
             content: format!("以下是联网搜索结果，请参考这些信息回答用户的问题：\n\n{}", search_text),
             created_at: 0,
             token_count: None,
+            search_results: None,
         };
         // Insert after system prompt (index 0 if present) or at the beginning
         let insert_pos = if ctx.system_prompt.is_some() { 1 } else { 0 };
         ctx.messages.insert(insert_pos, search_msg);
-        log::debug!("Rust::chat | 注入搜索结果 | role=system len={}", search_text.len());
+        log::debug!("RS::CMD::chat | inject search | role=system len={}", search_text.len());
     }
 
     // 2. Resolve LLM provider config.
     let cfg = resolve_llm_config(state, conversation_id)?;
-    log::info!("Rust::chat | 使用 model={} provider={}", cfg.model, cfg.base_url);
+    log::info!("RS::CMD::chat | model={} provider={}", cfg.model, cfg.base_url);
 
     // 3. Set up cancellation token.
     let cancel = setup_cancel_token(state)?;
@@ -432,18 +497,19 @@ async fn do_generate(
         message_id,
         full_text,
         usage_tokens,
+        search_results,
     )
 }
 
 /// Stop the currently streaming LLM response.
 #[tauri::command]
 pub async fn stop_stream(state: State<'_, AppState>) -> Result<(), String> {
-    log::info!("Rust::commands::chat::stop_stream | 用户停止生成");
+    log::info!("RS::CMD::chat::stop | user stop");
     let mut c = state.cancel.lock().map_err(|e| e.to_string())?;
     if let Some(token) = c.take() {
         token.cancel();
     } else {
-        log::debug!("Rust::commands::chat::stop_stream | 无活跃流式可取消");
+        log::debug!("RS::CMD::chat::stop | no active stream");
     }
     Ok(())
 }
@@ -455,7 +521,7 @@ pub fn get_messages(
     state: State<'_, AppState>,
 ) -> Result<Vec<models::Message>, String> {
     log::debug!(
-        "Rust::commands::chat::get_messages | 查询消息列表 | conv={}",
+        "RS::CMD::chat::get | conv={}",
         conversation_id
     );
     let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -469,7 +535,7 @@ pub fn delete_message(
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     log::info!(
-        "Rust::commands::chat::delete_message | 删除消息 | id={}",
+        "RS::CMD::chat::del | id={}",
         message_id
     );
     let db = state.db.lock().map_err(|e| e.to_string())?;

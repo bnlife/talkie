@@ -48,6 +48,7 @@ async fn test_single_chunk() {
         content: "你好".into(),
         created_at: 1000,
         token_count: None,
+        search_results: None,
     }];
 
     let result = stream_chat(
@@ -67,7 +68,7 @@ async fn test_single_chunk() {
 
     // Verify return value
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), "你好");
+    assert_eq!(result.unwrap(), ("你好".into(), None));
 
     // Verify on_chunk was called exactly once with the correct content
     let captured = chunks.lock().unwrap();
@@ -110,6 +111,7 @@ async fn test_multi_chunk_stream() {
         content: "你好世界".into(),
         created_at: 1000,
         token_count: None,
+        search_results: None,
     }];
 
     let result = stream_chat(
@@ -129,7 +131,7 @@ async fn test_multi_chunk_stream() {
 
     // Final accumulated text
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), "你好世界");
+    assert_eq!(result.unwrap(), ("你好世界".into(), None));
 
     // Per‑delta callbacks
     let captured = chunks.lock().unwrap();
@@ -156,6 +158,7 @@ async fn test_cancel_before_request() {
         content: "hi".into(),
         created_at: 1000,
         token_count: None,
+        search_results: None,
     }];
 
     // Use a deliberately broken URL — the cancellation check runs first, so
@@ -197,6 +200,7 @@ async fn test_http_error_401() {
         content: "hi".into(),
         created_at: 1000,
         token_count: None,
+        search_results: None,
     }];
 
     let result = stream_chat(
@@ -240,6 +244,7 @@ async fn test_http_error_500() {
         content: "hi".into(),
         created_at: 1000,
         token_count: None,
+        search_results: None,
     }];
 
     let result = stream_chat(
@@ -298,6 +303,7 @@ data: [DONE]
         content: "测试".into(),
         created_at: 1000,
         token_count: None,
+        search_results: None,
     }];
 
     let result = stream_chat(
@@ -317,7 +323,7 @@ data: [DONE]
 
     // Even with malformed lines, valid content must be extracted
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), "部分有效");
+    assert_eq!(result.unwrap(), ("部分有效".into(), None));
 
     let captured = chunks.lock().unwrap();
     assert_eq!(captured.len(), 1);

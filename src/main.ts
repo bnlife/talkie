@@ -8,7 +8,7 @@ const app = createApp(App)
 
 // Vue 错误兜底
 app.config.errorHandler = (err, _instance, _info) => {
-  log('error', `ERR_internal | Vue 错误: ${err}`)
+  log('error', `FE::ERR | vue error: ${err}`)
 }
 
 app.use(createPinia())
@@ -16,10 +16,10 @@ app.mount('#app')
 
 // 未捕获 Promise 拒绝
 window.addEventListener('unhandledrejection', (event) => {
-  log('error', `ERR_internal | 未捕获 Promise 拒绝: ${event.reason}`)
+  log('error', `FE::ERR | unhandled rejection: ${event.reason}`)
 })
 
 // 运行时异常
 window.addEventListener('error', (event) => {
-  log('error', `ERR_internal | 运行时异常: ${event.message}`)
+  log('error', `FE::ERR | runtime error: ${event.message}`)
 })

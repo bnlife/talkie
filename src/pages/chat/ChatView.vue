@@ -7,6 +7,7 @@ import { listen } from '@tauri-apps/api/event'
 import * as chatBridge from '@/bridge/chat'
 import { log } from '@/bridge/log'
 import { toast } from 'vue-sonner'
+import { EVENTS } from '@/lib/events'
 import { Button } from '@/components/ui/button'
 
 import { PanelLeftOpen, PanelLeftClose, Minus, Maximize2, Minimize2, X } from 'lucide-vue-next'
@@ -39,7 +40,7 @@ function handlePin(id: string) { chatStore.pinConversation(id) }
 function handleUnpin(id: string) { chatStore.unpinConversation(id) }
 function handleSend(content: string) { chatStore.sendMessage(content) }
 async function handleStopStream() {
-  await log('info', '前端::ChatView | 用户停止流式输出')
+  await log('info', 'FE::ChatView | user stop stream')
   await chatBridge.stopStream()
   await chatStore.finishStream()
 }
@@ -47,21 +48,21 @@ async function handleStopStream() {
 // Tauri event listeners
 let cleanupFns: (() => void)[] = []
 onMounted(async () => {
-  await chatStore.loadConversations()
   await settingsStore.loadSettings()
+  await chatStore.loadConversations()
   isMaximized.value = await appWindow.isMaximized()
   cleanupFns = [
-    await listen('chat:stream-chunk', (event) => {
+    await listen(EVENTS.CHAT_STREAM_CHUNK, (event) => {
       const p = event.payload as { message_id: string; delta: string }
       chatStore.appendStreamChunk(p.message_id, p.delta)
     }),
-    await listen('chat:stream-done', (event) => {
-      const p = event.payload as { message_id: string; token_count?: number }
-      chatStore.finishStream(p.token_count)
+    await listen(EVENTS.CHAT_STREAM_DONE, (event) => {
+      const p = event.payload as { message_id: string; token_count?: number; search_results?: import('@/types').SearchResult[] }
+      chatStore.finishStream(p.token_count, p.search_results)
     }),
-    await listen('chat:error', (event) => {
+    await listen(EVENTS.CHAT_ERROR, (event) => {
       const { message } = event.payload as { message: string }
-      log('error', `前端::ChatView | 收到错误事件 | ${message}`)
+      log('error', `FE::ChatView | error event | ${message}`)
       toast.error(message)
     }),
   ]

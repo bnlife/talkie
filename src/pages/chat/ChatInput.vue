@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -7,7 +7,6 @@ import { Send, Square, ChevronDown, Bot, Sparkles, Brain, Diamond, Server, Setti
 import { useSettingsStore } from '@/stores/settingsStore'
 import { usePromptStore } from '@/stores/promptStore'
 import { useChatStore } from '@/stores/chatStore'
-import * as conversationBridge from '@/bridge/conversation'
 
 const props = defineProps<{
   disabled?: boolean
@@ -23,9 +22,25 @@ const settingsStore = useSettingsStore()
 const promptStore = usePromptStore()
 const chatStore = useChatStore()
 
-const input = ref('')
+const input = ref(chatStore.activeConversationId ? chatStore.getDraft(chatStore.activeConversationId) : '')
 const showModelMenu = ref(false)
 const showPromptMenu = ref(false)
+
+// Restore draft when conversation changes
+watch(() => chatStore.activeConversationId, (newId) => {
+  if (newId) {
+    input.value = chatStore.getDraft(newId)
+  } else {
+    input.value = ''
+  }
+})
+
+// Save draft when input changes
+watch(input, (val) => {
+  if (chatStore.activeConversationId) {
+    chatStore.setDraft(chatStore.activeConversationId, val)
+  }
+})
 
 // Search toggle — per-conversation, persisted to DB
 const searchEnabled = computed(() => chatStore.searchEnabled)
@@ -56,11 +71,7 @@ const currentPrompt = computed(() => {
 })
 
 async function selectModel(providerId: string, model: string) {
-  const conv = chatStore.activeConversation
-  if (!conv) return
-  await conversationBridge.updateConversation(conv.id, { providerId, model })
-  conv.provider_id = providerId
-  conv.model = model
+  await chatStore.switchModel(providerId, model)
   showModelMenu.value = false
 }
 
@@ -78,7 +89,7 @@ function handleKeydown(e: KeyboardEvent) {
 
 function handleSend() {
   const text = input.value.trim()
-  if (!text || props.disabled) return
+  if (!text || props.disabled || props.streaming) return
   emit('send', text)
   input.value = ''
 }

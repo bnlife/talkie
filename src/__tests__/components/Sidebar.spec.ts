@@ -81,4 +81,62 @@ describe('Sidebar.vue', () => {
     }
   })
 
+  it('点击删除按钮触发 close 事件', async () => {
+    const wrapper = createWrapper({ conversations: sampleConversations, activeId: 'c1' })
+    const deleteBtn = wrapper.findAll('button').find(b => b.classes().includes('hover:bg-foreground/5'))
+    if (deleteBtn) {
+      await deleteBtn.trigger('click')
+      expect(wrapper.emitted('close')).toBeTruthy()
+    }
+  })
+
+  it('右键对话项显示菜单，点击置顶触发 pin 事件', async () => {
+    const wrapper = createWrapper({ conversations: sampleConversations, activeId: 'c1' })
+    const convItems = wrapper.findAll('.flex.items-center.justify-between')
+    const convItem = convItems.find(i => i.text().includes('对话一'))
+    expect(convItem).toBeTruthy()
+    if (convItem) {
+      await convItem.trigger('contextmenu')
+      await wrapper.vm.$nextTick()
+      const pinBtn = wrapper.findAll('button').find(b => b.text().includes('置顶'))
+      if (pinBtn) {
+        await pinBtn.trigger('click')
+        expect(wrapper.emitted('pin')).toBeTruthy()
+      }
+    }
+  })
+
+  it('右键已置顶对话，菜单显示取消置顶', async () => {
+    const pinnedConversations = [{ ...sampleConversations[0], pinned: true }, ...sampleConversations.slice(1)]
+    const wrapper = createWrapper({ conversations: pinnedConversations, activeId: 'c1' })
+    const convItems = wrapper.findAll('.flex.items-center.justify-between')
+    const convItem = convItems.find(i => i.text().includes('对话一'))
+    expect(convItem).toBeTruthy()
+    if (convItem) {
+      await convItem.trigger('contextmenu')
+      await wrapper.vm.$nextTick()
+      // Context menu uses Teleport to body, so search in document.body
+      const unpinBtn = Array.from(document.body.querySelectorAll('button')).find(b => b.textContent?.includes('取消置顶'))
+      expect(unpinBtn).toBeTruthy()
+    }
+  })
+
+  it('右键菜单点击重命名，输入新标题后触发 rename 事件', async () => {
+    const wrapper = createWrapper({ conversations: sampleConversations, activeId: 'c1' })
+    const convItems = wrapper.findAll('.flex.items-center.justify-between')
+    const convItem = convItems.find(i => i.text().includes('对话一'))
+    expect(convItem).toBeTruthy()
+    if (convItem) {
+      await convItem.trigger('contextmenu')
+      await wrapper.vm.$nextTick()
+      const renameBtn = wrapper.findAll('button').find(b => b.text().includes('重命名'))
+      if (renameBtn) {
+        await renameBtn.trigger('click')
+        await wrapper.vm.$nextTick()
+        const input = wrapper.find('input[data-rename-input]')
+        expect(input.exists()).toBe(true)
+      }
+    }
+  })
+
 })

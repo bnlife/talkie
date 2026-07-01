@@ -46,6 +46,14 @@ pub fn run() {
                         )
                         .max_file_size(2 * 1024 * 1024)
                         .rotation_strategy(RotationStrategy::KeepSome(10))
+                        .format(|out, message, record| {
+                            out.finish(format_args!(
+                                "[{}][{}] {}",
+                                chrono::Local::now().format("%m-%d %H:%M:%S"),
+                                record.level(),
+                                message
+                            ))
+                        })
                         .build(),
                 )?;
             }
@@ -70,7 +78,7 @@ pub fn run() {
             let bocha_script = bocha_dir.join("index.js");
             let script_content = include_str!("../mcp-servers/bocha-search/index.js");
             std::fs::write(&bocha_script, script_content)?;
-            log::info!("Rust::lib | 已部署博查 MCP 脚本 | path={}", bocha_script.display());
+            log::info!("RS::lib | bocha script deployed | path={}", bocha_script.display());
 
             // Inject state so Tauri commands can access it via State<>.
             app.manage(AppState {

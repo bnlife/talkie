@@ -21,12 +21,12 @@ export const usePromptStore = defineStore('prompt', {
 
   actions: {
     async loadPrompts(): Promise<void> {
-      await log('info', '前端::promptStore::loadPrompts | 加载提示词列表')
+      await log('info', 'FE::promptStore | load')
       this.prompts = await promptBridge.listPrompts()
     },
 
     async createPrompt(name: string, content: string): Promise<Prompt> {
-      await log('info', `前端::promptStore::createPrompt | 创建提示词 | name=${name}`)
+      await log('info', `FE::promptStore | create | name=${name}`)
       const prompt = await promptBridge.createPrompt(name, content)
       this.prompts.unshift(prompt)
       this.activePromptId = prompt.id
@@ -34,7 +34,7 @@ export const usePromptStore = defineStore('prompt', {
     },
 
     async updatePrompt(id: string, name: string, content: string): Promise<void> {
-      await log('info', `前端::promptStore::updatePrompt | 更新提示词 | id=${id}`)
+      await log('info', `FE::promptStore | update | id=${id}`)
       await promptBridge.updatePrompt(id, name, content)
       const prompt = this.prompts.find(p => p.id === id)
       if (prompt) {
@@ -45,7 +45,7 @@ export const usePromptStore = defineStore('prompt', {
     },
 
     async deletePrompt(id: string): Promise<void> {
-      await log('info', `前端::promptStore::deletePrompt | 删除提示词 | id=${id}`)
+      await log('info', `FE::promptStore | delete | id=${id}`)
       await promptBridge.deletePrompt(id)
       this.prompts = this.prompts.filter(p => p.id !== id)
       if (this.activePromptId === id) {
@@ -54,7 +54,7 @@ export const usePromptStore = defineStore('prompt', {
     },
 
     async setDefaultPrompt(id: string): Promise<void> {
-      await log('info', `前端::promptStore::setDefaultPrompt | 设置默认提示词 | id=${id}`)
+      await log('info', `FE::promptStore | set_default | id=${id}`)
       await promptBridge.setDefaultPrompt(id)
       this.prompts.forEach(p => {
         p.is_default = p.id === id

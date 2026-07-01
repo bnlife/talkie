@@ -29,7 +29,7 @@ export const useSettingsStore = defineStore('settings', {
 
   actions: {
     async loadSettings(): Promise<void> {
-      await log('info', '前端::settingsStore::loadSettings')
+      await log('info', 'FE::settingsStore | load')
       const s = await settingsBridge.getSettings()
       this.providers = s.providers ?? []
       this.active_provider_id = s.active_provider_id ?? ''
@@ -63,18 +63,18 @@ export const useSettingsStore = defineStore('settings', {
       }
       this.providers.unshift(provider)
       await this.saveSettings()
-      await log('info', `前端::settingsStore::addProvider | 添加 provider | name=${provider.name} base_url=${provider.base_url}`)
+      await log('info', `FE::settingsStore | add provider | name=${provider.name} url=${provider.base_url}`)
       return provider
     },
 
     async removeProvider(id: string): Promise<void> {
       if (id === this.active_provider_id) {
-        await log('warn', `前端::settingsStore::removeProvider | 拒绝删除 active provider | id=${id}`)
+        await log('warn', `FE::settingsStore | skip del active | id=${id}`)
         return
       }
       this.providers = this.providers.filter((p) => p.id !== id)
       await this.saveSettings()
-      await log('info', `前端::settingsStore::removeProvider | 删除 provider | id=${id}`)
+      await log('info', `FE::settingsStore | del provider | id=${id}`)
     },
 
     async updateProvider(id: string, partial: Partial<ModelProvider>): Promise<void> {
@@ -92,7 +92,7 @@ export const useSettingsStore = defineStore('settings', {
     async fetchModels(providerId: string): Promise<void> {
       const provider = this.providers.find((p) => p.id === providerId)
       if (!provider) return
-      await log('info', `前端::settingsStore::fetchModels | 拉取模型列表 | provider_id=${providerId}`)
+      await log('info', `FE::settingsStore | fetch models | provider=${providerId}`)
       const models = await settingsBridge.fetchProviderModels(provider)
       provider.models = models
       await this.saveSettings()
@@ -117,7 +117,7 @@ export const useSettingsStore = defineStore('settings', {
     async testConnection(providerId: string): Promise<{ ok: boolean; error?: string }> {
       const provider = this.providers.find((p) => p.id === providerId)
       if (!provider) return { ok: false, error: 'Provider 不存在' }
-      await log('info', `前端::settingsStore::testConnection | 测试连接 | provider_id=${providerId}`)
+      await log('info', `FE::settingsStore | test conn | provider=${providerId}`)
       return settingsBridge.testProviderConnection(provider)
     },
   },
