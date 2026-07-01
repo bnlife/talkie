@@ -12,12 +12,14 @@ export const useChatStore = defineStore('chat', {
     messages: [] as Message[],
     streamingId: null as string | null,
     streamingContent: '',
-    searchEnabled: false,
   }),
 
   getters: {
     activeConversation(state): Conversation | undefined {
       return state.conversations.find(c => c.id === state.activeConversationId)
+    },
+    searchEnabled(state): boolean {
+      return state.conversations.find(c => c.id === state.activeConversationId)?.search_enabled ?? false
     },
   },
 
@@ -98,8 +100,9 @@ export const useChatStore = defineStore('chat', {
     },
 
     async sendMessage(content: string): Promise<void> {
-      await log('info', `前端::chatStore::sendMessage | 发送消息 | len=${content.length} search=${this.searchEnabled}`)
-      if (!this.activeConversationId) return
+      const conv = this.conversations.find(c => c.id === this.activeConversationId)
+      await log('info', `前端::chatStore::sendMessage | 发送消息 | len=${content.length} search=${conv?.search_enabled ?? false}`)
+      if (!this.activeConversationId || !conv) return
       const tempMsg: Message = {
         id: crypto.randomUUID(),
         conversation_id: this.activeConversationId,
@@ -108,7 +111,16 @@ export const useChatStore = defineStore('chat', {
         created_at: Date.now(),
       }
       this.messages.push(tempMsg)
-      await chatBridge.sendMessage(this.activeConversationId, content, this.searchEnabled)
+      await chatBridge.sendMessage(this.activeConversationId, content, conv.search_enabled)
+    },
+
+    async toggleSearch(): Promise<void> {
+      const conv = this.conversations.find(c => c.id === this.activeConversationId)
+      if (!conv) return
+      const newValue = !conv.search_enabled
+      await log('info', `前端::chatStore::toggleSearch | 切换搜索 | id=${conv.id} enabled=${newValue}`)
+      await conversationBridge.updateConversation(conv.id, undefined, undefined, undefined, newValue)
+      conv.search_enabled = newValue
     },
 
     appendStreamChunk(messageId: string, delta: string): void {

@@ -30,6 +30,7 @@ function createConv(overrides: Partial<Conversation> = {}): Conversation {
     created_at: 0,
     updated_at: 0,
     pinned: false,
+    search_enabled: false,
     ...overrides,
   }
 }
@@ -278,6 +279,7 @@ describe('chatStore', () => {
       vi.mocked(chatBridge.sendMessage).mockResolvedValue(undefined)
 
       const store = useChatStore()
+      store.conversations = [createConv({ id: 'conv-1' })]
       store.activeConversationId = 'conv-1'
 
       await store.sendMessage('hello')
@@ -297,8 +299,8 @@ describe('chatStore', () => {
       vi.mocked(chatBridge.sendMessage).mockResolvedValue(undefined)
 
       const store = useChatStore()
+      store.conversations = [createConv({ id: 'conv-1', search_enabled: true })]
       store.activeConversationId = 'conv-1'
-      store.searchEnabled = true
 
       await store.sendMessage('搜索天气')
 

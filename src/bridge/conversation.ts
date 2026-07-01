@@ -9,8 +9,8 @@ export async function createConversation(providerId: string, title?: string): Pr
   return invoke<Conversation>('create_conversation', { providerId, title })
 }
 
-export async function updateConversation(id: string, title?: string, providerId?: string, model?: string): Promise<void> {
-  return invoke<void>('update_conversation', { id, title, providerId, model })
+export async function updateConversation(id: string, title?: string, providerId?: string, model?: string, searchEnabled?: boolean): Promise<void> {
+  return invoke<void>('update_conversation', { id, title, providerId, model, searchEnabled })
 }
 
 export async function deleteConversation(id: string): Promise<void> {

@@ -49,22 +49,24 @@ pub fn create_conversation(
         created_at: now,
         updated_at: now,
         pinned: false,
+        search_enabled: false,
     };
 
     store::create_conversation(&db, &conversation).map_err(|e| e.to_string())?;
     Ok(conversation)
 }
 
-/// Update a conversation's title, provider_id, and/or model.
+/// Update a conversation's title, provider_id, model, and/or search_enabled.
 #[tauri::command]
 pub fn update_conversation(
     id: String,
     title: Option<String>,
     provider_id: Option<String>,
     model: Option<String>,
+    search_enabled: Option<bool>,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
-    log::info!("Rust::commands::conversation::update_conversation | 更新对话 | id={} title={:?} provider_id={:?} model={:?}", id, title, provider_id, model);
+    log::info!("Rust::commands::conversation::update_conversation | 更新对话 | id={} title={:?} provider_id={:?} model={:?} search_enabled={:?}", id, title, provider_id, model, search_enabled);
     let db = state.db.lock().map_err(|e| e.to_string())?;
 
     let mut conversation = store::get_conversation(&db, &id)
@@ -79,6 +81,9 @@ pub fn update_conversation(
     }
     if let Some(m) = model {
         conversation.model = m;
+    }
+    if let Some(s) = search_enabled {
+        conversation.search_enabled = s;
     }
     conversation.updated_at = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)

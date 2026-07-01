@@ -89,6 +89,12 @@ pub fn init(db_path: &PathBuf) -> Result<Connection, AppError> {
         [],
     );
 
+    // 迁移：为旧数据库添加 search_enabled 列（如已存在则忽略）
+    let _ = conn.execute(
+        "ALTER TABLE conversations ADD COLUMN search_enabled INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
+
     // Seed built-in MCP registry data (skip if already populated).
     seed_mcp_registry(&conn)?;
 
@@ -175,7 +181,7 @@ fn seed_mcp_registry(conn: &Connection) -> Result<(), AppError> {
 pub fn list_conversations(conn: &Connection) -> Result<Vec<Conversation>, AppError> {
     log::debug!("Rust::store::list_conversations | 查询所有对话");
     let mut stmt = conn.prepare(
-        "SELECT id, title, provider_id, model, system_prompt, created_at, updated_at, pinned \
+        "SELECT id, title, provider_id, model, system_prompt, created_at, updated_at, pinned, search_enabled \
          FROM conversations ORDER BY pinned DESC, updated_at DESC",
     )?;
     let rows = stmt.query_map([], |row| {
@@ -188,6 +194,7 @@ pub fn list_conversations(conn: &Connection) -> Result<Vec<Conversation>, AppErr
             created_at: row.get(5)?,
             updated_at: row.get(6)?,
             pinned: row.get::<_, i64>(7)? != 0,
+            search_enabled: row.get::<_, i64>(8)? != 0,
         })
     })?;
     let mut conversations = Vec::new();
@@ -201,8 +208,8 @@ pub fn list_conversations(conn: &Connection) -> Result<Vec<Conversation>, AppErr
 pub fn create_conversation(conn: &Connection, conversation: &Conversation) -> Result<(), AppError> {
     log::info!("Rust::store::create_conversation | 创建对话 | id={}", conversation.id);
     conn.execute(
-        "INSERT INTO conversations (id, title, provider_id, model, system_prompt, created_at, updated_at, pinned) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        "INSERT INTO conversations (id, title, provider_id, model, system_prompt, created_at, updated_at, pinned, search_enabled) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             conversation.id,
             conversation.title,
@@ -212,6 +219,7 @@ pub fn create_conversation(conn: &Connection, conversation: &Conversation) -> Re
             conversation.created_at,
             conversation.updated_at,
             conversation.pinned as i64,
+            conversation.search_enabled as i64,
         ],
     )?;
     Ok(())
@@ -221,7 +229,7 @@ pub fn create_conversation(conn: &Connection, conversation: &Conversation) -> Re
 pub fn get_conversation(conn: &Connection, id: &str) -> Result<Option<Conversation>, AppError> {
     log::debug!("Rust::store::get_conversation | 查询对话 | id={}", id);
     let mut stmt = conn.prepare(
-        "SELECT id, title, provider_id, model, system_prompt, created_at, updated_at, pinned \
+        "SELECT id, title, provider_id, model, system_prompt, created_at, updated_at, pinned, search_enabled \
          FROM conversations WHERE id = ?1",
     )?;
     let mut rows = stmt.query_map(params![id], |row| {
@@ -234,6 +242,7 @@ pub fn get_conversation(conn: &Connection, id: &str) -> Result<Option<Conversati
             created_at: row.get(5)?,
             updated_at: row.get(6)?,
             pinned: row.get::<_, i64>(7)? != 0,
+            search_enabled: row.get::<_, i64>(8)? != 0,
         })
     })?;
     match rows.next() {
@@ -243,18 +252,19 @@ pub fn get_conversation(conn: &Connection, id: &str) -> Result<Option<Conversati
     }
 }
 
-/// Update title, model, system_prompt, and updated_at of an existing conversation.
+/// Update title, model, system_prompt, search_enabled, and updated_at of an existing conversation.
 pub fn update_conversation(conn: &Connection, conversation: &Conversation) -> Result<(), AppError> {
     log::debug!("Rust::store::update_conversation | 更新对话 | id={}", conversation.id);
     conn.execute(
-        "UPDATE conversations SET title = ?1, provider_id = ?2, model = ?3, system_prompt = ?4, updated_at = ?5 \
-         WHERE id = ?6",
+        "UPDATE conversations SET title = ?1, provider_id = ?2, model = ?3, system_prompt = ?4, updated_at = ?5, search_enabled = ?6 \
+         WHERE id = ?7",
         params![
             conversation.title,
             conversation.provider_id,
             conversation.model,
             conversation.system_prompt,
             conversation.updated_at,
+            conversation.search_enabled as i64,
             conversation.id,
         ],
     )?;
@@ -665,7 +675,8 @@ mod tests {
                 system_prompt TEXT NOT NULL DEFAULT '',
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL,
-                pinned INTEGER NOT NULL DEFAULT 0
+                pinned INTEGER NOT NULL DEFAULT 0,
+                search_enabled INTEGER NOT NULL DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS messages (
                 id TEXT PRIMARY KEY,
@@ -821,6 +832,7 @@ mod tests {
             created_at: 0,
             updated_at: 0,
             pinned: false,
+            search_enabled: false,
         }).unwrap();
 
         // Create a default prompt
@@ -861,6 +873,7 @@ mod tests {
             created_at: 0,
             updated_at: 0,
             pinned: false,
+            search_enabled: false,
         }).unwrap();
 
         // Also create a default prompt
@@ -899,6 +912,7 @@ mod tests {
             created_at: 0,
             updated_at: 0,
             pinned: false,
+            search_enabled: false,
         }).unwrap();
 
         let conv = get_conversation(&conn, "c1").unwrap().unwrap();
@@ -923,6 +937,7 @@ mod tests {
             created_at: 0,
             updated_at: 0,
             pinned: false,
+            search_enabled: false,
         }).unwrap();
 
         let conv = get_conversation(&conn, "c-old").unwrap().unwrap();

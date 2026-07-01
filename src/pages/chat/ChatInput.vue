@@ -24,11 +24,11 @@ const chatStore = useChatStore()
 const input = ref('')
 const showModelMenu = ref(false)
 
-// Search toggle connected to chatStore
-const searchEnabled = computed({
-  get: () => chatStore.searchEnabled,
-  set: (v: boolean) => { chatStore.searchEnabled = v },
-})
+// Search toggle — per-conversation, persisted to DB
+const searchEnabled = computed(() => chatStore.searchEnabled)
+async function toggleSearch() {
+  await chatStore.toggleSearch()
+}
 
 const iconMap: Record<string, any> = { Bot, Sparkles, Brain, Diamond, Server, Settings }
 
@@ -142,7 +142,7 @@ function handleOutsideClick(e: MouseEvent) {
           'flex items-center gap-1 rounded px-1.5 py-0.5 text-xs transition-colors hover:bg-foreground/5',
           searchEnabled ? 'text-blue-500 bg-blue-500/10' : 'text-muted-foreground',
         )"
-        @click="searchEnabled = !searchEnabled"
+        @click="toggleSearch"
       >
         <Globe class="size-3" />
         <span>搜索</span>

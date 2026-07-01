@@ -45,6 +45,8 @@ pub struct Conversation {
     pub created_at: i64,
     pub updated_at: i64,
     pub pinned: bool,
+    #[serde(default)]
+    pub search_enabled: bool,
 }
 
 /// Application settings persisted in a JSON config file.

@@ -27,6 +27,7 @@ export interface Conversation {
   created_at: number
   updated_at: number
   pinned: boolean
+  search_enabled: boolean
 }
 
 export interface Settings {
