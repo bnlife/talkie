@@ -18,3 +18,7 @@ export async function testProviderConnection(provider: ModelProvider): Promise<{
 export async function fetchProviderModels(provider: ModelProvider): Promise<string[]> {
   return invoke<string[]>('fetch_provider_models', { provider })
 }
+
+export async function openUrl(url: string): Promise<void> {
+  return invoke<void>('open_url', { url })
+}

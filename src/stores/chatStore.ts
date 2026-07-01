@@ -115,7 +115,7 @@ export const useChatStore = defineStore('chat', {
       this.streamingContent += delta
     },
 
-    async finishStream(): Promise<void> {
+    async finishStream(tokenCount?: number): Promise<void> {
       await log('info', '前端::chatStore::finishStream | 流式完成')
       if (!this.streamingId) return
       const finalMsg: Message = {
@@ -124,6 +124,7 @@ export const useChatStore = defineStore('chat', {
         role: 'assistant',
         content: this.streamingContent,
         created_at: Date.now(),
+        token_count: tokenCount ?? undefined,
       }
       this.messages.push(finalMsg)
       this.streamingId = null

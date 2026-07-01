@@ -136,7 +136,7 @@ pub async fn send_message(
     //    the frontend via a `chat:stream-chunk` event.
     let app_handle = app.clone();
     let mid = message_id.clone();
-    let full_text = match llm::stream_chat(
+    let (full_text, usage_tokens) = match llm::stream_chat(
         &base_url,
         &api_key,
         &model,
@@ -157,7 +157,7 @@ pub async fn send_message(
     )
     .await
     {
-        Ok(text) => text,
+        Ok((text, tokens)) => (text, tokens),
         Err(e) => {
             if e.contains("请求已取消") {
                 log::warn!(
@@ -191,7 +191,7 @@ pub async fn send_message(
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs() as i64,
-        token_count: None,
+        token_count: usage_tokens,
     };
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -214,6 +214,7 @@ pub async fn send_message(
         "chat:stream-done",
         serde_json::json!({
             "message_id": message_id,
+            "token_count": usage_tokens,
         }),
     );
 
@@ -371,7 +372,7 @@ pub async fn regenerate_message(
     // 5. Invoke the streaming LLM call.
     let app_handle = app.clone();
     let mid = message_id.clone();
-    let full_text = match llm::stream_chat(
+    let (full_text, usage_tokens) = match llm::stream_chat(
         &base_url,
         &api_key,
         &model,
@@ -392,7 +393,7 @@ pub async fn regenerate_message(
     )
     .await
     {
-        Ok(text) => text,
+        Ok((text, tokens)) => (text, tokens),
         Err(e) => {
             if e.contains("请求已取消") {
                 log::warn!(
@@ -425,7 +426,7 @@ pub async fn regenerate_message(
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs() as i64,
-        token_count: None,
+        token_count: usage_tokens,
     };
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -448,6 +449,7 @@ pub async fn regenerate_message(
         "chat:stream-done",
         serde_json::json!({
             "message_id": message_id,
+            "token_count": usage_tokens,
         }),
     );
 

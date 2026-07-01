@@ -15,7 +15,7 @@ pub async fn stream_chat<F>(
     messages: &[models::Message],
     cancel: CancellationToken,
     on_chunk: F,
-) -> Result<String, String>
+) -> Result<(String, Option<i64>), String>
 where
     F: Fn(String) + Send + 'static,
 {
@@ -53,6 +53,9 @@ where
         "temperature": temperature,
         "top_p": top_p,
         "stream": true,
+        "stream_options": {
+            "include_usage": true
+        },
     });
 
     let body_str =
@@ -92,6 +95,7 @@ where
 
     let mut accumulated = String::new();
     let mut buffer = String::new();
+    let mut total_tokens: Option<i64> = None;
 
     loop {
         if cancel.is_cancelled() {
@@ -122,11 +126,17 @@ where
                 let data = data.trim();
 
                 if data == "[DONE]" {
-                    log::info!("Rust::llm::stream_chat | 流式完成 | total_chars={}", accumulated.len());
-                    return Ok(accumulated);
+                    log::info!("Rust::llm::stream_chat | 流式完成 | total_chars={} tokens={:?}", accumulated.len(), total_tokens);
+                    return Ok((accumulated, total_tokens));
                 }
 
                 if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
+                    // Parse usage from streaming response (sent when stream_options.include_usage = true)
+                    if let Some(usage) = json.get("usage") {
+                        if let Some(total) = usage.get("total_tokens").and_then(|t| t.as_i64()) {
+                            total_tokens = Some(total);
+                        }
+                    }
                     if let Some(choices) = json.get("choices").and_then(|c| c.as_array()) {
                         for choice in choices {
                             if let Some(delta) = choice.get("delta") {
@@ -148,8 +158,8 @@ where
         }
     }
 
-    log::info!("Rust::llm::stream_chat | 流式完成 | total_chars={}", accumulated.len());
-    Ok(accumulated)
+    log::info!("Rust::llm::stream_chat | 流式完成 | total_chars={} tokens={:?}", accumulated.len(), total_tokens);
+    Ok((accumulated, total_tokens))
 }
 
 #[cfg(test)]

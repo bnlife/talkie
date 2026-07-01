@@ -90,6 +90,7 @@ pub fn run() {
             commands::settings::test_provider_connection,
             commands::settings::fetch_provider_models,
             commands::settings::log_message,
+            commands::settings::open_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

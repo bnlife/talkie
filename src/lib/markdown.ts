@@ -1,9 +1,15 @@
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 
+const renderer = new marked.Renderer()
+renderer.link = function ({ href, text }) {
+  return `<a href="${href}" target="_blank" rel="noopener">${text}</a>`
+}
+
 marked.setOptions({
   breaks: true,
   gfm: true,
+  renderer,
 })
 
 const ALLOWED_TAGS = [
@@ -16,7 +22,7 @@ const ALLOWED_TAGS = [
   'a',
 ]
 
-const ALLOWED_ATTR = ['href', 'title', 'target']
+const ALLOWED_ATTR = ['href', 'title', 'target', 'rel']
 
 export function renderMarkdown(text: string): string {
   if (!text) return ''

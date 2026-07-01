@@ -55,7 +55,10 @@ onMounted(async () => {
       const p = event.payload as { message_id: string; delta: string }
       chatStore.appendStreamChunk(p.message_id, p.delta)
     }),
-    await listen('chat:stream-done', () => chatStore.finishStream()),
+    await listen('chat:stream-done', (event) => {
+      const p = event.payload as { message_id: string; token_count?: number }
+      chatStore.finishStream(p.token_count)
+    }),
     await listen('chat:error', (event) => {
       const { message } = event.payload as { message: string }
       log('error', `前端::ChatView | 收到错误事件 | ${message}`)

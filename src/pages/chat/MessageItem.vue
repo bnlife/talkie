@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import type { Message } from '@/types'
 import { cn } from '@/lib/utils'
 import { renderMarkdown } from '@/lib/markdown'
+import { openUrl } from '@/bridge/settings'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Copy, Trash2, RefreshCw, Check } from 'lucide-vue-next'
@@ -40,6 +41,15 @@ async function handleCopy() {
   emit('copy', props.message.content)
 }
 
+function onContentClick(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  if (target.tagName === 'A') {
+    e.preventDefault()
+    const href = target.getAttribute('href')
+    if (href) openUrl(href)
+  }
+}
+
 </script>
 
 <template>
@@ -72,6 +82,7 @@ async function handleCopy() {
             v-else
             class="markdown-body text-sm"
             v-html="renderedHtml"
+            @click="onContentClick"
           />
           <span
             v-if="streaming"
@@ -112,6 +123,14 @@ async function handleCopy() {
           >
             <RefreshCw class="h-3 w-3" />
           </Button>
+        </div>
+
+        <!-- Token 消耗 -->
+        <div
+          v-if="!isUser && message.token_count && !streaming"
+          class="mt-1 text-xs text-muted-foreground"
+        >
+          {{ message.token_count }} tokens
         </div>
       </div>
     </div>
