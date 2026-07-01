@@ -2,10 +2,17 @@ use tokio_util::sync::CancellationToken;
 
 use crate::models;
 
+/// Result of a streaming chat completion.
+pub struct StreamResult {
+    pub content: String,
+    pub thinking: String,
+    pub tokens: Option<i64>,
+}
+
 /// Send a streaming chat-completion request to an OpenAI-compatible endpoint,
 /// parse the SSE response line‑by‑line, invoke `on_chunk` for each content
-/// delta, and return the full accumulated text.
-pub async fn stream_chat<F>(
+/// delta, `on_thinking` for each thinking delta, and return the accumulated text.
+pub async fn stream_chat<F, G>(
     base_url: &str,
     api_key: &str,
     model: &str,
@@ -15,9 +22,11 @@ pub async fn stream_chat<F>(
     messages: &[models::Message],
     cancel: CancellationToken,
     on_chunk: F,
-) -> Result<(String, Option<i64>), String>
+    on_thinking: G,
+) -> Result<StreamResult, String>
 where
     F: Fn(String) + Send + 'static,
+    G: Fn(String) + Send + 'static,
 {
     if cancel.is_cancelled() {
         log::warn!("RS::llm | cancelled");
@@ -55,6 +64,9 @@ where
         "stream": true,
         "stream_options": {
             "include_usage": true
+        },
+        "thinking": {
+            "type": "enabled"
         },
     });
 
@@ -94,6 +106,7 @@ where
     }
 
     let mut accumulated = String::new();
+    let mut thinking_accumulated = String::new();
     let mut buffer = String::new();
     let mut total_tokens: Option<i64> = None;
 
@@ -126,8 +139,12 @@ where
                 let data = data.trim();
 
                 if data == "[DONE]" {
-                    log::info!("RS::llm::stream | done | chars={} tokens={:?}", accumulated.len(), total_tokens);
-                    return Ok((accumulated, total_tokens));
+                    log::info!("RS::llm::stream | done | content={} thinking={} tokens={:?}", accumulated.len(), thinking_accumulated.len(), total_tokens);
+                    return Ok(StreamResult {
+                        content: accumulated,
+                        thinking: thinking_accumulated,
+                        tokens: total_tokens,
+                    });
                 }
 
                 if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
@@ -140,6 +157,16 @@ where
                     if let Some(choices) = json.get("choices").and_then(|c| c.as_array()) {
                         for choice in choices {
                             if let Some(delta) = choice.get("delta") {
+                                // Thinking/reasoning content (DeepSeek R1, MiMo)
+                                if let Some(thinking) =
+                                    delta.get("reasoning_content").and_then(|c| c.as_str())
+                                {
+                                    if !thinking.is_empty() {
+                                        on_thinking(thinking.to_string());
+                                        thinking_accumulated.push_str(thinking);
+                                    }
+                                }
+                                // Final answer content
                                 if let Some(content) =
                                     delta.get("content").and_then(|c| c.as_str())
                                 {
@@ -158,8 +185,12 @@ where
         }
     }
 
-    log::info!("RS::llm::stream | done | chars={} tokens={:?}", accumulated.len(), total_tokens);
-    Ok((accumulated, total_tokens))
+    log::info!("RS::llm::stream | done | content={} thinking={} tokens={:?}", accumulated.len(), thinking_accumulated.len(), total_tokens);
+    Ok(StreamResult {
+        content: accumulated,
+        thinking: thinking_accumulated,
+        tokens: total_tokens,
+    })
 }
 
 #[cfg(test)]
@@ -202,8 +233,8 @@ mod tests {
                 .create();
 
             let messages = vec![
-                Message { id: "system".into(), conversation_id: "c1".into(), role: "system".into(), content: "你是翻译助手".into(), created_at: 0, token_count: None, search_results: None },
-                Message { id: "u1".into(), conversation_id: "c1".into(), role: "user".into(), content: "hello".into(), created_at: 0, token_count: None, search_results: None },
+                Message { id: "system".into(), conversation_id: "c1".into(), role: "system".into(), content: "你是翻译助手".into(), created_at: 0, token_count: None, search_results: None, thinking_content: None },
+                Message { id: "u1".into(), conversation_id: "c1".into(), role: "user".into(), content: "hello".into(), created_at: 0, token_count: None, search_results: None, thinking_content: None },
             ];
 
             let mut headers = std::collections::HashMap::new();
@@ -212,7 +243,7 @@ mod tests {
             let rt = tokio::runtime::Runtime::new().unwrap();
             let result = rt.block_on(stream_chat(
                 &server.url(), "sk-test", "gpt-4o", &headers,
-                0.8, 0.95, &messages, CancellationToken::new(), |_| {},
+                0.8, 0.95, &messages, CancellationToken::new(), |_| {}, |_| {},
             ));
 
             assert!(result.is_ok());
@@ -240,13 +271,13 @@ mod tests {
                 .create();
 
             let messages = vec![
-                Message { id: "u1".into(), conversation_id: "c1".into(), role: "user".into(), content: "hi".into(), created_at: 0, token_count: None, search_results: None },
+                Message { id: "u1".into(), conversation_id: "c1".into(), role: "user".into(), content: "hi".into(), created_at: 0, token_count: None, search_results: None, thinking_content: None },
             ];
 
             let rt = tokio::runtime::Runtime::new().unwrap();
             let result = rt.block_on(stream_chat(
                 &server.url(), "sk-test", "deepseek-chat", &std::collections::HashMap::new(),
-                0.5, 1.0, &messages, CancellationToken::new(), |_| {},
+                0.5, 1.0, &messages, CancellationToken::new(), |_| {}, |_| {},
             ));
 
             assert!(result.is_ok());
@@ -273,7 +304,7 @@ mod tests {
             let rt = tokio::runtime::Runtime::new().unwrap();
             let result = rt.block_on(stream_chat(
                 &server.url(), "sk-test", "gpt-4o", &headers,
-                0.7, 1.0, &messages, CancellationToken::new(), |_| {},
+                0.7, 1.0, &messages, CancellationToken::new(), |_| {}, |_| {},
             ));
 
             assert!(result.is_ok());

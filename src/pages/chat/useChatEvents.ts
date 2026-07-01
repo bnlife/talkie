@@ -14,6 +14,14 @@ export function useChatEvents() {
 
   async function startListening() {
     cleanupFns = [
+      await listen(EVENTS.CHAT_THINKING_CHUNK, (event) => {
+        const p = event.payload as { message_id: string; delta: string }
+        chatStore.appendThinkingChunk(p.message_id, p.delta)
+      }),
+      await listen(EVENTS.CHAT_SEARCH_RESULTS, (event) => {
+        const p = event.payload as { search_results: SearchResult[] }
+        chatStore.setStreamingSearchResults(p.search_results)
+      }),
       await listen(EVENTS.CHAT_STREAM_CHUNK, (event) => {
         const p = event.payload as { message_id: string; delta: string }
         chatStore.appendStreamChunk(p.message_id, p.delta)

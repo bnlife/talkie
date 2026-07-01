@@ -12,6 +12,7 @@ export interface Message {
   created_at: number
   token_count?: number
   search_results?: SearchResult[]
+  thinking_content?: string
 }
 
 export interface ModelProvider {

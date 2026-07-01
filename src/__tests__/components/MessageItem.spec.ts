@@ -1,7 +1,8 @@
 import { mount } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import MessageItem from '@/pages/chat/MessageItem.vue'
-import type { Message } from '@/types'
+import ThinkingBlock from '@/pages/chat/ThinkingBlock.vue'
+import type { Message, SearchResult } from '@/types'
 
 function createMsg(overrides: Partial<Message> = {}): Message {
   return {
@@ -199,7 +200,7 @@ describe('MessageItem.vue', () => {
       expect(wrapper.text()).not.toContain('个来源')
     })
 
-    it('shows collapse button when more than 5 results', async () => {
+    it('shows collapse button when more than 3 results', async () => {
       const wrapper = mount(MessageItem, {
         props: {
           message: createMsg({
@@ -216,11 +217,10 @@ describe('MessageItem.vue', () => {
           }),
         },
       })
-      // Shows first 5 and collapse button
       expect(wrapper.text()).toContain('结果1')
-      expect(wrapper.text()).toContain('结果5')
-      expect(wrapper.text()).not.toContain('结果6')
-      expect(wrapper.text()).toContain('+1')
+      expect(wrapper.text()).toContain('结果3')
+      expect(wrapper.text()).not.toContain('结果4')
+      expect(wrapper.text()).toContain('展开更多')
     })
 
     it('renders source chip with title', () => {
@@ -251,6 +251,151 @@ describe('MessageItem.vue', () => {
         },
       })
       expect(wrapper.text()).toContain('Rust 官网')
+    })
+  })
+
+  describe('E2E: KIMI-style thinking + content + sources', () => {
+    it('thinking mode: 默认折叠，显示标题，展开后可见内容', () => {
+      const wrapper = mount(MessageItem, {
+        props: {
+          message: createMsg({
+            role: 'assistant',
+            content: 'Rust 是一门系统编程语言[1]。',
+            thinking_content: '用户问的是 Rust 语言的特点。让我分析一下...\n\n首先，Rust 的核心特性是内存安全。',
+            search_results: [
+              { title: 'Rust 官网', url: 'https://www.rust-lang.org' },
+            ],
+          }),
+        },
+      })
+
+      // ThinkingBlock 应该存在
+      const thinking = wrapper.findComponent(ThinkingBlock)
+      expect(thinking.exists()).toBe(true)
+
+      // 默认折叠：显示"思考了"标题，不显示思考内容
+      expect(wrapper.text()).toContain('思考了')
+      expect(wrapper.text()).not.toContain('核心特性是内存安全')
+
+      // 展开后可以看到思考内容
+      const toggleBtn = thinking.find('button')
+      toggleBtn.trigger('click')
+      return wrapper.vm.$nextTick().then(() => {
+        expect(wrapper.text()).toContain('核心特性是内存安全')
+      })
+    })
+
+    it('thinking 流式状态：显示"思考中..."动画', () => {
+      const wrapper = mount(MessageItem, {
+        props: {
+          message: createMsg({ role: 'assistant', content: '' }),
+          streaming: true,
+          streamingThinking: '正在分析用户的问题...',
+          streamingThinkingStart: Date.now() - 3000,
+        },
+      })
+
+      const thinking = wrapper.findComponent(ThinkingBlock)
+      expect(thinking.exists()).toBe(true)
+      expect(wrapper.text()).toContain('思考中...')
+    })
+
+    it('thinking 结束后消息正文完整渲染，顺序正确', () => {
+      const wrapper = mount(MessageItem, {
+        props: {
+          message: createMsg({
+            role: 'assistant',
+            content: 'Rust 是一门系统编程语言[1]，注重安全[2]。',
+            thinking_content: '分析完成。',
+            search_results: [
+              { title: 'Rust 官网', url: 'https://www.rust-lang.org' },
+              { title: 'Rust Book', url: 'https://doc.rust-lang.org/book' },
+            ],
+          }),
+        },
+      })
+
+      const text = wrapper.text()
+
+      // 1. Thinking 折叠标题存在
+      expect(text).toContain('思考了')
+
+      // 2. 消息正文存在
+      expect(text).toContain('Rust 是一门系统编程语言')
+
+      // 3. 搜索来源底栏在正文下方
+      expect(text).toContain('2 个来源')
+
+      // 验证顺序：thinking 在正文之前
+      const thinkingIdx = text.indexOf('思考了')
+      const contentIdx = text.indexOf('Rust 是一门系统编程语言')
+      const sourcesIdx = text.indexOf('2 个来源')
+      expect(thinkingIdx).toBeLessThan(contentIdx)
+      expect(contentIdx).toBeLessThan(sourcesIdx)
+    })
+
+    it('消息正文下方显示搜索来源数目和 chip', () => {
+      const searchResults: SearchResult[] = [
+        { title: 'Rust 官网', url: 'https://www.rust-lang.org' },
+        { title: 'Cargo 手册', url: 'https://doc.rust-lang.org/cargo' },
+        { title: 'Crates.io', url: 'https://crates.io' },
+      ]
+      const wrapper = mount(MessageItem, {
+        props: {
+          message: createMsg({
+            role: 'assistant',
+            content: '根据搜索结果回答...',
+            search_results: searchResults,
+          }),
+        },
+      })
+
+      // 来源数目显示
+      expect(wrapper.text()).toContain('3 个来源')
+
+      // 来源 chip 显示（前3个）
+      expect(wrapper.text()).toContain('Rust 官网')
+      expect(wrapper.text()).toContain('Cargo 手册')
+      expect(wrapper.text()).toContain('Crates.io')
+
+      // 验证来源在正文之后
+      const contentIdx = wrapper.text().indexOf('根据搜索结果回答')
+      const sourcesIdx = wrapper.text().indexOf('3 个来源')
+      expect(contentIdx).toBeLessThan(sourcesIdx)
+    })
+
+    it('流式 thinking + 搜索结果 + 正文的完整流程', () => {
+      // 阶段1：thinking 流式输出中
+      const wrapper = mount(MessageItem, {
+        props: {
+          message: createMsg({ role: 'assistant', content: '' }),
+          streaming: true,
+          streamingThinking: '让我搜索一下...',
+          streamingThinkingStart: Date.now() - 5000,
+          streamingSearchResults: [
+            { title: 'Rust 官网', url: 'https://www.rust-lang.org' },
+          ],
+        },
+      })
+
+      // Thinking 折叠标题显示"思考中..."
+      expect(wrapper.text()).toContain('思考中...')
+
+      // ThinkingBlock 存在且 props 正确
+      const thinking = wrapper.findComponent(ThinkingBlock)
+      expect(thinking.exists()).toBe(true)
+      expect(thinking.props('thinking')).toBe('让我搜索一下...')
+      expect(thinking.props('streaming')).toBe(true)
+      expect(thinking.props('searchResults')).toEqual([
+        { title: 'Rust 官网', url: 'https://www.rust-lang.org' },
+      ])
+
+      // 展开后可以看到 thinking 内容
+      const toggleBtn = thinking.find('button')
+      toggleBtn.trigger('click')
+      return wrapper.vm.$nextTick().then(() => {
+        expect(wrapper.text()).toContain('让我搜索一下...')
+      })
     })
   })
 })

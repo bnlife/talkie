@@ -12,6 +12,9 @@ export const useChatStore = defineStore('chat', {
     messages: [] as Message[],
     streamingId: null as string | null,
     streamingContent: '',
+    streamingThinking: '',
+    streamingThinkingStart: 0,
+    streamingSearchResults: null as import('@/types').SearchResult[] | null,
     waitingForResponse: false,
     drafts: {} as Record<string, string>,
   }),
@@ -161,6 +164,17 @@ export const useChatStore = defineStore('chat', {
       this.streamingContent += delta
     },
 
+    appendThinkingChunk(messageId: string, delta: string): void {
+      this.waitingForResponse = false
+      if (!this.streamingThinkingStart) this.streamingThinkingStart = Date.now()
+      this.streamingId = messageId
+      this.streamingThinking += delta
+    },
+
+    setStreamingSearchResults(results: import('@/types').SearchResult[]): void {
+      this.streamingSearchResults = results
+    },
+
     async finishStream(tokenCount?: number, searchResults?: import('@/types').SearchResult[]): Promise<void> {
       await log('info', 'FE::chatStore | stream done')
       this.waitingForResponse = false
@@ -173,10 +187,14 @@ export const useChatStore = defineStore('chat', {
         created_at: Date.now(),
         token_count: tokenCount ?? undefined,
         search_results: searchResults && searchResults.length > 0 ? searchResults : undefined,
+        thinking_content: this.streamingThinking || undefined,
       }
       this.messages.push(finalMsg)
       this.streamingId = null
       this.streamingContent = ''
+      this.streamingThinking = ''
+      this.streamingThinkingStart = 0
+      this.streamingSearchResults = null
 
       try {
         const conv = this.conversations.find(c => c.id === this.activeConversationId)

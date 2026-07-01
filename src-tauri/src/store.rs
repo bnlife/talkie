@@ -119,6 +119,12 @@ pub fn init(db_path: &PathBuf) -> Result<Connection, AppError> {
         [],
     );
 
+    // 迁移：为 messages 表添加 thinking_content 列（思维链内容）
+    let _ = conn.execute(
+        "ALTER TABLE messages ADD COLUMN thinking_content TEXT",
+        [],
+    );
+
     // Seed built-in MCP registry data (skip if already populated).
     seed_mcp_registry(&conn)?;
 
@@ -335,13 +341,14 @@ pub fn list_messages_by_conversation(
 ) -> Result<Vec<Message>, AppError> {
     log::debug!("RS::list_messages | conv={}", conversation_id);
     let mut stmt = conn.prepare(
-        "SELECT id, conversation_id, role, content, created_at, token_count, search_results \
+        "SELECT id, conversation_id, role, content, created_at, token_count, search_results, thinking_content \
          FROM messages WHERE conversation_id = ?1 ORDER BY created_at ASC",
     )?;
     let rows = stmt.query_map(params![conversation_id], |row| {
         let search_results_json: Option<String> = row.get(6)?;
         let search_results = search_results_json
             .and_then(|json| serde_json::from_str::<Vec<crate::models::SearchResult>>(&json).ok());
+        let thinking_content: Option<String> = row.get(7)?;
         Ok(Message {
             id: row.get(0)?,
             conversation_id: row.get(1)?,
@@ -350,6 +357,7 @@ pub fn list_messages_by_conversation(
             created_at: row.get(4)?,
             token_count: row.get(5)?,
             search_results,
+            thinking_content,
         })
     })?;
     let mut messages = Vec::new();
@@ -365,8 +373,8 @@ pub fn create_message(conn: &Connection, message: &Message) -> Result<(), AppErr
     let search_results_json = message.search_results.as_ref()
         .map(|sr| serde_json::to_string(sr).unwrap_or_default());
     conn.execute(
-        "INSERT INTO messages (id, conversation_id, role, content, created_at, token_count, search_results) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        "INSERT INTO messages (id, conversation_id, role, content, created_at, token_count, search_results, thinking_content) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
         params![
             message.id,
             message.conversation_id,
@@ -375,6 +383,7 @@ pub fn create_message(conn: &Connection, message: &Message) -> Result<(), AppErr
             message.created_at,
             message.token_count,
             search_results_json,
+            message.thinking_content,
         ],
     )?;
     Ok(())
@@ -388,8 +397,8 @@ pub fn batch_create_messages(conn: &Connection, messages: &[Message]) -> Result<
         let search_results_json = msg.search_results.as_ref()
             .map(|sr| serde_json::to_string(sr).unwrap_or_default());
         tx.execute(
-            "INSERT INTO messages (id, conversation_id, role, content, created_at, token_count, search_results) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            "INSERT INTO messages (id, conversation_id, role, content, created_at, token_count, search_results, thinking_content) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![
                 msg.id,
                 msg.conversation_id,
@@ -398,6 +407,7 @@ pub fn batch_create_messages(conn: &Connection, messages: &[Message]) -> Result<
                 msg.created_at,
                 msg.token_count,
                 search_results_json,
+                msg.thinking_content,
             ],
         )?;
     }
@@ -745,16 +755,17 @@ mod tests {
                 search_enabled INTEGER NOT NULL DEFAULT 0,
                 FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
             );
-            CREATE TABLE IF NOT EXISTS messages (
-                id TEXT PRIMARY KEY,
-                conversation_id TEXT NOT NULL,
-                role TEXT NOT NULL,
-                content TEXT NOT NULL,
-                created_at INTEGER NOT NULL,
-                token_count INTEGER,
-                search_results TEXT,
-                FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
-            );
+        CREATE TABLE IF NOT EXISTS messages (
+            id TEXT PRIMARY KEY,
+            conversation_id TEXT NOT NULL,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            token_count INTEGER,
+            search_results TEXT,
+            thinking_content TEXT,
+            FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+        );
             CREATE TABLE IF NOT EXISTS prompts (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
@@ -1130,6 +1141,7 @@ mod tests {
             created_at: 2000,
             token_count: Some(100),
             search_results: Some(search_results),
+            thinking_content: None,
         };
         create_message(&conn, &msg).unwrap();
 
@@ -1172,6 +1184,7 @@ mod tests {
             created_at: 2000,
             token_count: None,
             search_results: None,
+            thinking_content: None,
         };
         create_message(&conn, &msg).unwrap();
 

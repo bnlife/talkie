@@ -78,6 +78,15 @@ watch(
 )
 
 watch(
+  () => chatStore.streamingThinking,
+  () => {
+    if (!userScrolled.value) {
+      scrollToBottom()
+    }
+  }
+)
+
+watch(
   () => chatStore.waitingForResponse,
   (waiting) => {
     if (waiting) scrollToBottom()
@@ -110,6 +119,9 @@ async function handleRegenerate() {
           :key="msg.id"
           :message="msg"
           :streaming="msg.id === chatStore.streamingId"
+          :streaming-thinking="msg.id === chatStore.streamingId ? chatStore.streamingThinking : ''"
+          :streaming-thinking-start="msg.id === chatStore.streamingId ? chatStore.streamingThinkingStart : 0"
+          :streaming-search-results="msg.id === chatStore.streamingId ? chatStore.streamingSearchResults : null"
           :is-last="isLastMessage(msg)"
           :model-name="modelName"
           @copy="handleCopy"

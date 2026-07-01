@@ -21,6 +21,8 @@ pub struct Message {
     pub token_count: Option<i64>,
     #[serde(default)]
     pub search_results: Option<Vec<SearchResult>>,
+    #[serde(default)]
+    pub thinking_content: Option<String>,
 }
 
 /// A model provider (e.g. OpenAI, DeepSeek, Ollama).

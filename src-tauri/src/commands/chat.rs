@@ -58,6 +58,7 @@ fn gather_context(
             created_at: 0,
             token_count: None,
             search_results: None,
+            thinking_content: None,
         });
     }
     messages.extend(history.iter().cloned());
@@ -138,9 +139,11 @@ async fn execute_stream(
     cfg: &LlmConfig,
     messages: &[models::Message],
     cancel: CancellationToken,
-) -> Result<Option<(String, Option<i64>)>, String> {
+) -> Result<Option<(String, String, Option<i64>)>, String> {
     let app_handle = app.clone();
     let mid = message_id.to_string();
+    let app_handle_thinking = app.clone();
+    let mid_thinking = message_id.to_string();
     let result = llm::stream_chat(
         &cfg.base_url,
         &cfg.api_key,
@@ -159,11 +162,20 @@ async fn execute_stream(
                 }),
             );
         },
+        move |delta| {
+            let _ = app_handle_thinking.emit(
+                "chat:thinking-chunk",
+                serde_json::json!({
+                    "message_id": mid_thinking,
+                    "delta": delta,
+                }),
+            );
+        },
     )
     .await;
 
     match result {
-        Ok((text, tokens)) => Ok(Some((text, tokens))),
+        Ok(stream_result) => Ok(Some((stream_result.content, stream_result.thinking, stream_result.tokens))),
         Err(e) => {
             if e.contains("请求已取消") {
                 log::warn!("RS::CMD::chat | stream cancelled | conv={}", conversation_id);
@@ -186,6 +198,7 @@ fn finalize_response(
     conversation_id: String,
     message_id: String,
     full_text: String,
+    thinking_content: String,
     usage_tokens: Option<i64>,
     search_results: Option<Vec<models::SearchResult>>,
 ) -> Result<(), String> {
@@ -201,6 +214,7 @@ fn finalize_response(
             .as_secs() as i64,
         token_count: usage_tokens,
         search_results,
+        thinking_content: if thinking_content.is_empty() { None } else { Some(thinking_content) },
     };
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -264,6 +278,7 @@ pub async fn send_message(
             .as_secs() as i64,
         token_count: None,
         search_results: None,
+        thinking_content: None,
     };
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;
@@ -470,6 +485,7 @@ async fn do_generate(
             created_at: 0,
             token_count: None,
             search_results: None,
+            thinking_content: None,
         };
         // Insert after system prompt (index 0 if present) or at the beginning
         let insert_pos = if ctx.system_prompt.is_some() { 1 } else { 0 };
@@ -488,7 +504,7 @@ async fn do_generate(
     let message_id = uuid::Uuid::new_v4().to_string();
 
     // 5. Stream the LLM response.
-    let (full_text, usage_tokens) = match execute_stream(
+    let (full_text, thinking_content, usage_tokens) = match execute_stream(
         app, conversation_id, &message_id,
         &cfg, &ctx.messages, cancel,
     ).await? {
@@ -502,6 +518,7 @@ async fn do_generate(
         conversation_id.to_string(),
         message_id,
         full_text,
+        thinking_content,
         usage_tokens,
         search_results,
     )
