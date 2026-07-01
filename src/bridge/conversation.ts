@@ -1,16 +1,24 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { Conversation } from '../types'
+import type { ConversationView } from '../types'
 
-export async function listConversations(): Promise<Conversation[]> {
-  return invoke<Conversation[]>('list_conversations')
+export async function listConversations(): Promise<ConversationView[]> {
+  return invoke<ConversationView[]>('list_conversations')
 }
 
-export async function createConversation(providerId: string, title?: string): Promise<Conversation> {
-  return invoke<Conversation>('create_conversation', { providerId, title })
+export async function createConversation(providerId: string, title?: string): Promise<ConversationView> {
+  return invoke<ConversationView>('create_conversation', { providerId, title })
 }
 
-export async function updateConversation(id: string, title?: string, providerId?: string, model?: string, searchEnabled?: boolean): Promise<void> {
-  return invoke<void>('update_conversation', { id, title, providerId, model, searchEnabled })
+export interface ConversationUpdates {
+  title?: string
+  providerId?: string
+  model?: string
+  promptId?: string | null
+  searchEnabled?: boolean
+}
+
+export async function updateConversation(id: string, updates: ConversationUpdates): Promise<void> {
+  return invoke<void>('update_conversation', { id, ...updates })
 }
 
 export async function deleteConversation(id: string): Promise<void> {

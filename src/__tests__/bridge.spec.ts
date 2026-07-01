@@ -67,9 +67,11 @@ describe('conversation bridge', () => {
     title: 'Test',
     provider_id: 'prov-1',
     model: 'deepseek-chat',
-    system_prompt: '',
+    prompt_id: null,
+    search_enabled: false,
     created_at: 0,
     updated_at: 0,
+    pinned: false,
   }
 
   it('listConversations returns conversations from invoke', async () => {
@@ -101,12 +103,10 @@ describe('conversation bridge', () => {
 
   it('updateConversation calls invoke with correct arguments', async () => {
     mockedInvoke.mockResolvedValue(undefined)
-    await updateConversation('c1', 'Renamed')
+    await updateConversation('c1', { title: 'Renamed' })
     expect(mockedInvoke).toHaveBeenCalledWith('update_conversation', {
       id: 'c1',
       title: 'Renamed',
-      providerId: undefined,
-      model: undefined,
     })
   })
 

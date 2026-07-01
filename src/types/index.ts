@@ -21,14 +21,20 @@ export interface ModelProvider {
 export interface Conversation {
   id: string
   title: string
-  provider_id: string
-  model: string
-  system_prompt: string
+  pinned: boolean
   created_at: number
   updated_at: number
-  pinned: boolean
+}
+
+export interface ConversationConfig {
+  conversation_id: string
+  provider_id: string
+  model: string
+  prompt_id: string | null
   search_enabled: boolean
 }
+
+export type ConversationView = Conversation & ConversationConfig
 
 export interface Settings {
   providers: ModelProvider[]

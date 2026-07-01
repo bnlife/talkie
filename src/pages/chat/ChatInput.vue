@@ -3,8 +3,9 @@ import { ref, computed } from 'vue'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Send, Square, ChevronDown, Bot, Sparkles, Brain, Diamond, Server, Settings, Globe } from 'lucide-vue-next'
+import { Send, Square, ChevronDown, Bot, Sparkles, Brain, Diamond, Server, Settings, Globe, FileText } from 'lucide-vue-next'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { usePromptStore } from '@/stores/promptStore'
 import { useChatStore } from '@/stores/chatStore'
 import * as conversationBridge from '@/bridge/conversation'
 
@@ -19,10 +20,12 @@ const emit = defineEmits<{
 }>()
 
 const settingsStore = useSettingsStore()
+const promptStore = usePromptStore()
 const chatStore = useChatStore()
 
 const input = ref('')
 const showModelMenu = ref(false)
+const showPromptMenu = ref(false)
 
 // Search toggle — per-conversation, persisted to DB
 const searchEnabled = computed(() => chatStore.searchEnabled)
@@ -43,13 +46,27 @@ const currentModel = computed(() => {
   return { provider, model: conv.model }
 })
 
+const currentPrompt = computed(() => {
+  const conv = chatStore.activeConversation
+  if (!conv) return null
+  if (!conv.prompt_id || conv.prompt_id === '') return { name: '无', id: null }
+  if (conv.prompt_id === 'default') return { name: '默认', id: 'default' }
+  const prompt = promptStore.prompts.find(p => p.id === conv.prompt_id)
+  return prompt ? { name: prompt.name, id: prompt.id } : { name: '无', id: null }
+})
+
 async function selectModel(providerId: string, model: string) {
   const conv = chatStore.activeConversation
   if (!conv) return
-  await conversationBridge.updateConversation(conv.id, undefined, providerId, model)
+  await conversationBridge.updateConversation(conv.id, { providerId, model })
   conv.provider_id = providerId
   conv.model = model
   showModelMenu.value = false
+}
+
+async function selectPrompt(promptId: string | null) {
+  await chatStore.selectPrompt(promptId)
+  showPromptMenu.value = false
 }
 
 function handleKeydown(e: KeyboardEvent) {
@@ -66,11 +83,11 @@ function handleSend() {
   input.value = ''
 }
 
-// Close menu on outside click
 function handleOutsideClick(e: MouseEvent) {
   const target = e.target as HTMLElement
-  if (!target.closest('[data-model-menu]')) {
+  if (!target.closest('[data-model-menu]') && !target.closest('[data-prompt-menu]')) {
     showModelMenu.value = false
+    showPromptMenu.value = false
   }
 }
 </script>
@@ -100,6 +117,42 @@ function handleOutsideClick(e: MouseEvent) {
             无模型
           </div>
         </template>
+      </div>
+    </div>
+
+    <!-- Prompt Switcher Dropdown -->
+    <div v-if="showPromptMenu" class="absolute bottom-full left-3 z-50 mb-1 w-64 rounded-lg border bg-popover p-1 shadow-md" data-prompt-menu>
+      <div class="max-h-64 overflow-y-auto">
+        <div
+          :class="cn(
+            'flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-foreground/5',
+            currentPrompt?.id === null && 'bg-accent',
+          )"
+          @click="selectPrompt(null)"
+        >
+          无
+        </div>
+        <div
+          :class="cn(
+            'flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-foreground/5',
+            currentPrompt?.id === 'default' && 'bg-accent',
+          )"
+          @click="selectPrompt('default')"
+        >
+          默认提示词
+        </div>
+        <div v-if="promptStore.prompts.length > 0" class="my-1 border-t" />
+        <div
+          v-for="prompt in promptStore.prompts"
+          :key="prompt.id"
+          :class="cn(
+            'flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-foreground/5',
+            currentPrompt?.id === prompt.id && 'bg-accent',
+          )"
+          @click="selectPrompt(prompt.id)"
+        >
+          {{ prompt.name }}
+        </div>
       </div>
     </div>
 
@@ -135,7 +188,7 @@ function handleOutsideClick(e: MouseEvent) {
       </Button>
     </div>
 
-    <!-- Model Switcher + Search Toggle -->
+    <!-- Search Toggle + Prompt Switcher + Model Switcher -->
     <div class="mt-1 flex items-center gap-1">
       <button
         :class="cn(
@@ -149,7 +202,17 @@ function handleOutsideClick(e: MouseEvent) {
       </button>
       <button
         class="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-foreground/5"
-        @click="showModelMenu = !showModelMenu"
+        @click="showPromptMenu = !showPromptMenu; showModelMenu = false"
+      >
+        <FileText class="size-3" />
+        <span class="max-w-24 truncate">
+          {{ currentPrompt?.name ?? '无' }}
+        </span>
+        <ChevronDown class="size-3" />
+      </button>
+      <button
+        class="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-foreground/5"
+        @click="showModelMenu = !showModelMenu; showPromptMenu = false"
       >
         <component
           :is="getIcon(currentModel?.provider?.icon)"

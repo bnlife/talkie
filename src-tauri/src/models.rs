@@ -33,18 +33,46 @@ fn default_true() -> bool {
     true
 }
 
-/// A conversation (chat session) that groups multiple messages.
+/// Core conversation identity (title, pinned, timestamps).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Conversation {
     pub id: String,
     pub title: String,
-    #[serde(default)]
-    pub provider_id: String,
-    pub model: String,
-    pub system_prompt: String,
     pub created_at: i64,
     pub updated_at: i64,
     pub pinned: bool,
+}
+
+/// Per-conversation configuration (provider, model, prompt, search).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConversationConfig {
+    pub conversation_id: String,
+    #[serde(default)]
+    pub provider_id: String,
+    #[serde(default)]
+    pub model: String,
+    #[serde(default)]
+    pub prompt_id: Option<String>,
+    #[serde(default)]
+    pub search_enabled: bool,
+}
+
+/// Merged view of Conversation + ConversationConfig (returned to frontend).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConversationView {
+    // Conversation fields
+    pub id: String,
+    pub title: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub pinned: bool,
+    // Config fields
+    #[serde(default)]
+    pub provider_id: String,
+    #[serde(default)]
+    pub model: String,
+    #[serde(default)]
+    pub prompt_id: Option<String>,
     #[serde(default)]
     pub search_enabled: bool,
 }

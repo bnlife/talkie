@@ -11,10 +11,10 @@ import {
   Edit2,
   Search,
 } from 'lucide-vue-next'
-import type { Conversation } from '@/types'
+import type { ConversationView } from '@/types'
 
 const props = defineProps<{
-  conversations: Conversation[]
+  conversations: ConversationView[]
   activeId: string | null
   searchQuery: string
 }>()
@@ -47,7 +47,7 @@ const filteredConversations = computed(() => {
 const editingId = ref<string | null>(null)
 const editingTitle = ref('')
 
-function startRename(conv: Conversation) {
+function startRename(conv: ConversationView) {
   editingId.value = conv.id
   editingTitle.value = conv.title
   nextTick(() => {
@@ -78,7 +78,7 @@ const contextMenuX = ref(0)
 const contextMenuY = ref(0)
 const contextMenuConvId = ref<string | null>(null)
 
-function showContextMenu(e: MouseEvent, conv: Conversation) {
+function showContextMenu(e: MouseEvent, conv: ConversationView) {
   e.preventDefault()
   contextMenuConvId.value = conv.id
   contextMenuX.value = e.clientX

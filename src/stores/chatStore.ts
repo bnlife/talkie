@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { Conversation, Message, Settings } from '../types'
+import type { ConversationView, Message } from '../types'
 import * as chatBridge from '../bridge/chat'
 import * as conversationBridge from '../bridge/conversation'
 import { log } from '../bridge/log'
@@ -7,7 +7,7 @@ import { useSettingsStore } from './settingsStore'
 
 export const useChatStore = defineStore('chat', {
   state: () => ({
-    conversations: [] as Conversation[],
+    conversations: [] as ConversationView[],
     activeConversationId: null as string | null,
     messages: [] as Message[],
     streamingId: null as string | null,
@@ -15,7 +15,7 @@ export const useChatStore = defineStore('chat', {
   }),
 
   getters: {
-    activeConversation(state): Conversation | undefined {
+    activeConversation(state): ConversationView | undefined {
       return state.conversations.find(c => c.id === state.activeConversationId)
     },
     searchEnabled(state): boolean {
@@ -26,7 +26,6 @@ export const useChatStore = defineStore('chat', {
   actions: {
     async loadConversations(): Promise<void> {
       this.conversations = await conversationBridge.listConversations()
-      // 尝试恢复最后活跃对话
       const settingsStore = useSettingsStore()
       if (settingsStore.last_active_conversation_id) {
         const exists = this.conversations.some(
@@ -35,9 +34,15 @@ export const useChatStore = defineStore('chat', {
         if (exists) {
           await log('info', `前端::chatStore::loadConversations | 恢复最后对话 | id=${settingsStore.last_active_conversation_id}`)
           await this.switchConversation(settingsStore.last_active_conversation_id)
+          return
         } else {
           await log('info', `前端::chatStore::loadConversations | 最后对话已不存在，跳过 | id=${settingsStore.last_active_conversation_id}`)
         }
+      }
+      // Fallback: activate the most recent conversation
+      if (this.conversations.length > 0) {
+        await log('info', `前端::chatStore::loadConversations | 自动激活最近对话 | id=${this.conversations[0].id}`)
+        await this.switchConversation(this.conversations[0].id)
       }
     },
 
@@ -63,7 +68,7 @@ export const useChatStore = defineStore('chat', {
 
     async renameConversation(id: string, title: string): Promise<void> {
       await log('info', `前端::chatStore::renameConversation | 重命名对话 | id=${id}`)
-      await conversationBridge.updateConversation(id, title)
+      await conversationBridge.updateConversation(id, { title })
       const conv = this.conversations.find(c => c.id === id)
       if (conv) conv.title = title
     },
@@ -72,18 +77,14 @@ export const useChatStore = defineStore('chat', {
       await log('info', `前端::chatStore::pinConversation | 置顶对话 | id=${id}`)
       await conversationBridge.pinConversation(id)
       const conv = this.conversations.find(c => c.id === id)
-      if (conv) {
-        conv.pinned = true
-      }
+      if (conv) conv.pinned = true
     },
 
     async unpinConversation(id: string): Promise<void> {
       await log('info', `前端::chatStore::unpinConversation | 取消置顶 | id=${id}`)
       await conversationBridge.unpinConversation(id)
       const conv = this.conversations.find(c => c.id === id)
-      if (conv) {
-        conv.pinned = false
-      }
+      if (conv) conv.pinned = false
     },
 
     async switchConversation(id: string): Promise<void> {
@@ -91,7 +92,6 @@ export const useChatStore = defineStore('chat', {
       if (this.activeConversationId === id) return
       this.activeConversationId = id
       this.messages = await chatBridge.getMessages(id)
-      // 持久化最后活跃对话 ID
       const settingsStore = useSettingsStore()
       if (settingsStore.last_active_conversation_id !== id) {
         settingsStore.last_active_conversation_id = id
@@ -119,8 +119,16 @@ export const useChatStore = defineStore('chat', {
       if (!conv) return
       const newValue = !conv.search_enabled
       await log('info', `前端::chatStore::toggleSearch | 切换搜索 | id=${conv.id} enabled=${newValue}`)
-      await conversationBridge.updateConversation(conv.id, undefined, undefined, undefined, newValue)
+      await conversationBridge.updateConversation(conv.id, { searchEnabled: newValue })
       conv.search_enabled = newValue
+    },
+
+    async selectPrompt(promptId: string | null): Promise<void> {
+      const conv = this.conversations.find(c => c.id === this.activeConversationId)
+      if (!conv) return
+      await log('info', `前端::chatStore::selectPrompt | 选择提示词 | id=${conv.id} promptId=${promptId}`)
+      await conversationBridge.updateConversation(conv.id, { promptId })
+      conv.prompt_id = promptId
     },
 
     appendStreamChunk(messageId: string, delta: string): void {
@@ -143,7 +151,6 @@ export const useChatStore = defineStore('chat', {
       this.streamingId = null
       this.streamingContent = ''
 
-      // Auto-title: 如果标题还是"新对话"，用助手回复自动生成标题
       try {
         const conv = this.conversations.find(c => c.id === this.activeConversationId)
         await log('info', `前端::chatStore::finishStream | 检查自动标题 | conv=${!!conv} title=${conv?.title} assistantCount=${this.messages.filter(m => m.role === 'assistant').length}`)
@@ -166,17 +173,14 @@ export const useChatStore = defineStore('chat', {
     },
 
     extractTitle(content: string): string {
-      // 取第一行非空内容
       const lines = content.split('\n').filter(l => l.trim())
       if (!lines.length) return ''
       let title = lines[0].trim()
-      // 去除 markdown 标记
-      title = title.replace(/^#+\s*/, '')         // 标题
-      title = title.replace(/[*_`~]+/g, '')       // 加粗/斜体/代码
-      title = title.replace(/^\s*[-*+]\s*/, '')   // 列表
-      title = title.replace(/^\s*\d+\.\s*/, '')   // 有序列表
-      title = title.replace(/^>\s*/, '')           // 引用
-      // 截断
+      title = title.replace(/^#+\s*/, '')
+      title = title.replace(/[*_`~]+/g, '')
+      title = title.replace(/^\s*[-*+]\s*/, '')
+      title = title.replace(/^\s*\d+\.\s*/, '')
+      title = title.replace(/^>\s*/, '')
       if (title.length > 30) title = title.slice(0, 30) + '...'
       return title
     },
@@ -190,13 +194,10 @@ export const useChatStore = defineStore('chat', {
     async regenerateMessage(): Promise<void> {
       await log('info', '前端::chatStore::regenerateMessage | 重新生成')
       if (!this.activeConversationId) return
-      // 只有最后一条是助手消息时才重新生成
       const lastMsg = this.messages[this.messages.length - 1]
       if (!lastMsg || lastMsg.role !== 'assistant') return
-      // 删除最后一条助手消息
       this.messages.pop()
       await chatBridge.deleteMessage(lastMsg.id)
-      // 调用专用的重新生成接口（不创建新的用户消息）
       await chatBridge.regenerateMessage(this.activeConversationId)
     },
   },

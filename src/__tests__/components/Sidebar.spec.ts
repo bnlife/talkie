@@ -1,16 +1,16 @@
 ﻿import { mount } from '@vue/test-utils'
 import { describe, it, expect } from 'vitest'
 import Sidebar from '@/pages/chat/Sidebar.vue'
-import type { Conversation } from '@/types'
+import type { ConversationView } from '@/types'
 
-const sampleConversations: Conversation[] = [
-  { id: 'c1', title: '对话一', provider_id: 'prov-1', model: 'gpt-3.5-turbo', system_prompt: '', created_at: 1000, updated_at: 1001, pinned: false },
-  { id: 'c2', title: '对话二', provider_id: 'prov-1', model: 'gpt-4', system_prompt: '', created_at: 1002, updated_at: 1003, pinned: false },
-  { id: 'c3', title: '测试对话', provider_id: 'prov-2', model: 'deepseek-chat', system_prompt: '', created_at: 1004, updated_at: 1005, pinned: false },
+const sampleConversations: ConversationView[] = [
+  { id: 'c1', title: '对话一', provider_id: 'prov-1', model: 'gpt-3.5-turbo', prompt_id: null, search_enabled: false, created_at: 1000, updated_at: 1001, pinned: false },
+  { id: 'c2', title: '对话二', provider_id: 'prov-1', model: 'gpt-4', prompt_id: null, search_enabled: false, created_at: 1002, updated_at: 1003, pinned: false },
+  { id: 'c3', title: '测试对话', provider_id: 'prov-2', model: 'deepseek-chat', prompt_id: null, search_enabled: false, created_at: 1004, updated_at: 1005, pinned: false },
 ]
 
 function createWrapper(props: {
-  conversations?: Conversation[]
+  conversations?: ConversationView[]
   activeId?: string | null
   searchQuery?: string
 } = {}) {

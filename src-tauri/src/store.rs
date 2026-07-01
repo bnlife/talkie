@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use rusqlite::{params, Connection};
 
 use crate::error::AppError;
-use crate::models::{Conversation, McpCategory, McpInstance, McpServer, Message, Prompt};
+use crate::models::{Conversation, ConversationConfig, ConversationView, McpCategory, McpInstance, McpServer, Message, Prompt};
 
 /// Open or create the SQLite database and ensure all tables exist.
 ///
@@ -20,12 +20,17 @@ pub fn init(db_path: &PathBuf) -> Result<Connection, AppError> {
         "CREATE TABLE IF NOT EXISTS conversations (
             id TEXT PRIMARY KEY,
             title TEXT NOT NULL,
-            provider_id TEXT NOT NULL DEFAULT '',
-            model TEXT NOT NULL,
-            system_prompt TEXT NOT NULL DEFAULT '',
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL,
             pinned INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS conversation_configs (
+            conversation_id TEXT PRIMARY KEY,
+            provider_id TEXT NOT NULL DEFAULT '',
+            model TEXT NOT NULL DEFAULT '',
+            prompt_id TEXT,
+            search_enabled INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
         );
         CREATE TABLE IF NOT EXISTS messages (
             id TEXT PRIMARY KEY,
@@ -83,15 +88,25 @@ pub fn init(db_path: &PathBuf) -> Result<Connection, AppError> {
         [],
     );
 
-    // 迁移：为旧数据库添加 provider_id 列（如已存在则忽略）
-    let _ = conn.execute(
-        "ALTER TABLE conversations ADD COLUMN provider_id TEXT NOT NULL DEFAULT ''",
-        [],
+    // 迁移：确保 conversation_configs 表存在（旧数据库可能没有）
+    let _ = conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS conversation_configs (
+            conversation_id TEXT PRIMARY KEY,
+            provider_id TEXT NOT NULL DEFAULT '',
+            model TEXT NOT NULL DEFAULT '',
+            prompt_id TEXT,
+            search_enabled INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+        );",
     );
 
-    // 迁移：为旧数据库添加 search_enabled 列（如已存在则忽略）
+    // 迁移：将旧 conversations 表中的 provider_id/model/search_enabled 数据迁移到 conversation_configs
+    // 只迁移还没有 config 记录的对话
     let _ = conn.execute(
-        "ALTER TABLE conversations ADD COLUMN search_enabled INTEGER NOT NULL DEFAULT 0",
+        "INSERT OR IGNORE INTO conversation_configs (conversation_id, provider_id, model, search_enabled)
+         SELECT id, COALESCE(provider_id, ''), COALESCE(model, ''), COALESCE(search_enabled, 0)
+         FROM conversations
+         WHERE id NOT IN (SELECT conversation_id FROM conversation_configs)",
         [],
     );
 
@@ -177,23 +192,26 @@ fn seed_mcp_registry(conn: &Connection) -> Result<(), AppError> {
 // Conversation CRUD
 // ---------------------------------------------------------------------------
 
-/// List all conversations, ordered by most recently updated first.
-pub fn list_conversations(conn: &Connection) -> Result<Vec<Conversation>, AppError> {
+/// List all conversations with their configs, ordered by most recently updated first.
+pub fn list_conversations(conn: &Connection) -> Result<Vec<ConversationView>, AppError> {
     log::debug!("Rust::store::list_conversations | 查询所有对话");
     let mut stmt = conn.prepare(
-        "SELECT id, title, provider_id, model, system_prompt, created_at, updated_at, pinned, search_enabled \
-         FROM conversations ORDER BY pinned DESC, updated_at DESC",
+        "SELECT c.id, c.title, c.created_at, c.updated_at, c.pinned,
+                COALESCE(cfg.provider_id, ''), COALESCE(cfg.model, ''), cfg.prompt_id, COALESCE(cfg.search_enabled, 0)
+         FROM conversations c
+         LEFT JOIN conversation_configs cfg ON cfg.conversation_id = c.id
+         ORDER BY c.pinned DESC, c.updated_at DESC",
     )?;
     let rows = stmt.query_map([], |row| {
-        Ok(Conversation {
+        Ok(ConversationView {
             id: row.get(0)?,
             title: row.get(1)?,
-            provider_id: row.get(2)?,
-            model: row.get(3)?,
-            system_prompt: row.get(4)?,
-            created_at: row.get(5)?,
-            updated_at: row.get(6)?,
-            pinned: row.get::<_, i64>(7)? != 0,
+            created_at: row.get(2)?,
+            updated_at: row.get(3)?,
+            pinned: row.get::<_, i64>(4)? != 0,
+            provider_id: row.get(5)?,
+            model: row.get(6)?,
+            prompt_id: row.get(7)?,
             search_enabled: row.get::<_, i64>(8)? != 0,
         })
     })?;
@@ -204,44 +222,40 @@ pub fn list_conversations(conn: &Connection) -> Result<Vec<Conversation>, AppErr
     Ok(conversations)
 }
 
-/// Insert a new conversation into the database.
-pub fn create_conversation(conn: &Connection, conversation: &Conversation) -> Result<(), AppError> {
-    log::info!("Rust::store::create_conversation | 创建对话 | id={}", conversation.id);
+/// Insert a new conversation and its config into the database.
+pub fn create_conversation(conn: &Connection, conv: &Conversation, config: &ConversationConfig) -> Result<(), AppError> {
+    log::info!("Rust::store::create_conversation | 创建对话 | id={}", conv.id);
     conn.execute(
-        "INSERT INTO conversations (id, title, provider_id, model, system_prompt, created_at, updated_at, pinned, search_enabled) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-        params![
-            conversation.id,
-            conversation.title,
-            conversation.provider_id,
-            conversation.model,
-            conversation.system_prompt,
-            conversation.created_at,
-            conversation.updated_at,
-            conversation.pinned as i64,
-            conversation.search_enabled as i64,
-        ],
+        "INSERT INTO conversations (id, title, created_at, updated_at, pinned) VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![conv.id, conv.title, conv.created_at, conv.updated_at, conv.pinned as i64],
+    )?;
+    conn.execute(
+        "INSERT INTO conversation_configs (conversation_id, provider_id, model, prompt_id, search_enabled) VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![config.conversation_id, config.provider_id, config.model, config.prompt_id, config.search_enabled as i64],
     )?;
     Ok(())
 }
 
-/// Retrieve a single conversation by its ID.
-pub fn get_conversation(conn: &Connection, id: &str) -> Result<Option<Conversation>, AppError> {
+/// Retrieve a single conversation with its config by ID.
+pub fn get_conversation(conn: &Connection, id: &str) -> Result<Option<ConversationView>, AppError> {
     log::debug!("Rust::store::get_conversation | 查询对话 | id={}", id);
     let mut stmt = conn.prepare(
-        "SELECT id, title, provider_id, model, system_prompt, created_at, updated_at, pinned, search_enabled \
-         FROM conversations WHERE id = ?1",
+        "SELECT c.id, c.title, c.created_at, c.updated_at, c.pinned,
+                COALESCE(cfg.provider_id, ''), COALESCE(cfg.model, ''), cfg.prompt_id, COALESCE(cfg.search_enabled, 0)
+         FROM conversations c
+         LEFT JOIN conversation_configs cfg ON cfg.conversation_id = c.id
+         WHERE c.id = ?1",
     )?;
     let mut rows = stmt.query_map(params![id], |row| {
-        Ok(Conversation {
+        Ok(ConversationView {
             id: row.get(0)?,
             title: row.get(1)?,
-            provider_id: row.get(2)?,
-            model: row.get(3)?,
-            system_prompt: row.get(4)?,
-            created_at: row.get(5)?,
-            updated_at: row.get(6)?,
-            pinned: row.get::<_, i64>(7)? != 0,
+            created_at: row.get(2)?,
+            updated_at: row.get(3)?,
+            pinned: row.get::<_, i64>(4)? != 0,
+            provider_id: row.get(5)?,
+            model: row.get(6)?,
+            prompt_id: row.get(7)?,
             search_enabled: row.get::<_, i64>(8)? != 0,
         })
     })?;
@@ -252,21 +266,22 @@ pub fn get_conversation(conn: &Connection, id: &str) -> Result<Option<Conversati
     }
 }
 
-/// Update title, model, system_prompt, search_enabled, and updated_at of an existing conversation.
-pub fn update_conversation(conn: &Connection, conversation: &Conversation) -> Result<(), AppError> {
-    log::debug!("Rust::store::update_conversation | 更新对话 | id={}", conversation.id);
+/// Update conversation core fields (title, pinned, timestamps).
+pub fn update_conversation(conn: &Connection, conv: &Conversation) -> Result<(), AppError> {
+    log::debug!("Rust::store::update_conversation | 更新对话 | id={}", conv.id);
     conn.execute(
-        "UPDATE conversations SET title = ?1, provider_id = ?2, model = ?3, system_prompt = ?4, updated_at = ?5, search_enabled = ?6 \
-         WHERE id = ?7",
-        params![
-            conversation.title,
-            conversation.provider_id,
-            conversation.model,
-            conversation.system_prompt,
-            conversation.updated_at,
-            conversation.search_enabled as i64,
-            conversation.id,
-        ],
+        "UPDATE conversations SET title = ?1, pinned = ?2, updated_at = ?3 WHERE id = ?4",
+        params![conv.title, conv.pinned as i64, conv.updated_at, conv.id],
+    )?;
+    Ok(())
+}
+
+/// Update conversation config fields.
+pub fn update_conversation_config(conn: &Connection, config: &ConversationConfig) -> Result<(), AppError> {
+    log::debug!("Rust::store::update_conversation_config | 更新配置 | id={}", config.conversation_id);
+    conn.execute(
+        "UPDATE conversation_configs SET provider_id = ?1, model = ?2, prompt_id = ?3, search_enabled = ?4 WHERE conversation_id = ?5",
+        params![config.provider_id, config.model, config.prompt_id, config.search_enabled as i64, config.conversation_id],
     )?;
     Ok(())
 }
@@ -490,6 +505,30 @@ pub fn get_default_prompt(conn: &Connection) -> Result<Option<Prompt>, AppError>
     }
 }
 
+/// Get a prompt by its ID.
+pub fn get_prompt_by_id(conn: &Connection, id: &str) -> Result<Option<Prompt>, AppError> {
+    log::debug!("Rust::store::get_prompt_by_id | 查询提示词 | id={}", id);
+    let mut stmt = conn.prepare(
+        "SELECT id, name, content, is_default, created_at, updated_at \
+         FROM prompts WHERE id = ?1",
+    )?;
+    let mut rows = stmt.query_map(params![id], |row| {
+        Ok(Prompt {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            content: row.get(2)?,
+            is_default: row.get::<_, i64>(3)? != 0,
+            created_at: row.get(4)?,
+            updated_at: row.get(5)?,
+        })
+    })?;
+    match rows.next() {
+        Some(Ok(prompt)) => Ok(Some(prompt)),
+        Some(Err(e)) => Err(AppError::DbError(e.to_string())),
+        None => Ok(None),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // MCP CRUD
 // ---------------------------------------------------------------------------
@@ -670,13 +709,17 @@ mod tests {
             "            CREATE TABLE IF NOT EXISTS conversations (
                 id TEXT PRIMARY KEY,
                 title TEXT NOT NULL,
-                provider_id TEXT NOT NULL DEFAULT '',
-                model TEXT NOT NULL,
-                system_prompt TEXT NOT NULL DEFAULT '',
                 created_at INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL,
-                pinned INTEGER NOT NULL DEFAULT 0,
-                search_enabled INTEGER NOT NULL DEFAULT 0
+                pinned INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS conversation_configs (
+                conversation_id TEXT PRIMARY KEY,
+                provider_id TEXT NOT NULL DEFAULT '',
+                model TEXT NOT NULL DEFAULT '',
+                prompt_id TEXT,
+                search_enabled INTEGER NOT NULL DEFAULT 0,
+                FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
             );
             CREATE TABLE IF NOT EXISTS messages (
                 id TEXT PRIMARY KEY,
@@ -822,98 +865,70 @@ mod tests {
     fn system_prompt_injection_uses_default_prompt() {
         let conn = setup_db();
 
-        // Create a conversation with no system_prompt
-        create_conversation(&conn, &Conversation {
-            id: "c1".into(),
-            title: "test".into(),
-            provider_id: "".into(),
-            model: "gpt-4".into(),
-            system_prompt: "".into(),
-            created_at: 0,
-            updated_at: 0,
-            pinned: false,
-            search_enabled: false,
-        }).unwrap();
+        // Create a conversation with no prompt_id
+        create_conversation(&conn,
+            &Conversation { id: "c1".into(), title: "test".into(), created_at: 0, updated_at: 0, pinned: false },
+            &ConversationConfig { conversation_id: "c1".into(), provider_id: "".into(), model: "gpt-4".into(), prompt_id: None, search_enabled: false },
+        ).unwrap();
 
         // Create a default prompt
         create_prompt(&conn, &Prompt {
-            id: "p1".into(),
-            name: "翻译".into(),
-            content: "你是翻译AI助手，所有输入都翻译成中文".into(),
-            is_default: false,
-            created_at: 0,
-            updated_at: 0,
+            id: "p1".into(), name: "翻译".into(), content: "你是翻译AI助手".into(),
+            is_default: false, created_at: 0, updated_at: 0,
         }).unwrap();
         set_default_prompt(&conn, "p1").unwrap();
 
-        // Simulate the injection logic from send_message
+        // Simulate the new injection logic: prompt_id → default → none
         let conv = get_conversation(&conn, "c1").unwrap().unwrap();
-        let from_conv = if conv.system_prompt.is_empty() { None } else { Some(conv.system_prompt.clone()) };
-        let system_prompt = if from_conv.is_some() {
-            from_conv
-        } else {
-            get_default_prompt(&conn).unwrap().map(|p| p.content)
+        let system_prompt = match &conv.prompt_id {
+            Some(id) if id == "default" => get_default_prompt(&conn).unwrap().map(|p| p.content),
+            Some(id) => get_prompt_by_id(&conn, id).unwrap().map(|p| p.content),
+            None => get_default_prompt(&conn).unwrap().map(|p| p.content),
         };
 
         assert!(system_prompt.is_some());
-        assert_eq!(system_prompt.unwrap(), "你是翻译AI助手，所有输入都翻译成中文");
+        assert_eq!(system_prompt.unwrap(), "你是翻译AI助手");
     }
 
     #[test]
-    fn system_prompt_injection_prefers_conversation_prompt() {
+    fn system_prompt_injection_uses_prompt_id() {
         let conn = setup_db();
 
-        // Create a conversation WITH system_prompt
-        create_conversation(&conn, &Conversation {
-            id: "c1".into(),
-            title: "test".into(),
-            provider_id: "".into(),
-            model: "gpt-4".into(),
-            system_prompt: "对话专属提示词".into(),
-            created_at: 0,
-            updated_at: 0,
-            pinned: false,
-            search_enabled: false,
-        }).unwrap();
+        // Create a conversation with prompt_id pointing to a specific prompt
+        create_conversation(&conn,
+            &Conversation { id: "c1".into(), title: "test".into(), created_at: 0, updated_at: 0, pinned: false },
+            &ConversationConfig { conversation_id: "c1".into(), provider_id: "".into(), model: "gpt-4".into(), prompt_id: Some("p2".into()), search_enabled: false },
+        ).unwrap();
 
-        // Also create a default prompt
+        // Create two prompts
         create_prompt(&conn, &Prompt {
-            id: "p1".into(),
-            name: "翻译".into(),
-            content: "默认提示词".into(),
-            is_default: false,
-            created_at: 0,
-            updated_at: 0,
+            id: "p1".into(), name: "翻译".into(), content: "默认提示词".into(),
+            is_default: true, created_at: 0, updated_at: 0,
         }).unwrap();
-        set_default_prompt(&conn, "p1").unwrap();
+        create_prompt(&conn, &Prompt {
+            id: "p2".into(), name: "代码".into(), content: "你是代码助手".into(),
+            is_default: false, created_at: 0, updated_at: 0,
+        }).unwrap();
 
         // Simulate the injection logic
         let conv = get_conversation(&conn, "c1").unwrap().unwrap();
-        let from_conv = if conv.system_prompt.is_empty() { None } else { Some(conv.system_prompt.clone()) };
-        let system_prompt = if from_conv.is_some() {
-            from_conv
-        } else {
-            get_default_prompt(&conn).unwrap().map(|p| p.content)
+        let system_prompt = match &conv.prompt_id {
+            Some(id) if id == "default" => get_default_prompt(&conn).unwrap().map(|p| p.content),
+            Some(id) => get_prompt_by_id(&conn, id).unwrap().map(|p| p.content),
+            None => get_default_prompt(&conn).unwrap().map(|p| p.content),
         };
 
-        // Should use conversation's prompt, not the default
-        assert_eq!(system_prompt.unwrap(), "对话专属提示词");
+        // Should use prompt_id's prompt, not the default
+        assert_eq!(system_prompt.unwrap(), "你是代码助手");
     }
 
     #[test]
     fn conversation_with_provider_id() {
         let conn = setup_db();
-        create_conversation(&conn, &Conversation {
-            id: "c1".into(),
-            title: "test".into(),
-            provider_id: "prov-1".into(),
-            model: "gpt-4".into(),
-            system_prompt: "".into(),
-            created_at: 0,
-            updated_at: 0,
-            pinned: false,
-            search_enabled: false,
-        }).unwrap();
+        create_conversation(&conn,
+            &Conversation { id: "c1".into(), title: "test".into(), created_at: 0, updated_at: 0, pinned: false },
+            &ConversationConfig { conversation_id: "c1".into(), provider_id: "prov-1".into(), model: "gpt-4".into(), prompt_id: None, search_enabled: false },
+        ).unwrap();
 
         let conv = get_conversation(&conn, "c1").unwrap().unwrap();
         assert_eq!(conv.provider_id, "prov-1");
@@ -927,21 +942,37 @@ mod tests {
     #[test]
     fn conversation_provider_id_defaults_to_empty() {
         let conn = setup_db();
-        // Simulate old data without provider_id by inserting with empty
-        create_conversation(&conn, &Conversation {
-            id: "c-old".into(),
-            title: "old".into(),
-            provider_id: "".into(),
-            model: "deepseek-chat".into(),
-            system_prompt: "".into(),
-            created_at: 0,
-            updated_at: 0,
-            pinned: false,
-            search_enabled: false,
-        }).unwrap();
+        create_conversation(&conn,
+            &Conversation { id: "c-old".into(), title: "old".into(), created_at: 0, updated_at: 0, pinned: false },
+            &ConversationConfig { conversation_id: "c-old".into(), provider_id: "".into(), model: "deepseek-chat".into(), prompt_id: None, search_enabled: false },
+        ).unwrap();
 
         let conv = get_conversation(&conn, "c-old").unwrap().unwrap();
         assert_eq!(conv.provider_id, "");
+    }
+
+    #[test]
+    fn conversation_config_update() {
+        let conn = setup_db();
+        create_conversation(&conn,
+            &Conversation { id: "c1".into(), title: "test".into(), created_at: 0, updated_at: 0, pinned: false },
+            &ConversationConfig { conversation_id: "c1".into(), provider_id: "prov-1".into(), model: "gpt-4".into(), prompt_id: None, search_enabled: false },
+        ).unwrap();
+
+        // Update config
+        update_conversation_config(&conn, &ConversationConfig {
+            conversation_id: "c1".into(),
+            provider_id: "prov-2".into(),
+            model: "deepseek-chat".into(),
+            prompt_id: Some("p1".into()),
+            search_enabled: true,
+        }).unwrap();
+
+        let conv = get_conversation(&conn, "c1").unwrap().unwrap();
+        assert_eq!(conv.provider_id, "prov-2");
+        assert_eq!(conv.model, "deepseek-chat");
+        assert_eq!(conv.prompt_id, Some("p1".into()));
+        assert!(conv.search_enabled);
     }
 
     // -----------------------------------------------------------------------

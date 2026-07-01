@@ -29,15 +29,22 @@ fn gather_context(
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conv = store::get_conversation(&db, conversation_id)
             .map_err(|e| e.to_string())?;
-        let from_conv = conv.as_ref().and_then(|c| {
-            if c.system_prompt.is_empty() { None } else { Some(c.system_prompt.clone()) }
-        });
-        if from_conv.is_some() {
-            from_conv
-        } else {
-            store::get_default_prompt(&db)
-                .map_err(|e| e.to_string())?
-                .map(|p| p.content)
+        match conv.as_ref().and_then(|c| c.prompt_id.as_ref()) {
+            Some(id) if id == "default" => {
+                store::get_default_prompt(&db)
+                    .map_err(|e| e.to_string())?
+                    .map(|p| p.content)
+            }
+            Some(id) => {
+                store::get_prompt_by_id(&db, id)
+                    .map_err(|e| e.to_string())?
+                    .map(|p| p.content)
+            }
+            None => {
+                store::get_default_prompt(&db)
+                    .map_err(|e| e.to_string())?
+                    .map(|p| p.content)
+            }
         }
     };
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import type { Conversation, Message, Settings, Prompt, ModelProvider } from '../types'
+import type { ConversationView, Message, Settings, Prompt, ModelProvider } from '../types'
 
 // Mock bridge modules before importing stores
 vi.mock('../bridge/chat')
@@ -20,17 +20,17 @@ import * as promptBridge from '../bridge/prompt'
 // ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
-function createConv(overrides: Partial<Conversation> = {}): Conversation {
+function createConv(overrides: Partial<ConversationView> = {}): ConversationView {
   return {
     id: 'conv-1',
     title: 'Test',
     provider_id: 'prov-1',
     model: 'deepseek-chat',
-    system_prompt: '',
+    prompt_id: null,
+    search_enabled: false,
     created_at: 0,
     updated_at: 0,
     pinned: false,
-    search_enabled: false,
     ...overrides,
   }
 }
@@ -109,20 +109,22 @@ describe('chatStore', () => {
       expect(chatBridge.getMessages).toHaveBeenCalledWith('last-id')
     })
 
-    it('does not restore when last_active_conversation_id is not set', async () => {
+    it('falls back to first conversation when last_active_conversation_id is not set', async () => {
       const convs = [createConv({ id: 'c1' })]
       vi.mocked(conversationBridge.listConversations).mockResolvedValue(convs)
+      vi.mocked(chatBridge.getMessages).mockResolvedValue([])
 
       const store = useChatStore()
       await store.loadConversations()
 
-      expect(store.activeConversationId).toBeNull()
+      expect(store.activeConversationId).toBe('c1')
     })
 
-    it('skips restoration when saved conversation no longer exists', async () => {
+    it('falls back to first conversation when saved conversation no longer exists', async () => {
       vi.mocked(conversationBridge.listConversations).mockResolvedValue([
         createConv({ id: 'conv-1' }),
       ])
+      vi.mocked(chatBridge.getMessages).mockResolvedValue([])
 
       const settingsStore = useSettingsStore()
       settingsStore.last_active_conversation_id = 'deleted-conv'
@@ -130,8 +132,7 @@ describe('chatStore', () => {
       const store = useChatStore()
       await store.loadConversations()
 
-      expect(store.activeConversationId).toBeNull()
-      expect(chatBridge.getMessages).not.toHaveBeenCalled()
+      expect(store.activeConversationId).toBe('conv-1')
     })
   })
 
@@ -363,7 +364,7 @@ describe('chatStore', () => {
 
       await store.finishStream()
 
-      expect(conversationBridge.updateConversation).toHaveBeenCalledWith('conv-1', '你好！有什么可以帮助你的吗？')
+      expect(conversationBridge.updateConversation).toHaveBeenCalledWith('conv-1', { title: '你好！有什么可以帮助你的吗？' })
       expect(store.conversations[0].title).toBe('你好！有什么可以帮助你的吗？')
     })
 
@@ -379,7 +380,7 @@ describe('chatStore', () => {
 
       await store.finishStream()
 
-      const calledTitle = vi.mocked(conversationBridge.updateConversation).mock.calls[0][1] as string
+      const calledTitle = vi.mocked(conversationBridge.updateConversation).mock.calls[0][1].title as string
       expect(calledTitle.length).toBeLessThanOrEqual(33) // 30 + '...'
     })
 
@@ -410,7 +411,7 @@ describe('chatStore', () => {
 
       await store.finishStream()
 
-      expect(conversationBridge.updateConversation).toHaveBeenCalledWith('conv-1', '你好世界')
+      expect(conversationBridge.updateConversation).toHaveBeenCalledWith('conv-1', { title: '你好世界' })
     })
   })
 

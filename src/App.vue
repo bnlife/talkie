@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { usePromptStore } from '@/stores/promptStore'
 import { useMcpStore } from '@/stores/mcpStore'
 import { watch } from 'vue'
 import 'vue-sonner/style.css'
@@ -13,11 +14,13 @@ import PromptView from '@/pages/prompt/PromptView.vue'
 import McpView from '@/pages/mcp/McpView.vue'
 
 const settingsStore = useSettingsStore()
+const promptStore = usePromptStore()
 const mcpStore = useMcpStore()
 const activeView = ref('chat')
 
-onMounted(() => {
+onMounted(async () => {
   mcpStore.listenEvents()
+  await promptStore.loadPrompts()
 })
 
 watch(
