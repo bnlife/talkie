@@ -64,10 +64,14 @@ const currentModel = computed(() => {
 const currentPrompt = computed(() => {
   const conv = chatStore.activeConversation
   if (!conv) return null
-  if (!conv.prompt_id || conv.prompt_id === '') return { name: '无', id: null }
   if (conv.prompt_id === 'default') return { name: '默认', id: 'default' }
-  const prompt = promptStore.prompts.find(p => p.id === conv.prompt_id)
-  return prompt ? { name: prompt.name, id: prompt.id } : { name: '无', id: null }
+  if (conv.prompt_id && conv.prompt_id !== '') {
+    const prompt = promptStore.prompts.find(p => p.id === conv.prompt_id)
+    return prompt ? { name: prompt.name, id: prompt.id } : null
+  }
+  // No prompt selected — fall back to default prompt (same as backend behavior)
+  const def = promptStore.defaultPrompt
+  return def ? { name: '默认', id: 'default' } : null
 })
 
 async function selectModel(providerId: string, model: string) {
@@ -200,39 +204,44 @@ function handleOutsideClick(e: MouseEvent) {
     </div>
 
     <!-- Search Toggle + Prompt Switcher + Model Switcher -->
-    <div class="mt-1 flex items-center gap-1">
+    <div class="mt-1.5 flex items-center gap-1.5">
       <button
         :class="cn(
-          'flex items-center gap-1 rounded px-1.5 py-0.5 text-xs transition-colors hover:bg-foreground/5',
-          searchEnabled ? 'text-blue-500 bg-blue-500/10' : 'text-muted-foreground',
+          'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs border transition-all',
+          searchEnabled
+            ? 'border-foreground/30 bg-foreground/10 text-foreground font-medium'
+            : 'border-transparent text-muted-foreground hover:bg-foreground/5 hover:border-border',
         )"
         @click="toggleSearch"
       >
-        <Globe class="size-3" />
+        <Globe class="size-3 shrink-0" />
         <span>搜索</span>
       </button>
       <button
-        class="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-foreground/5"
+        :class="cn(
+          'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs border transition-all max-w-28',
+          currentPrompt?.id
+            ? 'border-foreground/30 bg-foreground/10 text-foreground'
+            : 'border-transparent text-muted-foreground hover:bg-foreground/5 hover:border-border',
+        )"
         @click="showPromptMenu = !showPromptMenu; showModelMenu = false"
       >
-        <FileText class="size-3" />
-        <span class="max-w-24 truncate">
-          {{ currentPrompt?.name ?? '无' }}
-        </span>
-        <ChevronDown class="size-3" />
+        <FileText class="size-3 shrink-0" />
+        <span class="truncate">{{ currentPrompt?.name ?? '提示词' }}</span>
+        <ChevronDown class="size-2.5 shrink-0 opacity-60" />
       </button>
       <button
-        class="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-foreground/5"
+        :class="cn(
+          'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs border transition-all max-w-36',
+          currentModel?.model
+            ? 'border-foreground/30 bg-foreground/10 text-foreground'
+            : 'border-transparent text-muted-foreground hover:bg-foreground/5 hover:border-border',
+        )"
         @click="showModelMenu = !showModelMenu; showPromptMenu = false"
       >
-        <component
-          :is="getIcon(currentModel?.provider?.icon)"
-          class="size-3"
-        />
-        <span class="max-w-32 truncate">
-          {{ currentModel?.provider?.name ?? '未配置' }} / {{ currentModel?.model ?? '未知' }}
-        </span>
-        <ChevronDown class="size-3" />
+        <component :is="getIcon(currentModel?.provider?.icon)" class="size-3 shrink-0" />
+        <span class="truncate">{{ currentModel?.model ?? '模型' }}</span>
+        <ChevronDown class="size-2.5 shrink-0 opacity-60" />
       </button>
     </div>
   </div>

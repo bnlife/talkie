@@ -29,7 +29,7 @@ fn gather_context(
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let conv = store::get_conversation(&db, conversation_id)
             .map_err(|e| e.to_string())?;
-        match conv.as_ref().and_then(|c| c.prompt_id.as_ref()) {
+        match conv.as_ref().and_then(|c| c.prompt_id.as_ref()).filter(|s| !s.is_empty()) {
             Some(id) if id == "default" => {
                 store::get_default_prompt(&db)
                     .map_err(|e| e.to_string())?
@@ -378,7 +378,7 @@ pub fn perform_search(state: &AppState, query: &str) -> Result<(String, Vec<mode
     Ok((text, search_results))
 }
 
-/// Format MCP search tool results into a readable context string.
+/// Format MCP search tool results into a readable context string with numbered citations.
 fn format_search_results(result: &serde_json::Value) -> String {
     // Try to extract text content from MCP tool result
     if let Some(content) = result.get("content").and_then(|c| c.as_array()) {
@@ -460,7 +460,13 @@ async fn do_generate(
             id: "search-result".to_string(),
             conversation_id: conversation_id.to_string(),
             role: "system".to_string(),
-            content: format!("以下是联网搜索结果，请参考这些信息回答用户的问题：\n\n{}", search_text),
+            content: format!(
+                "以下是联网搜索结果，每条结果前有编号如 [1] [2] 等。\n\
+                 回答时必须引用这些来源：在相关陈述后面加上对应的编号角标，例如\"Rust 是一门系统编程语言[1]\"。\n\
+                 如果一句话综合了多个来源，可以写 [1][2]。不要编造不存在的来源编号。\n\n\
+                 {}",
+                search_text
+            ),
             created_at: 0,
             token_count: None,
             search_results: None,

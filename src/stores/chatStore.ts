@@ -12,6 +12,7 @@ export const useChatStore = defineStore('chat', {
     messages: [] as Message[],
     streamingId: null as string | null,
     streamingContent: '',
+    waitingForResponse: false,
     drafts: {} as Record<string, string>,
   }),
 
@@ -124,6 +125,7 @@ export const useChatStore = defineStore('chat', {
         created_at: Date.now(),
       }
       this.messages.push(tempMsg)
+      this.waitingForResponse = true
       await chatBridge.sendMessage(this.activeConversationId, content, conv.search_enabled)
     },
 
@@ -154,12 +156,14 @@ export const useChatStore = defineStore('chat', {
     },
 
     appendStreamChunk(messageId: string, delta: string): void {
+      this.waitingForResponse = false
       this.streamingId = messageId
       this.streamingContent += delta
     },
 
     async finishStream(tokenCount?: number, searchResults?: import('@/types').SearchResult[]): Promise<void> {
       await log('info', 'FE::chatStore | stream done')
+      this.waitingForResponse = false
       if (!this.streamingId) return
       const finalMsg: Message = {
         id: this.streamingId,

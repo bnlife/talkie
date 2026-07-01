@@ -4,6 +4,7 @@ import type { Message } from '@/types'
 import { useChatStore } from '@/stores/chatStore'
 import { cn } from '@/lib/utils'
 import { MessageCircle } from 'lucide-vue-next'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import MessageItem from './MessageItem.vue'
 
 const chatStore = useChatStore()
@@ -12,6 +13,8 @@ const userScrolled = ref(false)
 
 const messages = computed(() => chatStore.messages)
 const modelName = computed(() => chatStore.activeConversation?.model || '')
+
+const showWaiting = computed(() => chatStore.waitingForResponse && !chatStore.streamingId)
 
 const streamingMessage = computed<Message | null>(() => {
   if (!chatStore.streamingId) return null
@@ -74,6 +77,13 @@ watch(
   }
 )
 
+watch(
+  () => chatStore.waitingForResponse,
+  (waiting) => {
+    if (waiting) scrollToBottom()
+  }
+)
+
 async function handleCopy(content: string) {
   await navigator.clipboard.writeText(content)
 }
@@ -106,6 +116,22 @@ async function handleRegenerate() {
           @delete="handleDelete"
           @regenerate="handleRegenerate"
         />
+        <!-- Waiting for API response -->
+        <div v-if="showWaiting" class="flex w-full gap-3 pb-4">
+          <Avatar class="h-8 w-8 shrink-0 mt-1 bg-muted text-muted-foreground">
+            <AvatarFallback class="text-xs">AI</AvatarFallback>
+          </Avatar>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-sm font-medium text-foreground">{{ modelName || 'AI' }}</span>
+            </div>
+            <div class="flex items-center gap-1 py-1">
+              <span class="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]" />
+              <span class="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]" />
+              <span class="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]" />
+            </div>
+          </div>
+        </div>
       </template>
       <div
         v-else

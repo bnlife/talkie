@@ -163,7 +163,7 @@ describe('MessageItem.vue', () => {
           }),
         },
       })
-      expect(wrapper.text()).toContain('搜索了 2 个来源')
+      expect(wrapper.text()).toContain('2 个来源')
       expect(wrapper.text()).toContain('Rust 官网')
       expect(wrapper.text()).toContain('Cargo 手册')
     })
@@ -174,7 +174,7 @@ describe('MessageItem.vue', () => {
           message: createMsg({ role: 'assistant', content: '你好', search_results: [] }),
         },
       })
-      expect(wrapper.text()).not.toContain('搜索了')
+      expect(wrapper.text()).not.toContain('个来源')
     })
 
     it('does not render search results card when search_results is undefined', () => {
@@ -183,7 +183,7 @@ describe('MessageItem.vue', () => {
           message: createMsg({ role: 'assistant', content: '你好' }),
         },
       })
-      expect(wrapper.text()).not.toContain('搜索了')
+      expect(wrapper.text()).not.toContain('个来源')
     })
 
     it('does not render search results for user messages', () => {
@@ -196,10 +196,10 @@ describe('MessageItem.vue', () => {
           }),
         },
       })
-      expect(wrapper.text()).not.toContain('搜索了')
+      expect(wrapper.text()).not.toContain('个来源')
     })
 
-    it('shows collapse button when more than 3 results', async () => {
+    it('shows collapse button when more than 5 results', async () => {
       const wrapper = mount(MessageItem, {
         props: {
           message: createMsg({
@@ -210,19 +210,20 @@ describe('MessageItem.vue', () => {
               { title: '结果2', url: 'https://b.com' },
               { title: '结果3', url: 'https://c.com' },
               { title: '结果4', url: 'https://d.com' },
+              { title: '结果5', url: 'https://e.com' },
+              { title: '结果6', url: 'https://f.com' },
             ],
           }),
         },
       })
-      // Shows first 3 and collapse button
+      // Shows first 5 and collapse button
       expect(wrapper.text()).toContain('结果1')
-      expect(wrapper.text()).toContain('结果2')
-      expect(wrapper.text()).toContain('结果3')
-      expect(wrapper.text()).not.toContain('结果4')
-      expect(wrapper.text()).toContain('展开更多')
+      expect(wrapper.text()).toContain('结果5')
+      expect(wrapper.text()).not.toContain('结果6')
+      expect(wrapper.text()).toContain('+1')
     })
 
-    it('renders snippet when present', () => {
+    it('renders source chip with title', () => {
       const wrapper = mount(MessageItem, {
         props: {
           message: createMsg({
@@ -234,10 +235,10 @@ describe('MessageItem.vue', () => {
           }),
         },
       })
-      expect(wrapper.text()).toContain('Rust 是一门系统编程语言')
+      expect(wrapper.text()).toContain('Rust 官网')
     })
 
-    it('shows domain name for source', () => {
+    it('shows source title in chip', () => {
       const wrapper = mount(MessageItem, {
         props: {
           message: createMsg({
@@ -249,7 +250,7 @@ describe('MessageItem.vue', () => {
           }),
         },
       })
-      expect(wrapper.text()).toContain('rust-lang.org')
+      expect(wrapper.text()).toContain('Rust 官网')
     })
   })
 })

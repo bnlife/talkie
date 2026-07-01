@@ -4,13 +4,21 @@
   --md-h3-size: 1.125rem;
   --md-line-height: 1.7;
   --md-paragraph-spacing: 0.75rem;
-  --md-blockquote-border: hsl(220 60% 60%);
-  --md-blockquote-bg: hsl(220 60% 97%);
+  --md-blockquote-border: hsl(0 0% 80%);
+  --md-blockquote-bg: hsl(0 0% 96%);
   --md-code-bg: hsl(0 0% 95%);
   --md-code-radius: 4px;
   --md-code-font-size: 0.875rem;
   --md-table-border: hsl(0 0% 85%);
-  --md-link-color: hsl(220 60% 55%);
+  --md-link-color: hsl(0 0% 30%);
+}
+
+.dark {
+  --md-blockquote-border: hsl(0 0% 30%);
+  --md-blockquote-bg: hsl(0 0% 14%);
+  --md-code-bg: hsl(0 0% 14%);
+  --md-table-border: hsl(0 0% 25%);
+  --md-link-color: hsl(0 0% 75%);
 }
 
 .markdown-body h1 {
@@ -150,4 +158,43 @@
   margin: 1rem 0;
   border: none;
   border-top: 1px solid var(--md-table-border);
+}
+
+/* Search citation inline markers */
+.search-citation {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.2em;
+  height: 1.1em;
+  margin: 0 1px;
+  padding: 0 3px;
+  font-size: 0.6rem;
+  font-weight: 600;
+  line-height: 1;
+  color: hsl(0 0% 40%);
+  background: hsl(0 0% 93%);
+  border: 1px solid hsl(0 0% 82%);
+  border-radius: 9999px;
+  vertical-align: super;
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.search-citation:hover {
+  background: hsl(0 0% 86%);
+  border-color: hsl(0 0% 64%);
+}
+
+.dark .search-citation {
+  color: hsl(0 0% 70%);
+  background: hsl(0 0% 18%);
+  border-color: hsl(0 0% 28%);
+}
+
+.dark .search-citation:hover {
+  background: hsl(0 0% 24%);
+  border-color: hsl(0 0% 40%);
 }
