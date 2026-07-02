@@ -48,15 +48,19 @@ describe('chat bridge', () => {
   })
 
   it('getMessages returns messages from invoke', async () => {
-    const mockMessages = [
-      { id: '1', conversation_id: 'c1', role: 'user', content: 'hi', created_at: 100 },
-    ]
-    mockedInvoke.mockResolvedValue(mockMessages)
+    const mockPage = {
+      messages: [{ id: '1', conversation_id: 'c1', role: 'user', content: 'hi', created_at: 100 }],
+      total: 1,
+      has_more: false,
+    }
+    mockedInvoke.mockResolvedValue(mockPage)
     const result = await getMessages('conv-1')
     expect(mockedInvoke).toHaveBeenCalledWith('get_messages', {
       conversationId: 'conv-1',
+      offset: null,
+      limit: null,
     })
-    expect(result).toEqual(mockMessages)
+    expect(result).toEqual(mockPage)
   })
 })
 

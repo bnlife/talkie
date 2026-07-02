@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { ConversationView, Message, AttachmentMeta } from '../types'
+import type { ConversationView, Message, MessagesPage, AttachmentMeta } from '../types'
 import * as chatBridge from '../bridge/chat'
 import * as conversationBridge from '../bridge/conversation'
 import { log } from '../bridge/log'
@@ -17,6 +17,9 @@ export const useChatStore = defineStore('chat', {
     streamingSearchResults: null as import('@/types').SearchResult[] | null,
     waitingForResponse: false,
     drafts: {} as Record<string, string>,
+    hasMore: true,
+    loadingMore: false,
+    pageSize: 30,
   }),
 
   getters: {
@@ -107,15 +110,33 @@ export const useChatStore = defineStore('chat', {
     },
 
     async switchConversation(id: string): Promise<void> {
-      await log('info', `FE::chatStore | switch | id=${id}`)
+      await log('info', `FE::chatStore | switch | id=${id} pageSize=${this.pageSize}`)
       if (this.activeConversationId === id) return
       this.activeConversationId = id
-      this.messages = await chatBridge.getMessages(id)
+      const page = await chatBridge.getMessages(id, 0, this.pageSize)
+      this.messages = page.messages.reverse()
+      this.hasMore = page.has_more
+      await log('debug', `FE::chatStore | switch | loaded=${page.messages.length} has_more=${page.has_more}`)
       const settingsStore = useSettingsStore()
       if (settingsStore.last_active_conversation_id !== id) {
         settingsStore.last_active_conversation_id = id
         await settingsStore.saveSettings()
       }
+    },
+
+    async loadMoreMessages(): Promise<void> {
+      if (!this.hasMore || this.loadingMore || !this.activeConversationId) {
+        await log('debug', `FE::chatStore | loadMore | skip: has_more=${this.hasMore} loading=${this.loadingMore}`)
+        return
+      }
+      this.loadingMore = true
+      const offset = this.messages.length
+      await log('debug', `FE::chatStore | loadMore | offset=${offset}`)
+      const page = await chatBridge.getMessages(this.activeConversationId, offset, this.pageSize)
+      this.messages.unshift(...page.messages.reverse())
+      this.hasMore = page.has_more
+      this.loadingMore = false
+      await log('debug', `FE::chatStore | loadMore | loaded=${page.messages.length} has_more=${page.has_more}`)
     },
 
     async sendMessage(displayContent: string, fullContent?: string, attachments?: AttachmentMeta[]): Promise<void> {

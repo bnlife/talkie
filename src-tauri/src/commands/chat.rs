@@ -189,18 +189,22 @@ pub async fn stop_stream(state: State<'_, AppState>) -> Result<(), String> {
     Ok(())
 }
 
-/// Retrieve all messages belonging to a conversation.
+/// Retrieve paginated messages belonging to a conversation.
 #[tauri::command]
 pub fn get_messages(
     conversation_id: String,
+    offset: Option<i64>,
+    limit: Option<i64>,
     state: State<'_, AppState>,
-) -> Result<Vec<models::Message>, String> {
+) -> Result<crate::models::MessagesPage, String> {
     log::debug!(
-        "RS::CMD::chat::get | conv={}",
-        conversation_id
+        "RS::CMD::chat::get | conv={} offset={:?} limit={:?}",
+        conversation_id, offset, limit
     );
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    store::list_messages_by_conversation(&db, &conversation_id).map_err(|e| e.to_string())
+    let offset = offset.unwrap_or(0);
+    let limit = limit.unwrap_or(30);
+    store::list_messages_paginated(&db, &conversation_id, offset, limit).map_err(|e| e.to_string())
 }
 
 /// Delete a single message by its ID.

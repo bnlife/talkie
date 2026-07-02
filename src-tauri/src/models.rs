@@ -18,6 +18,14 @@ pub struct AttachmentMeta {
     pub content: Option<String>,
 }
 
+/// Paginated messages response.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MessagesPage {
+    pub messages: Vec<Message>,
+    pub total: i64,
+    pub has_more: bool,
+}
+
 /// A single chat message within a conversation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {

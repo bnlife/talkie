@@ -56,6 +56,20 @@ function scrollToBottom() {
 }
 
 function onScroll() {
+  const el = scrollRef.value
+  if (!el) return
+
+  // Trigger load more when near top
+  if (el.scrollTop < 50 && chatStore.hasMore && !chatStore.loadingMore) {
+    const prevHeight = el.scrollHeight
+    chatStore.loadMoreMessages().then(() => {
+      nextTick(() => {
+        // Maintain scroll position after loading older messages
+        el.scrollTop = el.scrollHeight - prevHeight
+      })
+    })
+  }
+
   userScrolled.value = !isNearBottom()
 }
 
@@ -114,6 +128,14 @@ async function handleRegenerate() {
     @scroll="onScroll"
   >
     <div class="flex flex-col gap-3 px-4 pt-2 pb-16">
+      <!-- Loading more indicator -->
+      <div v-if="chatStore.loadingMore" class="flex justify-center py-2">
+        <div class="flex items-center gap-1">
+          <span class="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:0ms]" />
+          <span class="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:150ms]" />
+          <span class="size-1.5 rounded-full bg-muted-foreground/40 animate-bounce [animation-delay:300ms]" />
+        </div>
+      </div>
       <template v-if="allMessages.length">
         <MessageItem
           v-for="msg in allMessages"

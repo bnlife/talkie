@@ -84,7 +84,11 @@ describe('SettingsPanel.vue', () => {
     settingsStore.updateProvider = vi.fn().mockResolvedValue(undefined)
 
     const toggle = wrapper.findComponent({ name: 'SwitchRoot' })
-    await toggle.vm.$emit('update:checked', false)
+    // Switch uses v-model (update:modelValue), not update:checked
+    await toggle.vm.$emit('update:modelValue', false)
+
+    // Wait for watcher to trigger
+    await wrapper.vm.$nextTick()
 
     expect(settingsStore.updateProvider).toHaveBeenCalledWith('prov-1', { enabled: false })
   })

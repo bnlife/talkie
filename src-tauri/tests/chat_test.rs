@@ -18,7 +18,7 @@ use std::time::Duration;
 
 use tokio_util::sync::CancellationToken;
 
-use talkie::models::{Conversation, ConversationConfig, Message};
+use talkie::models::{Conversation, ConversationConfig, Message, MessagesPage};
 use talkie::store;
 
 // ---------------------------------------------------------------------------
@@ -73,6 +73,8 @@ fn test_store_save_user_message() {
         created_at: 1001,
         token_count: None,
         search_results: None,
+        thinking_content: None,
+        attachments: None,
     };
     store::create_message(&conn, &msg).unwrap();
 
@@ -100,6 +102,8 @@ fn test_store_messages_chronological_order() {
             created_at: 1000 + i,
             token_count: Some(i * 10),
             search_results: None,
+            thinking_content: None,
+            attachments: None,
         };
         store::create_message(&conn, &msg).unwrap();
     }
@@ -138,6 +142,8 @@ fn test_store_batch_create_messages() {
             created_at: 2000 + i,
             token_count: None,
             search_results: None,
+            thinking_content: None,
+            attachments: None,
         })
         .collect();
 
@@ -161,6 +167,8 @@ fn test_store_delete_messages_by_conversation() {
         created_at: 3000,
         token_count: None,
         search_results: None,
+        thinking_content: None,
+        attachments: None,
     };
     store::create_message(&conn, &msg).unwrap();
 
@@ -194,6 +202,8 @@ fn test_store_message_with_token_count() {
         created_at: 4000,
         token_count: Some(42),
         search_results: None,
+        thinking_content: None,
+        attachments: None,
     };
     store::create_message(&conn, &msg).unwrap();
 
@@ -577,4 +587,147 @@ fn test_parse_search_results_fallback_json() {
 
     let results = talkie::chat::search::parse_search_results(&mcp_response);
     assert_eq!(results.len(), 0);
+}
+
+// ===========================================================================
+// Pagination tests
+// ===========================================================================
+
+/// First page returns correct number of messages and has_more=true.
+#[test]
+fn test_store_paginated_first_page() {
+    let conn = setup_db();
+    insert_conv(&conn, "conv-page");
+
+    for i in 0..50 {
+        let msg = Message {
+            id: format!("msg-{}", i),
+            conversation_id: "conv-page".into(),
+            role: if i % 2 == 0 { "user".into() } else { "assistant".into() },
+            content: format!("Message {}", i),
+            created_at: 1000 + i,
+            token_count: None,
+            search_results: None,
+            thinking_content: None,
+            attachments: None,
+        };
+        store::create_message(&conn, &msg).unwrap();
+    }
+
+    let page = store::list_messages_paginated(&conn, "conv-page", 0, 30).unwrap();
+    assert_eq!(page.messages.len(), 30);
+    assert_eq!(page.total, 50);
+    assert!(page.has_more);
+    // Should be in DESC order (newest first)
+    assert_eq!(page.messages[0].created_at, 1049);
+    assert_eq!(page.messages[29].created_at, 1020);
+}
+
+/// Last page returns remaining messages and has_more=false.
+#[test]
+fn test_store_paginated_last_page() {
+    let conn = setup_db();
+    insert_conv(&conn, "conv-last");
+
+    for i in 0..50 {
+        let msg = Message {
+            id: format!("msg-{}", i),
+            conversation_id: "conv-last".into(),
+            role: if i % 2 == 0 { "user".into() } else { "assistant".into() },
+            content: format!("Message {}", i),
+            created_at: 1000 + i,
+            token_count: None,
+            search_results: None,
+            thinking_content: None,
+            attachments: None,
+        };
+        store::create_message(&conn, &msg).unwrap();
+    }
+
+    let page = store::list_messages_paginated(&conn, "conv-last", 30, 30).unwrap();
+    assert_eq!(page.messages.len(), 20);
+    assert_eq!(page.total, 50);
+    assert!(!page.has_more);
+}
+
+/// Empty conversation returns empty list.
+#[test]
+fn test_store_paginated_empty_conversation() {
+    let conn = setup_db();
+    insert_conv(&conn, "conv-empty");
+
+    let page = store::list_messages_paginated(&conn, "conv-empty", 0, 30).unwrap();
+    assert_eq!(page.messages.len(), 0);
+    assert_eq!(page.total, 0);
+    assert!(!page.has_more);
+}
+
+/// Messages are returned in correct order (created_at DESC).
+#[test]
+fn test_store_paginated_order() {
+    let conn = setup_db();
+    insert_conv(&conn, "conv-order");
+
+    for i in 0..10 {
+        let msg = Message {
+            id: format!("msg-{}", i),
+            conversation_id: "conv-order".into(),
+            role: if i % 2 == 0 { "user".into() } else { "assistant".into() },
+            content: format!("Message {}", i),
+            created_at: 1000 + i,
+            token_count: None,
+            search_results: None,
+            thinking_content: None,
+            attachments: None,
+        };
+        store::create_message(&conn, &msg).unwrap();
+    }
+
+    let page = store::list_messages_paginated(&conn, "conv-order", 0, 30).unwrap();
+    for i in 0..page.messages.len() - 1 {
+        assert!(
+            page.messages[i].created_at > page.messages[i + 1].created_at,
+            "messages should be in descending order"
+        );
+    }
+}
+
+/// Offset pagination returns correct messages (no duplicates).
+#[test]
+fn test_store_paginated_offset() {
+    let conn = setup_db();
+    insert_conv(&conn, "conv-offset");
+
+    for i in 0..50 {
+        let msg = Message {
+            id: format!("msg-{}", i),
+            conversation_id: "conv-offset".into(),
+            role: if i % 2 == 0 { "user".into() } else { "assistant".into() },
+            content: format!("Message {}", i),
+            created_at: 1000 + i,
+            token_count: None,
+            search_results: None,
+            thinking_content: None,
+            attachments: None,
+        };
+        store::create_message(&conn, &msg).unwrap();
+    }
+
+    let page1 = store::list_messages_paginated(&conn, "conv-offset", 0, 30).unwrap();
+    let page2 = store::list_messages_paginated(&conn, "conv-offset", 30, 30).unwrap();
+
+    // No overlap
+    let page1_ids: Vec<String> = page1.messages.iter().map(|m| m.id.clone()).collect();
+    let page2_ids: Vec<String> = page2.messages.iter().map(|m| m.id.clone()).collect();
+    for id in &page2_ids {
+        assert!(!page1_ids.contains(id), "should not have duplicate messages");
+    }
+
+    // All messages covered
+    let all_ids: Vec<String> = (0..50).map(|i| format!("msg-{}", i)).collect();
+    let mut loaded_ids = page1_ids.clone();
+    loaded_ids.extend(page2_ids);
+    for id in &all_ids {
+        assert!(loaded_ids.contains(id), "all messages should be loaded");
+    }
 }

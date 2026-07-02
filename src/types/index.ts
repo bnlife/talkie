@@ -22,6 +22,12 @@ export interface Message {
   attachments?: AttachmentMeta[]
 }
 
+export interface MessagesPage {
+  messages: Message[]
+  total: number
+  has_more: boolean
+}
+
 export interface ModelProvider {
   id: string
   name: string

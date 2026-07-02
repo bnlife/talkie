@@ -13,8 +13,8 @@ use crate::error::AppError;
 pub use chat::{
     batch_create_messages, create_conversation, create_message, delete_conversation,
     delete_message, delete_messages_by_conversation, get_conversation, list_conversations,
-    list_messages_by_conversation, pin_conversation, unpin_conversation, update_conversation,
-    update_conversation_config,
+    list_messages_by_conversation, list_messages_paginated, pin_conversation, unpin_conversation,
+    update_conversation, update_conversation_config,
 };
 pub use mcp::{
     create_mcp_instance, delete_mcp_instance, get_mcp_instance, list_mcp_categories,

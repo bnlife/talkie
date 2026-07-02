@@ -21,6 +21,7 @@ describe('chatStore', () => {
     it('calls listConversations and sets conversations state', async () => {
       const convs = [createConv()]
       vi.mocked(conversationBridge.listConversations).mockResolvedValue(convs)
+      vi.mocked(chatBridge.getMessages).mockResolvedValue({ messages: [], total: 0, has_more: false })
 
       const store = useChatStore()
       await store.loadConversations()
@@ -32,7 +33,7 @@ describe('chatStore', () => {
     it('restores last active conversation when last_active_conversation_id exists', async () => {
       const conv = createConv({ id: 'last-id' })
       vi.mocked(conversationBridge.listConversations).mockResolvedValue([conv])
-      vi.mocked(chatBridge.getMessages).mockResolvedValue([])
+      vi.mocked(chatBridge.getMessages).mockResolvedValue({ messages: [], total: 0, has_more: false })
       vi.mocked(settingsBridge.updateSettings).mockResolvedValue(undefined)
 
       const settingsStore = useSettingsStore()
@@ -42,13 +43,13 @@ describe('chatStore', () => {
       await store.loadConversations()
 
       expect(store.activeConversationId).toBe('last-id')
-      expect(chatBridge.getMessages).toHaveBeenCalledWith('last-id')
+      expect(chatBridge.getMessages).toHaveBeenCalledWith('last-id', 0, 30)
     })
 
     it('falls back to first conversation when last_active_conversation_id is not set', async () => {
       const convs = [createConv({ id: 'c1' })]
       vi.mocked(conversationBridge.listConversations).mockResolvedValue(convs)
-      vi.mocked(chatBridge.getMessages).mockResolvedValue([])
+      vi.mocked(chatBridge.getMessages).mockResolvedValue({ messages: [], total: 0, has_more: false })
 
       const store = useChatStore()
       await store.loadConversations()
@@ -60,7 +61,7 @@ describe('chatStore', () => {
       vi.mocked(conversationBridge.listConversations).mockResolvedValue([
         createConv({ id: 'conv-1' }),
       ])
-      vi.mocked(chatBridge.getMessages).mockResolvedValue([])
+      vi.mocked(chatBridge.getMessages).mockResolvedValue({ messages: [], total: 0, has_more: false })
 
       const settingsStore = useSettingsStore()
       settingsStore.last_active_conversation_id = 'deleted-conv'
@@ -135,9 +136,9 @@ describe('chatStore', () => {
       expect(chatBridge.getMessages).not.toHaveBeenCalled()
     })
 
-    it('switches conversation and loads messages', async () => {
+    it('switches conversation and loads first page', async () => {
       const msgs = [createMsg()]
-      vi.mocked(chatBridge.getMessages).mockResolvedValue(msgs)
+      vi.mocked(chatBridge.getMessages).mockResolvedValue({ messages: msgs, total: 1, has_more: false })
       vi.mocked(settingsBridge.updateSettings).mockResolvedValue(undefined)
 
       const store = useChatStore()
@@ -146,12 +147,27 @@ describe('chatStore', () => {
       await store.switchConversation('new')
 
       expect(store.activeConversationId).toBe('new')
-      expect(chatBridge.getMessages).toHaveBeenCalledWith('new')
+      expect(chatBridge.getMessages).toHaveBeenCalledWith('new', 0, 30)
       expect(store.messages).toEqual(msgs)
+      expect(store.hasMore).toBe(false)
+    })
+
+    it('sets hasMore=true when more messages exist', async () => {
+      const msgs = Array.from({ length: 30 }, (_, i) => createMsg({ id: `msg-${i}` }))
+      vi.mocked(chatBridge.getMessages).mockResolvedValue({ messages: msgs, total: 50, has_more: true })
+      vi.mocked(settingsBridge.updateSettings).mockResolvedValue(undefined)
+
+      const store = useChatStore()
+      store.activeConversationId = 'old'
+
+      await store.switchConversation('new')
+
+      expect(store.hasMore).toBe(true)
+      expect(store.messages).toHaveLength(30)
     })
 
     it('persists last_active_conversation_id when switching', async () => {
-      vi.mocked(chatBridge.getMessages).mockResolvedValue([])
+      vi.mocked(chatBridge.getMessages).mockResolvedValue({ messages: [], total: 0, has_more: false })
       vi.mocked(settingsBridge.updateSettings).mockResolvedValue(undefined)
 
       const store = useChatStore()
@@ -170,6 +186,73 @@ describe('chatStore', () => {
       await store.switchConversation('same-id')
 
       expect(settingsBridge.updateSettings).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('loadMoreMessages', () => {
+    it('skips when hasMore is false', async () => {
+      const store = useChatStore()
+      store.hasMore = false
+      store.activeConversationId = 'conv-1'
+
+      await store.loadMoreMessages()
+
+      expect(chatBridge.getMessages).not.toHaveBeenCalled()
+    })
+
+    it('skips when loadingMore is true', async () => {
+      const store = useChatStore()
+      store.hasMore = true
+      store.loadingMore = true
+      store.activeConversationId = 'conv-1'
+
+      await store.loadMoreMessages()
+
+      expect(chatBridge.getMessages).not.toHaveBeenCalled()
+    })
+
+    it('skips when no active conversation', async () => {
+      const store = useChatStore()
+      store.hasMore = true
+      store.activeConversationId = null
+
+      await store.loadMoreMessages()
+
+      expect(chatBridge.getMessages).not.toHaveBeenCalled()
+    })
+
+    it('appends older messages to beginning', async () => {
+      const existingMsgs = [createMsg({ id: 'msg-new', created_at: 2000 })]
+      const olderMsgs = [createMsg({ id: 'msg-old', created_at: 1000 })]
+      vi.mocked(chatBridge.getMessages).mockResolvedValue({ messages: olderMsgs, total: 2, has_more: false })
+
+      const store = useChatStore()
+      store.activeConversationId = 'conv-1'
+      store.messages = existingMsgs
+      store.hasMore = true
+
+      await store.loadMoreMessages()
+
+      expect(chatBridge.getMessages).toHaveBeenCalledWith('conv-1', 1, 30)
+      expect(store.messages).toHaveLength(2)
+      expect(store.messages[0].id).toBe('msg-old')
+      expect(store.messages[1].id).toBe('msg-new')
+      expect(store.hasMore).toBe(false)
+    })
+
+    it('updates hasMore correctly', async () => {
+      const olderMsgs = Array.from({ length: 30 }, (_, i) => createMsg({ id: `old-${i}` }))
+      vi.mocked(chatBridge.getMessages).mockResolvedValue({ messages: olderMsgs, total: 60, has_more: true })
+
+      const store = useChatStore()
+      store.activeConversationId = 'conv-1'
+      store.messages = [createMsg({ id: 'current' })]
+      store.hasMore = true
+
+      await store.loadMoreMessages()
+
+      expect(store.hasMore).toBe(true)
+      expect(store.messages).toHaveLength(31)
     })
   })
 

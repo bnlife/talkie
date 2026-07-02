@@ -165,6 +165,61 @@ pub fn list_messages_by_conversation(
     Ok(messages)
 }
 
+/// List messages with pagination, ordered by created_at DESC (newest first).
+pub fn list_messages_paginated(
+    conn: &Connection,
+    conversation_id: &str,
+    offset: i64,
+    limit: i64,
+) -> Result<crate::models::MessagesPage, AppError> {
+    log::debug!("RS::list_messages_paginated | conv={} offset={} limit={}", conversation_id, offset, limit);
+
+    // 1. Get total count
+    let total: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM messages WHERE conversation_id = ?1",
+        params![conversation_id],
+        |row| row.get(0),
+    )?;
+
+    // 2. Query with pagination (DESC order, then reverse for display)
+    let mut stmt = conn.prepare(
+        "SELECT id, conversation_id, role, content, created_at, token_count, search_results, thinking_content, attachments \
+         FROM messages WHERE conversation_id = ?1 ORDER BY created_at DESC LIMIT ?2 OFFSET ?3",
+    )?;
+    let rows = stmt.query_map(params![conversation_id, limit, offset], |row| {
+        let search_results_json: Option<String> = row.get(6)?;
+        let search_results = search_results_json
+            .and_then(|json| serde_json::from_str::<Vec<crate::models::SearchResult>>(&json).ok());
+        let thinking_content: Option<String> = row.get(7)?;
+        let attachments_json: Option<String> = row.get(8)?;
+        let attachments = attachments_json
+            .and_then(|json| serde_json::from_str::<Vec<crate::models::AttachmentMeta>>(&json).ok());
+        Ok(Message {
+            id: row.get(0)?,
+            conversation_id: row.get(1)?,
+            role: row.get(2)?,
+            content: row.get(3)?,
+            created_at: row.get(4)?,
+            token_count: row.get(5)?,
+            search_results,
+            thinking_content,
+            attachments,
+        })
+    })?;
+
+    let mut messages: Vec<Message> = Vec::new();
+    for row in rows {
+        messages.push(row?);
+    }
+    // Reverse to get chronological order (oldest first) for display
+    messages.reverse();
+
+    let has_more = (offset + limit) < total;
+    log::debug!("RS::list_messages_paginated | total={} returned={} has_more={}", total, messages.len(), has_more);
+
+    Ok(crate::models::MessagesPage { messages, total, has_more })
+}
+
 /// Insert a single message into the database.
 pub fn create_message(conn: &Connection, message: &Message) -> Result<(), AppError> {
     log::debug!("RS::create_message | conv={} role={}", message.conversation_id, message.role);
