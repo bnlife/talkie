@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -124,12 +124,20 @@ function handleSend() {
 
 function handleOutsideClick(e: MouseEvent) {
   const target = e.target as HTMLElement
-  if (!target.closest('[data-model-menu]') && !target.closest('[data-prompt-menu]') && !target.closest('[data-search-menu]')) {
+  if (!target.closest('[data-model-menu]') && !target.closest('[data-prompt-menu]') && !target.closest('[data-search-menu]') && !target.closest('[data-menu-trigger]')) {
     showModelMenu.value = false
     showPromptMenu.value = false
     showSearchMenu.value = false
   }
 }
+
+onMounted(() => {
+  document.addEventListener('click', handleOutsideClick, true)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleOutsideClick, true)
+})
 </script>
 
 <template>
@@ -264,7 +272,8 @@ function handleOutsideClick(e: MouseEvent) {
             ? 'bg-muted text-foreground font-medium'
             : 'text-muted-foreground hover:bg-muted/50',
         )"
-        @click="showSearchMenu = !showSearchMenu; showModelMenu = false; showPromptMenu = false"
+        data-menu-trigger
+        @click.stop="showSearchMenu = !showSearchMenu; showModelMenu = false; showPromptMenu = false"
       >
         <Globe class="size-3 shrink-0" />
         <span>{{ searchEnabled ? (searchEngineName ?? '搜索') : '搜索' }}</span>
@@ -277,7 +286,8 @@ function handleOutsideClick(e: MouseEvent) {
             ? 'bg-muted text-foreground'
             : 'text-muted-foreground hover:bg-muted/50',
         )"
-        @click="showPromptMenu = !showPromptMenu; showModelMenu = false; showSearchMenu = false"
+        data-menu-trigger
+        @click.stop="showPromptMenu = !showPromptMenu; showModelMenu = false; showSearchMenu = false"
       >
         <FileText class="size-3 shrink-0" />
         <span class="truncate">{{ currentPrompt?.name ?? '提示词' }}</span>
@@ -290,7 +300,8 @@ function handleOutsideClick(e: MouseEvent) {
             ? 'bg-muted text-foreground'
             : 'text-muted-foreground hover:bg-muted/50',
         )"
-        @click="showModelMenu = !showModelMenu; showPromptMenu = false; showSearchMenu = false"
+        data-menu-trigger
+        @click.stop="showModelMenu = !showModelMenu; showPromptMenu = false; showSearchMenu = false"
       >
         <component :is="getIcon(currentModel?.provider?.icon)" class="size-3 shrink-0" />
         <span class="truncate">{{ currentModel?.model ?? '模型' }}</span>
