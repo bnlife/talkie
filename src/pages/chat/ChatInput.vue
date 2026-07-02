@@ -222,35 +222,37 @@ function handleOutsideClick(e: MouseEvent) {
     </div>
 
     <!-- Input Area -->
-    <div :class="cn('flex items-end gap-2')">
+    <div class="relative">
       <Textarea
         v-model="input"
         :disabled="disabled"
         :rows="1"
         placeholder="输入消息..."
         :class="cn(
-          'min-h-[80px] max-h-[240px] resize-none flex-1 text-sm leading-relaxed bg-muted/50 border-transparent focus-visible:ring-1 focus-visible:ring-ring',
+          'min-h-[80px] max-h-[240px] resize-none w-full text-sm leading-relaxed bg-muted/50 border-border/50 focus-visible:ring-1 focus-visible:ring-ring pr-12',
         )"
         @keydown="handleKeydown"
       />
-      <Button
-        v-if="streaming"
-        variant="destructive"
-        size="icon"
-        class="h-10 w-10 shrink-0"
-        @click="emit('stop-stream')"
-      >
-        <Square class="h-4 w-4" />
-      </Button>
-      <Button
-        v-else
-        size="icon"
-        class="h-10 w-10 shrink-0"
-        :disabled="disabled || !input.trim()"
-        @click="handleSend"
-      >
-        <Send class="h-4 w-4" />
-      </Button>
+      <div class="absolute right-2 bottom-2">
+        <Button
+          v-if="streaming"
+          variant="destructive"
+          size="icon"
+          class="h-8 w-8"
+          @click="emit('stop-stream')"
+        >
+          <Square class="h-4 w-4" />
+        </Button>
+        <Button
+          v-else
+          size="icon"
+          class="h-8 w-8"
+          :disabled="disabled || !input.trim()"
+          @click="handleSend"
+        >
+          <Send class="h-4 w-4" />
+        </Button>
+      </div>
     </div>
 
     <!-- Search + Prompt Switcher + Model Switcher -->
