@@ -74,8 +74,15 @@ impl McpPool {
 
     /// Call a tool on a running instance.
     pub async fn call_tool(&self, instance_id: &str, tool_name: &str, args: serde_json::Value) -> Result<serde_json::Value, String> {
+        log::debug!("RS::mcp::pool | call_tool | instance={} tool={}", instance_id, tool_name);
         let clients = self.clients.lock().await;
-        let client = clients.get(instance_id).ok_or(format!("MCP 实例未运行: {}", instance_id))?;
-        client.call_tool(tool_name, args).await
+        let client = clients.get(instance_id).ok_or_else(|| {
+            log::error!("RS::mcp::pool | call_tool | instance not running | id={}", instance_id);
+            format!("MCP 实例未运行: {}", instance_id)
+        })?;
+        client.call_tool(tool_name, args).await.map_err(|e| {
+            log::error!("RS::mcp::pool | call_tool failed | instance={} tool={} err={}", instance_id, tool_name, e);
+            e
+        })
     }
 }

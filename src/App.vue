@@ -24,6 +24,11 @@ onMounted(async () => {
     mcpStore.loadData(),
     promptStore.loadPrompts(),
   ])
+  // Set default prompt after prompts are loaded
+  const def = promptStore.defaultPrompt
+  if (def) {
+    promptStore.selectPrompt(def.id)
+  }
 })
 
 watch(

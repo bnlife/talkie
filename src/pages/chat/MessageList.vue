@@ -23,7 +23,7 @@ const streamingMessage = computed<Message | null>(() => {
     conversation_id: chatStore.activeConversationId || '',
     role: 'assistant',
     content: chatStore.streamingContent,
-    created_at: Date.now(),
+    created_at: Math.floor(Date.now() / 1000),
   }
 })
 

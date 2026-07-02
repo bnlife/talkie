@@ -69,18 +69,21 @@ pub async fn perform_search(state: &AppState, query: &str, search_engine: Option
     let args = if instance.server_id.contains("tavily") {
         serde_json::json!({
             "query": query,
-            "max_results": 5,
+            "max_results": 10,
         })
     } else {
         serde_json::json!({
             "query": query,
-            "count": 5,
+            "count": 10,
             "freshness": "noLimit",
             "summary": true,
         })
     };
 
-    let result = state.mcp_pool.call_tool(&instance.id, tool_name, args).await?;
+    let result = state.mcp_pool.call_tool(&instance.id, tool_name, args).await.map_err(|e| {
+        log::error!("RS::CMD::search | call_tool failed | id={} tool={} err={}", instance.id, tool_name, e);
+        e
+    })?;
     log::debug!("RS::CMD::search | raw | {}", serde_json::to_string(&result).unwrap_or_default());
 
     // Parse structured results and format text for LLM

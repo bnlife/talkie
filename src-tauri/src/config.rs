@@ -111,11 +111,14 @@ pub fn save(path: PathBuf, settings: &Settings) -> Result<(), AppError> {
 }
 
 /// Decrypt all provider API keys in-place.
-fn decrypt_provider_keys(settings: &mut Settings) {
+pub fn decrypt_provider_keys(settings: &mut Settings) {
     for p in &mut settings.providers {
         match crypto::ensure_decrypted(&p.api_key) {
             Ok(decrypted) => p.api_key = decrypted,
-            Err(e) => log::warn!("RS::config | decrypt fail provider={} err={}", p.id, e),
+            Err(e) => {
+                log::error!("RS::config | decrypt fail provider={} err={}", p.id, e);
+                p.api_key.clear();
+            }
         }
     }
 }

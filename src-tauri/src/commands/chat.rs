@@ -72,7 +72,7 @@ pub async fn send_message(
                 (Some(text), Some(results))
             }
             Err(e) => {
-                log::warn!("RS::CMD::chat | search failed, skip | err={}", e);
+                log::error!("RS::CMD::chat | search failed | err={} | Will continue without search context", e);
                 (None, None)
             }
         }
@@ -147,7 +147,10 @@ async fn do_generate(
 
     // 2. Resolve LLM provider config.
     let cfg = chat::engine::resolve_llm_config(state, conversation_id)?;
-    log::info!("RS::CMD::chat | model={} provider={}", cfg.model, cfg.base_url);
+    log::info!(
+        "RS::CMD::chat | model={} provider={} key_len={} key_empty={}",
+        cfg.model, cfg.base_url, cfg.api_key.len(), cfg.api_key.is_empty()
+    );
 
     // 3. Set up cancellation token.
     let cancel = chat::engine::setup_cancel_token(state)?;

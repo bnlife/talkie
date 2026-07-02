@@ -37,8 +37,10 @@ where
 
     let has_system = messages.first().is_some_and(|m| m.role == "system");
     log::info!(
-        "RS::llm::stream | url={} model={} msgs={} temp={} top_p={} sys={}",
-        base_url, model, messages.len(), temperature, top_p, has_system
+        "RS::llm::stream | url={} model={} msgs={} temp={} top_p={} sys={} key_len={} key_empty={}",
+        base_url, model, messages.len(), temperature, top_p, has_system,
+        api_key.len(),
+        api_key.is_empty()
     );
 
     let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
@@ -99,7 +101,14 @@ where
     let status = response.status();
     log::debug!("RS::llm | HTTP status={}", status);
     if !status.is_success() {
-        return Err(format!("HTTP error: {}", status));
+        let err_body = response.text().await.unwrap_or_default();
+        log::error!(
+            "RS::llm | HTTP error | status={} url={} key_len={} key_prefix={} body={}",
+            status, url, api_key.len(),
+            if api_key.len() >= 4 { &api_key[..4] } else { "***" },
+            err_body
+        );
+        return Err(format!("HTTP error: {} {}", status, err_body));
     }
 
     let mut accumulated = String::new();

@@ -3,6 +3,7 @@
 // A minimal MCP server that calls the Bocha Web Search API.
 
 const BOCHA_API_KEY = process.env.BOCHA_API_KEY;
+console.error(`[BOCHA] init | key_len=${BOCHA_API_KEY?.length || 0} key_empty=${!BOCHA_API_KEY}`);
 if (!BOCHA_API_KEY) {
   process.stderr.write('ERROR: BOCHA_API_KEY environment variable is required\n');
   process.exit(1);
@@ -149,6 +150,7 @@ async function bochaSearch(query, count, freshness) {
 
   if (!resp.ok) {
     const text = await resp.text();
+    console.error(`[BOCHA] API error | status=${resp.status} key_len=${BOCHA_API_KEY?.length || 0} key_empty=${!BOCHA_API_KEY} body=${text}`);
     throw new Error(`Bocha API error ${resp.status}: ${text}`);
   }
 

@@ -69,12 +69,18 @@ const searchInstances = computed(() => {
 
 // Search select value (empty string when disabled)
 const searchValue = computed(() => {
-  if (!searchEnabled.value) return ''
+  if (!searchEnabled.value) return '__none__'
   return searchEngine.value || '__enabled__'
 })
 
 function handleSearchChange(value: unknown) {
-  chatStore.selectSearchEngine(String(value ?? ''))
+  const str = String(value ?? '')
+  if (str === '__none__') {
+    // Disable search
+    chatStore.selectSearchEngine('')
+  } else {
+    chatStore.selectSearchEngine(str)
+  }
 }
 
 const iconMap: Record<string, any> = { Bot, Sparkles, Brain, Diamond, Server, Settings }
@@ -240,6 +246,10 @@ async function handleSend() {
           <SelectValue placeholder="搜索" />
         </SelectTrigger>
         <SelectContent side="top" :side-offset="4" class="w-64">
+          <SelectItem value="__none__">
+            无搜索
+          </SelectItem>
+          <SelectSeparator v-if="searchInstances.length > 0" />
           <div
             v-if="searchInstances.length === 0"
             class="px-2 py-1.5 text-xs text-muted-foreground italic"

@@ -25,10 +25,14 @@ pub fn update_settings(
         settings.providers.len(),
         settings.active_provider_id,
     );
+    // Decrypt API keys before storing in memory (so LLM calls use plaintext)
+    let mut decrypted = settings.clone();
+    config::decrypt_provider_keys(&mut decrypted);
     {
         let mut config = state.config.lock().map_err(|e| e.to_string())?;
-        *config = settings.clone();
+        *config = decrypted;
     }
+    // Save to disk with encrypted keys
     config::save(state.config_path.clone(), &settings).map_err(|e| e.to_string())
 }
 

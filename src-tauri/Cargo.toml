@@ -34,7 +34,7 @@ uuid = { version = "1", features = ["v4"] }
 chrono = "0.4"
 tauri = { version = "2.11.3", features = [] }
 tauri-plugin-log = "2"
-keyring = "3"
+keyring = { version = "3", features = ["windows-native"] }
 aes-gcm = "0.10"
 base64 = "0.22"
 rand = "0.8"

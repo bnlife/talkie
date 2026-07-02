@@ -34,7 +34,7 @@ fn get_master_key() -> Result<[u8; 32], String> {
             k.copy_from_slice(&bytes);
             k
         }
-        Err(_) => {
+        Err(keyring::Error::NoEntry) => {
             let mut k = [0u8; 32];
             rand::thread_rng().fill_bytes(&mut k);
             let encoded = B64.encode(k);
@@ -42,6 +42,9 @@ fn get_master_key() -> Result<[u8; 32], String> {
                 .map_err(|e| format!("keyring set fail: {e}"))?;
             log::info!("RS::crypto | master key created");
             k
+        }
+        Err(e) => {
+            return Err(format!("keyring get fail: {e}"));
         }
     };
 

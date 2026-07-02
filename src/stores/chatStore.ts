@@ -150,7 +150,7 @@ export const useChatStore = defineStore('chat', {
         conversation_id: this.activeConversationId,
         role: 'user',
         content: displayContent,
-        created_at: Date.now(),
+        created_at: Math.floor(Date.now() / 1000),
         attachments: attachments && attachments.length > 0 ? attachments : undefined,
       }
       this.messages.push(tempMsg)
@@ -214,7 +214,7 @@ export const useChatStore = defineStore('chat', {
         conversation_id: this.activeConversationId || '',
         role: 'assistant',
         content: this.streamingContent,
-        created_at: Date.now(),
+        created_at: Math.floor(Date.now() / 1000),
         token_count: tokenCount ?? undefined,
         search_results: searchResults && searchResults.length > 0 ? searchResults : undefined,
         thinking_content: this.streamingThinking || undefined,

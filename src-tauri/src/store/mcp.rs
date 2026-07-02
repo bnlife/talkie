@@ -1,7 +1,31 @@
 use rusqlite::{params, Connection};
 
+use crate::crypto;
 use crate::error::AppError;
 use crate::models::{McpCategory, McpInstance, McpServer};
+
+/// Encrypt all env values in-place.
+fn encrypt_env_values(env: &mut std::collections::HashMap<String, String>) {
+    for (_, value) in env.iter_mut() {
+        match crypto::ensure_encrypted(value) {
+            Ok(encrypted) => *value = encrypted,
+            Err(e) => log::error!("RS::mcp::store | encrypt env fail: {}", e),
+        }
+    }
+}
+
+/// Decrypt all env values in-place.
+fn decrypt_env_values(env: &mut std::collections::HashMap<String, String>) {
+    for (_, value) in env.iter_mut() {
+        match crypto::ensure_decrypted(value) {
+            Ok(decrypted) => *value = decrypted,
+            Err(e) => {
+                log::error!("RS::mcp::store | decrypt env fail: {}", e);
+                value.clear();
+            }
+        }
+    }
+}
 
 /// List all MCP market categories.
 pub fn list_mcp_categories(conn: &Connection) -> Result<Vec<McpCategory>, AppError> {
@@ -93,6 +117,12 @@ pub fn list_mcp_instances(conn: &Connection) -> Result<Vec<McpInstance>, AppErro
     for row in rows {
         result.push(row?);
     }
+    // Decrypt env values
+    for inst in &mut result {
+        if let Some(ref mut env) = inst.env {
+            decrypt_env_values(env);
+        }
+    }
     Ok(result)
 }
 
@@ -120,7 +150,13 @@ pub fn get_mcp_instance(conn: &Connection, id: &str) -> Result<Option<McpInstanc
         })
     })?;
     match rows.next() {
-        Some(Ok(inst)) => Ok(Some(inst)),
+        Some(Ok(mut inst)) => {
+            // Decrypt env values
+            if let Some(ref mut env) = inst.env {
+                decrypt_env_values(env);
+            }
+            Ok(Some(inst))
+        }
         Some(Err(e)) => Err(AppError::DbError(e.to_string())),
         None => Ok(None),
     }
@@ -130,7 +166,12 @@ pub fn get_mcp_instance(conn: &Connection, id: &str) -> Result<Option<McpInstanc
 pub fn create_mcp_instance(conn: &Connection, inst: &McpInstance) -> Result<(), AppError> {
     log::info!("RS::create_mcp_instance | id={} name={}", inst.id, inst.name);
     let args_json = inst.args.as_ref().map(|a| serde_json::to_string(a).unwrap_or_default());
-    let env_json = inst.env.as_ref().map(|e| serde_json::to_string(e).unwrap_or_default());
+    // Encrypt env values before storing
+    let env_json = inst.env.as_ref().map(|e| {
+        let mut encrypted = e.clone();
+        encrypt_env_values(&mut encrypted);
+        serde_json::to_string(&encrypted).unwrap_or_default()
+    });
     conn.execute(
         "INSERT INTO mcp_instances (id, server_id, name, enabled, transport, command, args_json, env_json, url, installed_at) \
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
