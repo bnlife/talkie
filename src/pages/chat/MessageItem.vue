@@ -146,7 +146,7 @@ function onContentClick(e: MouseEvent) {
     <div class="flex-1 min-w-0">
       <!-- 用户名/模型名 -->
       <div class="flex items-center gap-2 mb-1">
-        <span class="text-sm font-medium text-foreground">{{ displayName }}</span>
+        <span class="text-base font-semibold text-foreground">{{ displayName }}</span>
         <span class="text-xs text-muted-foreground">{{ formattedTime }}</span>
       </div>
 
@@ -162,12 +162,12 @@ function onContentClick(e: MouseEvent) {
       <!-- 消息正文 -->
       <div class="relative">
         <div class="p-0">
-          <p v-if="isUser" class="text-sm leading-relaxed whitespace-pre-wrap break-words">
+          <p v-if="isUser" class="text-base leading-relaxed whitespace-pre-wrap break-words">
             {{ message.content }}
           </p>
           <div
             v-else
-            class="markdown-body text-sm"
+            class="markdown-body text-base"
             v-html="renderedHtml"
             @click="onContentClick"
           />
@@ -236,7 +236,7 @@ function onContentClick(e: MouseEvent) {
         <!-- Token 消耗 -->
         <div
           v-if="!isUser && message.token_count && !streaming"
-          class="mt-1 text-xs text-muted-foreground"
+          class="mt-1 text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
         >
           {{ message.token_count }} tokens
         </div>

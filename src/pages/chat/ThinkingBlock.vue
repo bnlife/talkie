@@ -41,7 +41,7 @@ const hasSearchResults = computed(() => (props.searchResults?.length ?? 0) > 0)
   <div class="mb-2">
     <!-- Collapsed header -->
     <button
-      class="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-foreground/5"
+      class="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-foreground/5"
       @click="expanded = !expanded"
     >
       <template v-if="streaming">
@@ -62,7 +62,7 @@ const hasSearchResults = computed(() => (props.searchResults?.length ?? 0) > 0)
         <div
           v-for="(result, idx) in searchResults"
           :key="idx"
-          class="flex items-center gap-1.5 text-xs text-muted-foreground"
+          class="flex items-center gap-1.5 text-sm text-muted-foreground"
         >
           <Check class="size-3 shrink-0 text-green-600" />
           <Globe class="size-3 shrink-0" />
@@ -73,10 +73,10 @@ const hasSearchResults = computed(() => (props.searchResults?.length ?? 0) > 0)
       <!-- Thinking content -->
       <div
         v-if="thinking"
-        class="markdown-body text-xs text-muted-foreground max-h-60 overflow-y-auto"
+        class="markdown-body text-sm text-muted-foreground max-h-60 overflow-y-auto"
         v-html="thinkingHtml"
       />
-      <div v-else-if="streaming" class="text-xs text-muted-foreground/60 italic">
+      <div v-else-if="streaming" class="text-sm text-muted-foreground/60 italic">
         等待思考内容...
       </div>
     </div>
