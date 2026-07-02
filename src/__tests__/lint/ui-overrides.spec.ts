@@ -152,6 +152,29 @@ function scanFile(filePath: string): Violation[] {
     })
   }
 
+  // 检测 DropdownMenu + Button 手动实现选择器（应用 Select 组件）
+  // 特征：DropdownMenuTrigger 内有 Button，且 Button 内有 ChevronDown
+  const dropdownMenuRegex = /<DropdownMenu\b/g
+  while ((m = dropdownMenuRegex.exec(template)) !== null) {
+    const menuEnd = template.indexOf('</DropdownMenu>', m.index)
+    if (menuEnd === -1) continue
+    const menuContent = template.slice(m.index, menuEnd)
+    
+    // 检查是否有 DropdownMenuTrigger + Button + ChevronDown 组合
+    const hasTrigger = menuContent.includes('DropdownMenuTrigger')
+    const hasButton = menuContent.includes('<Button')
+    const hasChevron = menuContent.includes('ChevronDown')
+    
+    if (hasTrigger && hasButton && hasChevron) {
+      violations.push({
+        file: relFile,
+        line: getLineNumber(template, m.index),
+        content: '<DropdownMenu> with <Button> and <ChevronDown>',
+        rule: 'DropdownMenu+Button pattern — use <Select> component instead',
+      })
+    }
+  }
+
   return violations
 }
 

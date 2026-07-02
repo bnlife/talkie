@@ -81,6 +81,7 @@ export const useSettingsStore = defineStore('settings', {
       const idx = this.providers.findIndex((p) => p.id === id)
       if (idx === -1) return
       this.providers[idx] = { ...this.providers[idx], ...partial }
+      await log('info', `FE::settingsStore | update provider | id=${id} partial=${JSON.stringify(partial)}`)
       await this.saveSettings()
     },
 

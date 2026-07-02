@@ -3,8 +3,8 @@ import { ref, computed, watch } from 'vue'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
-import { Send, Square, ChevronDown, Bot, Sparkles, Brain, Diamond, Server, Settings, Globe, FileText, Paperclip, X } from 'lucide-vue-next'
+import { Select, SelectContent, SelectItem, SelectLabel, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Send, Square, Bot, Sparkles, Brain, Diamond, Server, Settings, Globe, FileText, Paperclip, X } from 'lucide-vue-next'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { usePromptStore } from '@/stores/promptStore'
 import { useChatStore } from '@/stores/chatStore'
@@ -67,17 +67,14 @@ const searchInstances = computed(() => {
   )
 })
 
-// Display name for current search engine
-const searchEngineName = computed(() => {
-  if (!searchEnabled.value) return null
-  const engine = searchEngine.value
-  if (!engine) return '搜索'
-  const inst = mcpStore.instances.find(i => i.server_id === engine)
-  return inst?.name ?? engine
+// Search select value (empty string when disabled)
+const searchValue = computed(() => {
+  if (!searchEnabled.value) return ''
+  return searchEngine.value || '__enabled__'
 })
 
-async function selectSearchEngine(engine: string) {
-  await chatStore.selectSearchEngine(engine)
+function handleSearchChange(value: unknown) {
+  chatStore.selectSearchEngine(String(value ?? ''))
 }
 
 const iconMap: Record<string, any> = { Bot, Sparkles, Brain, Diamond, Server, Settings }
@@ -109,8 +106,33 @@ async function selectModel(providerId: string, model: string) {
   await chatStore.switchModel(providerId, model)
 }
 
+// Model select value
+const modelValue = computed(() => {
+  if (!currentModel.value?.model) return ''
+  return `${currentModel.value.provider?.id}::${currentModel.value.model}`
+})
+
+function handleModelChange(value: unknown) {
+  if (!value) return
+  const str = String(value)
+  const [providerId, ...modelParts] = str.split('::')
+  const model = modelParts.join('::')
+  selectModel(providerId, model)
+}
+
 async function selectPrompt(promptId: string | null) {
   await chatStore.selectPrompt(promptId)
+}
+
+// Prompt select value
+const promptValue = computed(() => {
+  if (!currentPrompt.value?.id) return '__none__'
+  return currentPrompt.value.id
+})
+
+function handlePromptChange(value: unknown) {
+  const str = value ? String(value) : null
+  selectPrompt(str === '__none__' ? null : str)
 }
 
 // --- Send logic ---
@@ -212,138 +234,74 @@ async function handleSend() {
 
     <!-- Search + Prompt Switcher + Model Switcher -->
     <div class="mt-1.5 flex items-center gap-1.5">
-      <DropdownMenu>
-        <DropdownMenuTrigger as-child>
-          <Button
-            variant="ghost"
-            size="default"
-            :class="cn(
-              'h-6 gap-1 px-2.5 text-xs',
-              searchEnabled
-                ? 'bg-muted text-foreground font-medium'
-                : '',
-            )"
-          >
-            <Globe class="size-3 shrink-0" />
-            <span>{{ searchEnabled ? (searchEngineName ?? '搜索') : '搜索' }}</span>
-            <ChevronDown class="size-2.5 shrink-0 opacity-60" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent side="top" :side-offset="4" class="w-56 max-h-64 overflow-y-auto">
+      <Select :model-value="searchValue" @update:model-value="handleSearchChange">
+        <SelectTrigger variant="ghost" size="xs">
+          <Globe class="size-3 shrink-0" />
+          <SelectValue placeholder="搜索" />
+        </SelectTrigger>
+        <SelectContent side="top" :side-offset="4" class="w-64">
           <div
             v-if="searchInstances.length === 0"
             class="px-2 py-1.5 text-xs text-muted-foreground italic"
           >
             无已安装的搜索引擎
           </div>
-          <DropdownMenuItem
+          <SelectItem
             v-for="inst in searchInstances"
             :key="inst.id"
-            :class="cn(
-              'cursor-pointer gap-2',
-              searchEnabled && searchEngine === inst.server_id && 'bg-accent',
-            )"
-            @click="selectSearchEngine(inst.server_id)"
+            :value="inst.server_id"
           >
-            <Globe class="size-3 shrink-0" />
-            <span>{{ inst.name }}</span>
-            <span v-if="searchEnabled && searchEngine === inst.server_id" class="ml-auto text-xs text-muted-foreground">✓</span>
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            {{ inst.name }}
+          </SelectItem>
+        </SelectContent>
+      </Select>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger as-child>
-          <Button
-            variant="ghost"
-            size="default"
-            :class="cn(
-              'h-6 max-w-28 gap-1 px-2.5 text-xs',
-              currentPrompt?.id
-                ? 'bg-muted text-foreground'
-                : '',
-            )"
-          >
-            <FileText class="size-3 shrink-0" />
-            <span class="truncate">{{ currentPrompt?.name ?? '提示词' }}</span>
-            <ChevronDown class="size-2.5 shrink-0 opacity-60" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent side="top" :side-offset="4" class="w-64 max-h-64 overflow-y-auto">
-          <DropdownMenuItem
-            :class="cn(
-              'cursor-pointer',
-              currentPrompt?.id === null && 'bg-accent',
-            )"
-            @click="selectPrompt(null)"
-          >
+      <Select :model-value="promptValue" @update:model-value="handlePromptChange">
+        <SelectTrigger variant="ghost" size="xs">
+          <FileText class="size-3 shrink-0" />
+          <SelectValue placeholder="提示词" />
+        </SelectTrigger>
+        <SelectContent side="top" :side-offset="4" class="w-64">
+          <SelectItem value="__none__">
             无
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            :class="cn(
-              'cursor-pointer',
-              currentPrompt?.id === 'default' && 'bg-accent',
-            )"
-            @click="selectPrompt('default')"
-          >
-            默认提示词
-          </DropdownMenuItem>
-          <DropdownMenuSeparator v-if="promptStore.prompts.length > 0" />
-          <DropdownMenuItem
+          </SelectItem>
+          <SelectSeparator v-if="promptStore.prompts.length > 0" />
+          <SelectItem
             v-for="prompt in promptStore.prompts"
             :key="prompt.id"
-            :class="cn(
-              'cursor-pointer',
-              currentPrompt?.id === prompt.id && 'bg-accent',
-            )"
-            @click="selectPrompt(prompt.id)"
+            :value="prompt.id"
           >
             {{ prompt.name }}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </SelectItem>
+        </SelectContent>
+      </Select>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger as-child>
-          <Button
-            variant="ghost"
-            size="default"
-            :class="cn(
-              'h-6 max-w-36 gap-1 px-2.5 text-xs',
-              currentModel?.model
-                ? 'bg-muted text-foreground'
-                : '',
-            )"
-          >
-            <component :is="getIcon(currentModel?.provider?.icon)" class="size-3 shrink-0" />
-            <span class="truncate">{{ currentModel?.model ?? '模型' }}</span>
-            <ChevronDown class="size-2.5 shrink-0 opacity-60" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent side="top" :side-offset="4" class="w-72 max-h-64 overflow-y-auto">
+      <Select :model-value="modelValue" @update:model-value="handleModelChange">
+        <SelectTrigger variant="ghost" size="xs">
+          <component :is="getIcon(currentModel?.provider?.icon)" class="size-3 shrink-0" />
+          <SelectValue placeholder="模型" />
+        </SelectTrigger>
+        <SelectContent side="top" :side-offset="4" class="w-64">
           <template v-for="provider in settingsStore.enabledProviders" :key="provider.id">
-            <DropdownMenuLabel class="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+            <SelectLabel class="flex items-center gap-2 text-xs font-medium text-muted-foreground">
               <component :is="getIcon(provider.icon)" class="size-3" />
               {{ provider.name }}
-            </DropdownMenuLabel>
-            <DropdownMenuItem
+            </SelectLabel>
+            <SelectItem
               v-for="model in provider.models"
               :key="`${provider.id}-${model}`"
-              :class="cn(
-                'cursor-pointer gap-2 pl-6',
-                currentModel?.provider?.id === provider.id && currentModel?.model === model && 'bg-accent',
-              )"
-              @click="selectModel(provider.id, model)"
+              :value="`${provider.id}::${model}`"
+              class="pl-6"
             >
               {{ model }}
-            </DropdownMenuItem>
+            </SelectItem>
             <div v-if="provider.models.length === 0" class="px-2 py-1.5 text-xs text-muted-foreground italic">
               无模型
             </div>
-            <DropdownMenuSeparator v-if="provider.models.length > 0" />
+            <SelectSeparator v-if="provider.models.length > 0" />
           </template>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        </SelectContent>
+      </Select>
     </div>
   </div>
 </template>

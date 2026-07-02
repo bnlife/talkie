@@ -20,7 +20,10 @@ const activeView = ref('chat')
 
 onMounted(async () => {
   mcpStore.listenEvents()
-  await promptStore.loadPrompts()
+  await Promise.all([
+    mcpStore.loadData(),
+    promptStore.loadPrompts(),
+  ])
 })
 
 watch(

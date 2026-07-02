@@ -2,6 +2,7 @@
 import { reactive, watch, ref } from 'vue'
 import type { ModelProvider } from '@/types'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { log } from '@/bridge/log'
 import { cn } from '@/lib/utils'
 import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
@@ -41,6 +42,11 @@ watch(() => props.provider, (p) => {
   form.enabled = p.enabled
 }, { deep: true })
 
+watch(() => form.enabled, async (newValue) => {
+  await log('info', `FE::SettingsPanel | enabled changed | id=${props.provider.id} value=${newValue}`)
+  await settingsStore.updateProvider(props.provider.id, { enabled: newValue })
+})
+
 async function saveName() {
   await settingsStore.updateProvider(props.provider.id, { name: form.name })
 }
@@ -51,11 +57,6 @@ async function saveBaseUrl() {
 
 async function saveApiKey() {
   await settingsStore.updateProvider(props.provider.id, { api_key: form.api_key })
-}
-
-async function toggleEnabled() {
-  form.enabled = !form.enabled
-  await settingsStore.updateProvider(props.provider.id, { enabled: form.enabled })
 }
 
 async function handleTest() {
@@ -108,10 +109,7 @@ async function handleParamChange() {
       />
       <div class="flex items-center gap-1.5">
         <span class="text-xs text-muted-foreground">{{ form.enabled ? '已启用' : '已禁用' }}</span>
-        <Switch
-          :checked="form.enabled"
-          @update:checked="toggleEnabled"
-        />
+        <Switch v-model="form.enabled" />
       </div>
     </div>
 
