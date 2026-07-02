@@ -54,7 +54,7 @@ const searchInstances = computed(() => {
   return mcpStore.instances.filter(i =>
     i.server_id === 'brave-search' || i.server_id === 'duckduckgo'
     || i.server_id === 'bocha-search' || i.server_id === 'local:bocha-search'
-    || i.server_id === 'tavily-search' || i.server_id.contains('search')
+    || i.server_id === 'tavily-search' || i.server_id.includes('search')
   )
 })
 
@@ -229,7 +229,7 @@ function handleOutsideClick(e: MouseEvent) {
         :rows="1"
         placeholder="输入消息..."
         :class="cn(
-          'min-h-[80px] max-h-[240px] resize-none flex-1 text-sm leading-relaxed',
+          'min-h-[80px] max-h-[240px] resize-none flex-1 text-sm leading-relaxed bg-muted/50 border-transparent focus-visible:ring-1 focus-visible:ring-ring',
         )"
         @keydown="handleKeydown"
       />
@@ -257,10 +257,10 @@ function handleOutsideClick(e: MouseEvent) {
     <div class="mt-1.5 flex items-center gap-1.5">
       <button
         :class="cn(
-          'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs border transition-all',
+          'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs transition-all',
           searchEnabled
-            ? 'border-foreground/30 bg-foreground/10 text-foreground font-medium'
-            : 'border-transparent text-muted-foreground hover:bg-foreground/5 hover:border-border',
+            ? 'bg-muted text-foreground font-medium'
+            : 'text-muted-foreground hover:bg-muted/50',
         )"
         @click="showSearchMenu = !showSearchMenu; showModelMenu = false; showPromptMenu = false"
       >
@@ -270,10 +270,10 @@ function handleOutsideClick(e: MouseEvent) {
       </button>
       <button
         :class="cn(
-          'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs border transition-all max-w-28',
+          'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs transition-all max-w-28',
           currentPrompt?.id
-            ? 'border-foreground/30 bg-foreground/10 text-foreground'
-            : 'border-transparent text-muted-foreground hover:bg-foreground/5 hover:border-border',
+            ? 'bg-muted text-foreground'
+            : 'text-muted-foreground hover:bg-muted/50',
         )"
         @click="showPromptMenu = !showPromptMenu; showModelMenu = false; showSearchMenu = false"
       >
@@ -283,10 +283,10 @@ function handleOutsideClick(e: MouseEvent) {
       </button>
       <button
         :class="cn(
-          'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs border transition-all max-w-36',
+          'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs transition-all max-w-36',
           currentModel?.model
-            ? 'border-foreground/30 bg-foreground/10 text-foreground'
-            : 'border-transparent text-muted-foreground hover:bg-foreground/5 hover:border-border',
+            ? 'bg-muted text-foreground'
+            : 'text-muted-foreground hover:bg-muted/50',
         )"
         @click="showModelMenu = !showModelMenu; showPromptMenu = false; showSearchMenu = false"
       >
