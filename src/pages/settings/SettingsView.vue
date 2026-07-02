@@ -134,7 +134,7 @@ function isDefault(id: string) {
           <!-- Provider 列表 -->
           <ContextMenu>
             <ContextMenuTrigger as-child>
-            <div class="flex-1 overflow-y-auto" style="scrollbar-gutter: stable">
+            <div class="flex-1 overflow-y-auto">
               <div
                 v-for="provider in filteredProviders"
                 :key="provider.id"
@@ -206,7 +206,7 @@ function isDefault(id: string) {
         </div>
 
         <!-- Main: ProviderEditor -->
-        <div class="flex-1 overflow-y-auto">
+        <div class="flex-1 overflow-y-auto" style="scrollbar-gutter: stable">
           <SettingsPanel
             v-if="editingProvider"
             :provider="editingProvider"

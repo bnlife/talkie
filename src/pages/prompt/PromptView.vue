@@ -177,7 +177,7 @@ onMounted(async () => {
             <!-- 提示词列表 -->
             <ContextMenu>
               <ContextMenuTrigger as-child>
-            <div class="flex-1 overflow-y-auto" style="scrollbar-gutter: stable">
+            <div class="flex-1 overflow-y-auto">
               <div
                 v-for="prompt in filteredPrompts"
                 :key="prompt.id"
