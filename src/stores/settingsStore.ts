@@ -89,13 +89,15 @@ export const useSettingsStore = defineStore('settings', {
       await this.saveSettings()
     },
 
-    async fetchModels(providerId: string): Promise<void> {
+    async fetchModels(providerId: string): Promise<string[]> {
       const provider = this.providers.find((p) => p.id === providerId)
-      if (!provider) return
+      if (!provider) return []
       await log('info', `FE::settingsStore | fetch models | provider=${providerId}`)
       const models = await settingsBridge.fetchProviderModels(provider)
-      provider.models = models
+      const merged = Array.from(new Set([...provider.models, ...models]))
+      provider.models = merged
       await this.saveSettings()
+      return models
     },
 
     addModel(providerId: string, model: string): void {
@@ -119,6 +121,13 @@ export const useSettingsStore = defineStore('settings', {
       if (!provider) return { ok: false, error: 'Provider 不存在' }
       await log('info', `FE::settingsStore | test conn | provider=${providerId}`)
       return settingsBridge.testProviderConnection(provider)
+    },
+
+    async verifyModel(providerId: string, model: string): Promise<{ ok: boolean; error?: string }> {
+      const provider = this.providers.find((p) => p.id === providerId)
+      if (!provider) return { ok: false, error: 'Provider 不存在' }
+      await log('info', `FE::settingsStore | verify model | provider=${providerId} model=${model}`)
+      return settingsBridge.verifyModel(provider, model)
     },
   },
 })

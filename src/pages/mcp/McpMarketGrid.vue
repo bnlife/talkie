@@ -63,7 +63,7 @@ const filteredServers = computed(() => {
         <span v-else />
         <Button
           v-if="!installedServerIds.has(server.id)"
-          size="sm"
+          size="default"
           variant="secondary"
           class="h-7 text-xs"
           @click="emit('install', server)"
@@ -73,7 +73,7 @@ const filteredServers = computed(() => {
         </Button>
         <Button
           v-else
-          size="sm"
+          size="default"
           variant="secondary"
           class="h-7 text-xs"
           disabled

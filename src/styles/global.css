@@ -21,6 +21,22 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-btn-primary: var(--btn-primary);
+  --color-btn-primary-foreground: var(--btn-primary-foreground);
+  --color-btn-primary-hover: var(--btn-primary-hover);
+  --color-btn-danger: var(--btn-danger);
+  --color-btn-danger-foreground: var(--btn-danger-foreground);
+  --color-btn-danger-hover: var(--btn-danger-hover);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-error: var(--error);
+  --color-error-foreground: var(--error-foreground);
+  --color-hover: var(--hover);
+  --color-hover-strong: var(--hover-strong);
+  --font-size-xs: var(--font-xs);
+  --font-size-2xs: var(--font-2xs);
   --radius: 0.5rem;
 }
 
@@ -33,60 +49,104 @@
   }
 }
 
+@layer components {
+  .sidebar-container {
+    @apply flex flex-col gap-1 p-1.5 text-sm;
+  }
+  .sidebar-search {
+    @apply h-8 pl-8 text-sm;
+  }
+  .sidebar-action {
+    @apply flex h-8 cursor-pointer items-center gap-2 rounded-md border border-dashed px-2 text-sm transition-colors hover:bg-hover;
+  }
+  .sidebar-item {
+    @apply flex h-8 cursor-pointer items-center justify-between rounded-md px-2 transition-colors hover:bg-hover;
+  }
+  .sidebar-item-content {
+    @apply flex min-w-0 flex-1 items-center gap-2;
+  }
+  .sidebar-item-actions {
+    @apply flex shrink-0 items-center gap-0.5;
+  }
+  .sidebar-section-title {
+    @apply text-xs font-medium text-foreground px-1;
+  }
+}
+
 /* ── Light (default) ── */
 :root {
   --background: hsl(0 0% 100%);
-  --foreground: hsl(0 0% 9%);
+  --foreground: hsl(0 0% 10%);
   --card: hsl(0 0% 100%);
-  --card-foreground: hsl(0 0% 9%);
+  --card-foreground: hsl(0 0% 10%);
   --popover: hsl(0 0% 100%);
-  --popover-foreground: hsl(0 0% 9%);
-  --primary: hsl(0 0% 9%);
-  --primary-foreground: hsl(0 0% 98%);
-  --secondary: hsl(0 0% 96%);
-  --secondary-foreground: hsl(0 0% 9%);
-  --muted: hsl(0 0% 92%);
-  --muted-foreground: hsl(0 0% 45%);
-  --accent: hsl(0 0% 96%);
-  --accent-foreground: hsl(0 0% 9%);
-  --destructive: hsl(0 84% 60%);
-  --destructive-foreground: hsl(0 0% 98%);
+  --popover-foreground: hsl(0 0% 10%);
+  --primary: hsl(0 0% 10%);
+  --primary-foreground: hsl(0 0% 100%);
+  --secondary: hsl(0 0% 90%);
+  --secondary-foreground: hsl(0 0% 10%);
+  --muted: hsl(0 0% 90%);
+  --muted-foreground: hsl(0 0% 50%);
+  --accent: hsl(0 0% 90%);
+  --accent-foreground: hsl(0 0% 10%);
+  --destructive: hsl(0 70% 70%);
+  --destructive-foreground: hsl(0 0% 100%);
   --border: hsl(0 0% 90%);
   --input: hsl(0 0% 90%);
-  --ring: hsl(0 0% 64%);
-  --btn-primary: hsl(0 0% 62%);
-  --btn-primary-foreground: hsl(0 0% 9%);
-  --btn-primary-hover: hsl(0 0% 56%);
-  --btn-danger: hsl(0 0% 92%);
-  --btn-danger-foreground: hsl(0 84% 50%);
-  --btn-danger-hover: hsl(0 84% 95%);
+  --ring: hsl(0 0% 70%);
+  --btn-primary: hsl(0 0% 50%);
+  --btn-primary-foreground: hsl(0 0% 100%);
+  --btn-primary-hover: hsl(0 0% 40%);
+  --btn-danger: hsl(0 0% 90%);
+  --btn-danger-foreground: hsl(0 70% 50%);
+  --btn-danger-hover: hsl(0 70% 90%);
+  --success: hsl(142 50% 50%);
+  --success-foreground: hsl(0 0% 100%);
+  --warning: hsl(38 70% 50%);
+  --warning-foreground: hsl(0 0% 100%);
+  --error: hsl(0 70% 70%);
+  --error-foreground: hsl(0 0% 100%);
+  --hover: hsl(0 0% 90%);
+  --hover-strong: hsl(0 0% 80%);
+  --font-xs: 0.7rem;
+  --font-2xs: 0.6rem;
 }
 
 /* ── Dark ── */
 .dark {
-  --background: hsl(0 0% 8%);
-  --foreground: hsl(0 0% 98%);
-  --card: hsl(0 0% 12%);
-  --card-foreground: hsl(0 0% 98%);
-  --popover: hsl(0 0% 12%);
-  --popover-foreground: hsl(0 0% 98%);
-  --primary: hsl(0 0% 98%);
-  --primary-foreground: hsl(0 0% 8%);
-  --secondary: hsl(0 0% 16%);
-  --secondary-foreground: hsl(0 0% 98%);
-  --muted: hsl(0 0% 16%);
-  --muted-foreground: hsl(0 0% 64%);
-  --accent: hsl(0 0% 16%);
-  --accent-foreground: hsl(0 0% 98%);
-  --destructive: hsl(0 63% 31%);
-  --destructive-foreground: hsl(0 0% 98%);
-  --border: hsl(0 0% 16%);
-  --input: hsl(0 0% 16%);
-  --ring: hsl(0 0% 44%);
-  --btn-primary: hsl(0 0% 43%);
-  --btn-primary-foreground: hsl(0 0% 98%);
-  --btn-primary-hover: hsl(0 0% 48%);
-  --btn-danger: hsl(0 0% 16%);
-  --btn-danger-foreground: hsl(0 63% 65%);
-  --btn-danger-hover: hsl(0 63% 25%);
+  --background: hsl(0 0% 10%);
+  --foreground: hsl(0 0% 90%);
+  --card: hsl(0 0% 10%);
+  --card-foreground: hsl(0 0% 90%);
+  --popover: hsl(0 0% 10%);
+  --popover-foreground: hsl(0 0% 90%);
+  --primary: hsl(0 0% 90%);
+  --primary-foreground: hsl(0 0% 10%);
+  --secondary: hsl(0 0% 20%);
+  --secondary-foreground: hsl(0 0% 90%);
+  --muted: hsl(0 0% 20%);
+  --muted-foreground: hsl(0 0% 70%);
+  --accent: hsl(0 0% 20%);
+  --accent-foreground: hsl(0 0% 90%);
+  --destructive: hsl(0 70% 30%);
+  --destructive-foreground: hsl(0 0% 100%);
+  --border: hsl(0 0% 20%);
+  --input: hsl(0 0% 20%);
+  --ring: hsl(0 0% 50%);
+  --btn-primary: hsl(0 0% 30%);
+  --btn-primary-foreground: hsl(0 0% 100%);
+  --btn-primary-hover: hsl(0 0% 40%);
+  --btn-danger: hsl(0 0% 20%);
+  --btn-danger-foreground: hsl(0 70% 70%);
+  --btn-danger-hover: hsl(0 70% 30%);
+  --success: hsl(142 50% 50%);
+  --success-foreground: hsl(0 0% 100%);
+  --warning: hsl(38 70% 50%);
+  --warning-foreground: hsl(0 0% 100%);
+  --error: hsl(0 70% 70%);
+  --error-foreground: hsl(0 0% 100%);
+  --hover: hsl(0 0% 20%);
+  --hover-strong: hsl(0 0% 30%);
+  --font-xs: 0.7rem;
+  --font-2xs: 0.6rem;
 }

@@ -126,6 +126,19 @@ describe('settingsStore', () => {
       expect(settingsBridge.fetchProviderModels).toHaveBeenCalledWith(store.providers[0])
       expect(store.providers[0].models).toEqual(['gpt-4o', 'gpt-4o-mini'])
     })
+
+    it('merges API models with existing models and deduplicates', async () => {
+      vi.mocked(settingsBridge.fetchProviderModels).mockResolvedValue(['gpt-4o', 'gpt-4o-mini'])
+      vi.mocked(settingsBridge.updateSettings).mockResolvedValue(undefined)
+
+      const store = useSettingsStore()
+      store.providers = [createProvider({ id: 'p1', models: ['my-custom-model', 'gpt-4o'] })]
+
+      const apiModels = await store.fetchModels('p1')
+
+      expect(store.providers[0].models).toEqual(['my-custom-model', 'gpt-4o', 'gpt-4o-mini'])
+      expect(apiModels).toEqual(['gpt-4o', 'gpt-4o-mini'])
+    })
   })
 
   describe('addModel', () => {
@@ -182,6 +195,41 @@ describe('settingsStore', () => {
       const store = useSettingsStore()
 
       const result = await store.testConnection('non-existent')
+
+      expect(result.ok).toBe(false)
+      expect(result.error).toBe('Provider 不存在')
+    })
+  })
+
+  describe('verifyModel', () => {
+    it('calls bridge with provider and model, returns ok', async () => {
+      vi.mocked(settingsBridge.verifyModel).mockResolvedValue({ ok: true })
+
+      const store = useSettingsStore()
+      store.providers = [createProvider({ id: 'p1' })]
+
+      const result = await store.verifyModel('p1', 'gpt-4o')
+
+      expect(settingsBridge.verifyModel).toHaveBeenCalledWith(store.providers[0], 'gpt-4o')
+      expect(result).toEqual({ ok: true })
+    })
+
+    it('returns error when model is not available', async () => {
+      vi.mocked(settingsBridge.verifyModel).mockResolvedValue({ ok: false, error: '模型不存在' })
+
+      const store = useSettingsStore()
+      store.providers = [createProvider({ id: 'p1' })]
+
+      const result = await store.verifyModel('p1', 'fake-model')
+
+      expect(result.ok).toBe(false)
+      expect(result.error).toBe('模型不存在')
+    })
+
+    it('returns error for non-existent provider', async () => {
+      const store = useSettingsStore()
+
+      const result = await store.verifyModel('non-existent', 'gpt-4o')
 
       expect(result.ok).toBe(false)
       expect(result.error).toBe('Provider 不存在')

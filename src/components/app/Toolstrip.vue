@@ -12,7 +12,7 @@ const settingsStore = useSettingsStore()
   <div class="flex w-10 flex-col items-center gap-2 bg-muted py-2" data-tauri-drag-region>
     <Button
       variant="ghost"
-      size="icon-sm"
+      size="icon"
       :class="activeView === 'chat' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background'"
       @click="emit('select', 'chat')"
     >
@@ -20,7 +20,7 @@ const settingsStore = useSettingsStore()
     </Button>
     <Button
       variant="ghost"
-      size="icon-sm"
+      size="icon"
       :class="activeView === 'knowledge' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background'"
       @click="emit('select', 'knowledge')"
     >
@@ -28,7 +28,7 @@ const settingsStore = useSettingsStore()
     </Button>
     <Button
       variant="ghost"
-      size="icon-sm"
+      size="icon"
       :class="activeView === 'prompt' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background'"
       @click="emit('select', 'prompt')"
     >
@@ -36,7 +36,7 @@ const settingsStore = useSettingsStore()
     </Button>
     <Button
       variant="ghost"
-      size="icon-sm"
+      size="icon"
       :class="activeView === 'mcp' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background'"
       @click="emit('select', 'mcp')"
     >
@@ -45,7 +45,7 @@ const settingsStore = useSettingsStore()
     <div class="mt-auto flex flex-col items-center gap-2">
       <Button
         variant="ghost"
-        size="icon-sm"
+        size="icon"
         class="hover:bg-background"
         @click="settingsStore.darkMode = !settingsStore.darkMode; settingsStore.saveSettings()"
       >
@@ -54,7 +54,7 @@ const settingsStore = useSettingsStore()
       </Button>
       <Button
         variant="ghost"
-        size="icon-sm"
+        size="icon"
         :class="activeView === 'settings' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background'"
         @click="emit('select', 'settings')"
       >

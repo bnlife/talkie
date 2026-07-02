@@ -134,27 +134,25 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="flex h-full flex-col gap-1 text-sm p-2">
+  <div class="sidebar-container h-full">
     <!-- 搜索栏 -->
     <div class="relative">
       <Search class="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
       <Input
         :model-value="searchQuery"
         placeholder="搜索对话..."
-        class="h-7 pl-8 text-sm"
+        class="sidebar-search h-8 pl-8"
         @update:model-value="(v: string | number) => emit('update:searchQuery', String(v))"
       />
     </div>
 
     <!-- 新建对话 -->
     <div
-      class="flex cursor-pointer items-center justify-between rounded-md border border-dashed px-2 py-1.5 text-sm transition-colors hover:bg-foreground/5"
+      class="sidebar-action"
       @click="emit('create')"
     >
-      <div class="flex items-center gap-2">
-        <Plus class="size-3.5" />
-        <span>新建对话</span>
-      </div>
+      <Plus class="size-3.5" />
+      <span>新建对话</span>
     </div>
 
     <!-- 对话列表 -->
@@ -164,7 +162,7 @@ onBeforeUnmount(() => {
         :key="conv.id"
         :class="
           cn(
-            'group relative flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-foreground/5',
+            'group relative sidebar-item',
             conv.id === activeId && 'bg-accent text-accent-foreground',
           )
         "
@@ -172,7 +170,7 @@ onBeforeUnmount(() => {
         @contextmenu="showContextMenu($event, conv)"
       >
         <!-- 标题 / 重命名输入框 -->
-        <div class="min-w-0 flex-1">
+        <div class="sidebar-item-content">
           <template v-if="editingId === conv.id">
             <input
               v-model="editingTitle"
@@ -184,7 +182,7 @@ onBeforeUnmount(() => {
             />
           </template>
           <template v-else>
-            <span class="block truncate text-sm text-muted-foreground">{{ conv.title }}</span>
+            <span class="truncate text-sm text-muted-foreground">{{ conv.title }}</span>
           </template>
         </div>
 
@@ -192,23 +190,21 @@ onBeforeUnmount(() => {
         <div
           :class="
             cn(
-              'ml-1 flex shrink-0 items-center gap-0.5',
+              'sidebar-item-actions',
               editingId === conv.id ? 'invisible' : 'opacity-0 group-hover:opacity-100',
             )
           "
         >
           <Button
             variant="ghost"
-            size="icon-sm"
-            class="size-5"
+            size="icon"
             @click.stop="startRename(conv)"
           >
             <Edit2 class="size-3" />
           </Button>
           <Button
             variant="ghost"
-            size="icon-sm"
-            class="size-5"
+            size="icon"
             @click.stop="emit('close', conv.id)"
           >
             <Trash2 class="size-3" />

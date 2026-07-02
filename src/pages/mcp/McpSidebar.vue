@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Plus, Search, Trash2, Settings, FolderOpen, Database, Code, Cloud, MessageSquare, Zap } from 'lucide-vue-next'
-import type { McpInstance } from 'types'
+import type { McpInstance } from '@/types'
 
 const props = defineProps<{
   searchQuery: string
@@ -44,21 +44,21 @@ function getInstanceStatus(inst: McpInstance): 'running' | 'starting' | 'stopped
 </script>
 
 <template>
-  <div class="flex w-[220px] shrink-0 flex-col gap-1 border-r p-1.5 text-sm">
+  <div class="sidebar-container h-full w-[220px] shrink-0 border-r">
     <!-- 搜索 -->
     <div class="relative">
       <Search class="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
       <Input
         :value="searchQuery"
         placeholder="搜索 MCP 服务..."
-        class="h-7 pl-8 text-sm"
+        class="sidebar-search h-8 pl-8"
         @input="emit('update:searchQuery', ($event.target as HTMLInputElement).value)"
       />
     </div>
 
     <!-- 添加自定义 -->
     <div
-      class="flex cursor-pointer items-center gap-2 rounded-md border border-dashed px-2 py-1.5 transition-colors hover:bg-foreground/5"
+      class="sidebar-action"
       @click="emit('openCustomDialog')"
     >
       <Plus class="size-3.5" />
@@ -68,58 +68,60 @@ function getInstanceStatus(inst: McpInstance): 'running' | 'starting' | 'stopped
     <div class="my-1 border-t" />
 
     <!-- 市场分类 -->
-    <div class="text-xs font-medium text-foreground px-1">市场</div>
-    <div
-      v-for="cat in mcpStore.categories"
-      :key="cat.id"
-      :class="cn(
-        'flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-foreground/5',
-        mcpStore.activeCategoryId === cat.id && 'bg-accent text-accent-foreground',
-      )"
-      @click="emit('selectCategory', cat.id)"
-    >
-      <component :is="getCategoryIcon(cat.id)" class="size-3.5 shrink-0 text-muted-foreground" />
-      <span class="truncate text-sm text-muted-foreground">{{ cat.name }}</span>
+    <div class="sidebar-section-title">市场</div>
+    <div>
+      <div
+        v-for="cat in mcpStore.categories"
+        :key="cat.id"
+        :class="cn(
+          'sidebar-item',
+          mcpStore.activeCategoryId === cat.id && 'bg-accent text-accent-foreground',
+        )"
+        @click="emit('selectCategory', cat.id)"
+      >
+        <div class="sidebar-item-content">
+          <component :is="getCategoryIcon(cat.id)" class="size-3.5 shrink-0 text-muted-foreground" />
+          <span class="truncate text-sm text-muted-foreground">{{ cat.name }}</span>
+        </div>
+      </div>
     </div>
 
     <div class="my-1 border-t" />
 
     <!-- 已安装 -->
-    <div class="text-xs font-medium text-foreground px-1">已安装</div>
+    <div class="sidebar-section-title">已安装</div>
     <div class="flex-1 overflow-y-auto">
       <div
         v-for="inst in mcpStore.instances"
         :key="inst.id"
         :class="cn(
-          'group flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-foreground/5',
+          'group sidebar-item',
           mcpStore.activeInstanceId === inst.id && 'bg-accent text-accent-foreground',
         )"
         @click="emit('selectInstance', inst.id)"
       >
-        <div class="flex min-w-0 items-center gap-2">
+        <div class="sidebar-item-content">
           <span
             :class="cn(
               'size-1.5 shrink-0 rounded-full',
-              getInstanceStatus(inst) === 'running' ? 'bg-green-500' :
-              getInstanceStatus(inst) === 'starting' ? 'bg-yellow-500 animate-pulse' :
+              getInstanceStatus(inst) === 'running' ? 'bg-success' :
+              getInstanceStatus(inst) === 'starting' ? 'bg-warning animate-pulse' :
               'bg-muted-foreground/30',
             )"
           />
           <span class="truncate text-sm text-muted-foreground">{{ inst.name }}</span>
         </div>
-        <div class="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100">
+        <div class="sidebar-item-actions opacity-0 group-hover:opacity-100">
           <Button
             variant="ghost"
-            size="icon-sm"
-            class="size-5"
+            size="icon"
             @click.stop="emit('toggleInstance', inst.id, inst.enabled)"
           >
             <Settings class="size-3" />
           </Button>
           <Button
             variant="ghost"
-            size="icon-sm"
-            class="size-5"
+            size="icon"
             @click.stop="emit('uninstallInstance', inst.id)"
           >
             <Trash2 class="size-3" />

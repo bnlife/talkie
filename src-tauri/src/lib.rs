@@ -112,6 +112,7 @@ pub fn run() {
             commands::settings::get_settings,
             commands::settings::update_settings,
             commands::settings::test_provider_connection,
+            commands::settings::verify_model,
             commands::settings::fetch_provider_models,
             commands::settings::log_message,
             commands::settings::open_url,

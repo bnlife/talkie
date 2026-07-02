@@ -114,6 +114,16 @@ pub async fn test_provider_connection(
     verify_connection(&provider.base_url, &provider.api_key, provider.models.first().unwrap_or(&"gpt-3.5-turbo".to_string()), &provider.headers).await
 }
 
+/// Verify that a specific model is available on a provider by sending a test request.
+#[tauri::command]
+pub async fn verify_model(
+    provider: models::ModelProvider,
+    model: String,
+) -> Result<String, String> {
+    log::info!("RS::CMD::verify_model | provider={} model={}", provider.name, model);
+    verify_connection(&provider.base_url, &provider.api_key, &model, &provider.headers).await
+}
+
 /// Fetch available models from a provider's /v1/models endpoint.
 #[tauri::command]
 pub async fn fetch_provider_models(

@@ -174,7 +174,7 @@ onUnmounted(() => {
             v-for="model in provider.models"
             :key="`${provider.id}-${model}`"
             :class="cn(
-              'flex cursor-pointer items-center gap-2 rounded-sm px-6 py-1.5 text-sm transition-colors hover:bg-foreground/5',
+              'flex cursor-pointer items-center gap-2 rounded-sm px-6 py-1.5 text-sm transition-colors hover:bg-hover',
               currentModel?.provider?.id === provider.id && currentModel?.model === model && 'bg-accent',
             )"
             @click="selectModel(provider.id, model)"
@@ -193,7 +193,7 @@ onUnmounted(() => {
       <div class="max-h-64 overflow-y-auto">
         <div
           :class="cn(
-            'flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-foreground/5',
+            'flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-hover',
             currentPrompt?.id === null && 'bg-accent',
           )"
           @click="selectPrompt(null)"
@@ -202,7 +202,7 @@ onUnmounted(() => {
         </div>
         <div
           :class="cn(
-            'flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-foreground/5',
+            'flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-hover',
             currentPrompt?.id === 'default' && 'bg-accent',
           )"
           @click="selectPrompt('default')"
@@ -214,7 +214,7 @@ onUnmounted(() => {
           v-for="prompt in promptStore.prompts"
           :key="prompt.id"
           :class="cn(
-            'flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-foreground/5',
+            'flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-hover',
             currentPrompt?.id === prompt.id && 'bg-accent',
           )"
           @click="selectPrompt(prompt.id)"
@@ -237,7 +237,7 @@ onUnmounted(() => {
           v-for="inst in searchInstances"
           :key="inst.id"
           :class="cn(
-            'flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-foreground/5',
+            'flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-hover',
             searchEnabled && searchEngine === inst.server_id && 'bg-accent',
           )"
           @click="selectSearchEngine(inst.server_id)"
@@ -260,9 +260,9 @@ onUnmounted(() => {
         )"
       >
         <span class="max-w-[140px] truncate">{{ att.name }}</span>
-        <span class="text-[10px] opacity-60">{{ formatSize(att.size) }}</span>
+        <span class="text-2xs opacity-60">{{ formatSize(att.size) }}</span>
         <button
-          class="ml-0.5 rounded-sm p-0.5 hover:bg-foreground/10"
+          class="ml-0.5 rounded-sm p-0.5 hover:bg-hover-strong"
           @click="removeAttachment(idx)"
         >
           <X class="size-3" />
@@ -297,7 +297,7 @@ onUnmounted(() => {
         <Button
           variant="ghost"
           size="icon"
-          class="h-8 w-8 text-muted-foreground hover:text-foreground"
+          class="text-muted-foreground hover:text-foreground"
           :disabled="disabled"
           @click="triggerFileInput"
         >
@@ -307,7 +307,6 @@ onUnmounted(() => {
           v-if="streaming"
           variant="destructive"
           size="icon"
-          class="h-8 w-8"
           @click="emit('stop-stream')"
         >
           <Square class="h-4 w-4" />
@@ -315,7 +314,6 @@ onUnmounted(() => {
         <Button
           v-else
           size="icon"
-          class="h-8 w-8"
           :disabled="!canSend"
           @click="handleSend"
         >
@@ -328,7 +326,7 @@ onUnmounted(() => {
     <div class="mt-1.5 flex items-center gap-1.5">
       <Button
         variant="ghost"
-        size="sm"
+        size="default"
         :class="cn(
           'h-6 gap-1 px-2.5 text-xs',
           searchEnabled
@@ -344,7 +342,7 @@ onUnmounted(() => {
       </Button>
       <Button
         variant="ghost"
-        size="sm"
+        size="default"
         :class="cn(
           'h-6 max-w-28 gap-1 px-2.5 text-xs',
           currentPrompt?.id
@@ -360,7 +358,7 @@ onUnmounted(() => {
       </Button>
       <Button
         variant="ghost"
-        size="sm"
+        size="default"
         :class="cn(
           'h-6 max-w-36 gap-1 px-2.5 text-xs',
           currentModel?.model

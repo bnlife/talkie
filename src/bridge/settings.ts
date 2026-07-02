@@ -15,6 +15,12 @@ export async function testProviderConnection(provider: ModelProvider): Promise<{
     .catch((e) => ({ ok: false, error: String(e) }))
 }
 
+export async function verifyModel(provider: ModelProvider, model: string): Promise<{ ok: boolean; error?: string }> {
+  return invoke<string>('verify_model', { provider, model })
+    .then(() => ({ ok: true }))
+    .catch((e) => ({ ok: false, error: String(e) }))
+}
+
 export async function fetchProviderModels(provider: ModelProvider): Promise<string[]> {
   return invoke<string[]>('fetch_provider_models', { provider })
 }

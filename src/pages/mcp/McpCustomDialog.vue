@@ -71,8 +71,8 @@ function handleConfirm() {
         </div>
 
         <div class="flex justify-end gap-2">
-          <Button size="sm" variant="secondary" @click="emit('cancel')">取消</Button>
-          <Button size="sm" @click="handleConfirm">确认添加</Button>
+          <Button size="default" variant="secondary" @click="emit('cancel')">取消</Button>
+          <Button size="default" @click="handleConfirm">确认添加</Button>
         </div>
       </div>
     </div>

@@ -116,33 +116,31 @@ function isDefault(id: string) {
     >
       <span class="text-sm font-medium text-muted-foreground">设置</span>
       <div class="flex items-center gap-0.5">
-        <Button variant="ghost" size="icon-sm" @click="minimizeWindow"><Minus class="h-3.5 w-3.5" /></Button>
-        <Button variant="ghost" size="icon-sm" @click="toggleMaximize">
+        <Button variant="ghost" size="icon" @click="minimizeWindow"><Minus class="h-3.5 w-3.5" /></Button>
+        <Button variant="ghost" size="icon" @click="toggleMaximize">
           <Maximize2 v-if="!isMaximized" class="h-3.5 w-3.5" />
           <Minimize2 v-else class="h-3.5 w-5.5" />
         </Button>
-        <Button variant="ghost" size="icon-sm" class="hover:bg-destructive hover:text-destructive-foreground" @click="closeWindow"><X class="h-3.5 w-3.5" /></Button>
+        <Button variant="ghost" size="icon" @click="closeWindow"><X class="h-3.5 w-3.5" /></Button>
       </div>
     </header>
     <div class="flex flex-1 overflow-hidden p-1">
       <div class="flex flex-1 overflow-hidden rounded-lg border bg-background">
         <!-- Sidebar -->
-        <div class="flex w-[220px] shrink-0 flex-col gap-1 border-r p-1.5 text-sm">
+        <div class="sidebar-container h-full w-[220px] shrink-0 border-r">
           <!-- 搜索 -->
           <div class="relative">
             <Search class="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input v-model="searchQuery" placeholder="搜索 Provider..." class="h-7 pl-8 text-sm" />
+            <Input v-model="searchQuery" placeholder="搜索 Provider..." class="sidebar-search h-8 pl-8" />
           </div>
 
           <!-- 新建按钮 -->
           <div
-            class="flex cursor-pointer items-center justify-between rounded-md border border-dashed px-2 py-1.5 transition-colors hover:bg-foreground/5"
+            class="sidebar-action"
             @click="addCustom"
           >
-            <div class="flex items-center gap-2">
-              <Plus class="size-3.5" />
-              <span>新建 Provider</span>
-            </div>
+            <Plus class="size-3.5" />
+            <span>新建 Provider</span>
           </div>
 
           <!-- 分隔 -->
@@ -154,17 +152,17 @@ function isDefault(id: string) {
               v-for="provider in filteredProviders"
               :key="provider.id"
               :class="cn(
-                'group relative flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-foreground/5',
+                'group relative sidebar-item',
                 editingId === provider.id && 'bg-accent text-accent-foreground',
               )"
               @click="selectProvider(provider.id)"
               @contextmenu="showContextMenu($event, provider.id)"
             >
-              <div class="flex min-w-0 items-center gap-2">
+              <div class="sidebar-item-content">
                 <span
                   :class="cn(
                     'size-1.5 shrink-0 rounded-full',
-                    provider.enabled ? 'bg-green-500' : 'bg-muted-foreground/30',
+                    provider.enabled ? 'bg-success' : 'bg-muted-foreground/30',
                   )"
                 />
                 <template v-if="renamingId === provider.id">
@@ -181,22 +179,20 @@ function isDefault(id: string) {
                 </template>
                 <Star
                   v-if="isDefault(provider.id) && renamingId !== provider.id"
-                  class="size-3 shrink-0 fill-yellow-500 text-yellow-500"
+                  class="size-3 shrink-0 fill-warning text-warning"
                 />
               </div>
-              <div class="flex shrink-0 items-center gap-0.5 opacity-0 group-hover:opacity-100">
+              <div class="sidebar-item-actions opacity-0 group-hover:opacity-100">
                 <Button
                   variant="ghost"
-                  size="icon-sm"
-                  class="size-5"
+                  size="icon"
                   @click.stop="startRename(provider.id)"
                 >
                   <Edit2 class="size-3" />
                 </Button>
                 <Button
                   variant="ghost"
-                  size="icon-sm"
-                  class="size-5"
+                  size="icon"
                   @click.stop="handleDelete(provider.id)"
                 >
                   <Trash2 class="size-3" />

@@ -10,6 +10,7 @@ import { Separator } from '@/components/ui/separator'
 import {
   Eye, EyeOff, RefreshCw, Plus, Check, XIcon,
 } from 'lucide-vue-next'
+import ModelAddDialog from './ModelAddDialog.vue'
 
 const props = defineProps<{
   provider: ModelProvider
@@ -30,7 +31,7 @@ const showApiKey = ref(false)
 const testResult = ref<{ ok: boolean; error?: string } | null>(null)
 const isTesting = ref(false)
 const isFetching = ref(false)
-const newModelName = ref('')
+const showAddDialog = ref(false)
 
 watch(() => props.provider, (p) => {
   form.name = p.name
@@ -81,11 +82,9 @@ async function handleFetchModels() {
   isFetching.value = false
 }
 
-function handleAddModel() {
-  if (newModelName.value.trim()) {
-    settingsStore.addModel(props.provider.id, newModelName.value.trim())
-    newModelName.value = ''
-  }
+function handleAddModelConfirm(modelName: string) {
+  settingsStore.addModel(props.provider.id, modelName)
+  showAddDialog.value = false
 }
 
 async function handleParamChange() {
@@ -133,22 +132,21 @@ async function handleParamChange() {
     <!-- 2. API 密钥 -->
     <div :class="cn('flex flex-col gap-1')">
       <span :class="cn('text-xs font-medium text-foreground')">API 密钥</span>
-      <div class="flex items-center gap-1.5">
+      <div class="flex items-center border rounded-md h-8">
         <div class="relative flex-1">
           <Input
             v-model="form.api_key"
             :type="showApiKey ? 'text' : 'password'"
             placeholder="sk-..."
-            class="h-7 pr-16 text-sm"
+            class="h-full border-0 rounded-none text-sm pr-16"
             @blur="saveApiKey"
           />
           <div class="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
-            <Check v-if="testResult?.ok" class="size-3.5 text-green-600" />
-            <XIcon v-else-if="testResult && !testResult.ok" class="size-3.5 text-destructive" />
+            <Check v-if="testResult?.ok" class="size-3.5 text-success" />
+            <XIcon v-else-if="testResult && !testResult.ok" class="size-3.5 text-error" />
             <Button
               variant="ghost"
-              size="icon-sm"
-              class="size-5"
+              size="icon"
               @click="showApiKey = !showApiKey"
             >
               <Eye v-if="!showApiKey" class="size-3" />
@@ -156,17 +154,18 @@ async function handleParamChange() {
             </Button>
           </div>
         </div>
+        <div class="border-l h-7" />
         <Button
-          :variant="testResult?.ok ? 'default' : testResult && !testResult.ok ? 'destructive' : 'outline'"
-          size="sm"
-          class="h-7"
+          size="default"
+          :variant="testResult?.ok ? 'default' : testResult && !testResult.ok ? 'destructive' : 'ghost'"
+          class="h-full rounded-none px-3"
           :disabled="isTesting"
           @click="handleTest"
         >
           {{ isTesting ? '检测中...' : '检测' }}
         </Button>
       </div>
-      <div :class="cn('h-4 text-xs', testResult?.ok ? 'text-green-600' : 'text-destructive')">
+      <div :class="cn('h-4 text-xs', testResult?.ok ? 'text-success' : 'text-error')">
         <span v-if="testResult">{{ testResult.ok ? '连接成功' : testResult.error }}</span>
       </div>
     </div>
@@ -227,23 +226,14 @@ async function handleParamChange() {
             {{ provider.models.length }}
           </span>
         </div>
-        <Button variant="ghost" size="icon-sm" class="size-5" :disabled="isFetching" @click="handleFetchModels">
-          <RefreshCw :class="cn('size-3', isFetching && 'animate-spin')" />
-        </Button>
-      </div>
-
-      <!-- 添加模型 -->
-      <div class="flex items-center gap-1.5">
-        <Input
-          v-model="newModelName"
-          placeholder="输入模型名称..."
-          class="h-7 text-sm"
-          @keyup.enter="handleAddModel"
-        />
-        <Button variant="secondary" size="sm" class="h-7" @click="handleAddModel">
-          <Plus class="size-3" />
-          添加
-        </Button>
+        <div class="flex items-center gap-1">
+          <Button variant="ghost" size="icon" @click="showAddDialog = true">
+            <Plus class="size-3" />
+          </Button>
+          <Button variant="ghost" size="icon" :disabled="isFetching" @click="handleFetchModels">
+            <RefreshCw :class="cn('size-3', isFetching && 'animate-spin')" />
+          </Button>
+        </div>
       </div>
 
       <!-- 模型列表 -->
@@ -251,7 +241,7 @@ async function handleParamChange() {
         <div
           v-for="model in provider.models"
           :key="model"
-          class="rounded-sm px-1.5 py-1 hover:bg-foreground/5"
+          class="rounded-sm px-1.5 py-1 hover:bg-hover"
         >
           <span class="text-sm">{{ model }}</span>
         </div>
@@ -260,5 +250,12 @@ async function handleParamChange() {
         </div>
       </div>
     </div>
+
+    <ModelAddDialog
+      :visible="showAddDialog"
+      :provider="provider"
+      @confirm="handleAddModelConfirm"
+      @cancel="showAddDialog = false"
+    />
   </div>
 </template>

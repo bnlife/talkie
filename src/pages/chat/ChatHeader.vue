@@ -38,7 +38,7 @@ async function closeWindow() { await appWindow.close() }
     class="flex h-9 shrink-0 items-center justify-between bg-muted px-3 select-none"
   >
     <div class="flex items-center gap-2">
-      <Button variant="ghost" size="icon-sm" @click.stop="emit('toggle-sidebar')">
+      <Button variant="ghost" size="icon" @click.stop="emit('toggle-sidebar')">
         <PanelLeftClose v-if="!sidebarCollapsed" class="h-3.5 w-3.5" />
         <PanelLeftOpen v-else class="h-3.5 w-3.5" />
       </Button>
@@ -47,14 +47,14 @@ async function closeWindow() { await appWindow.close() }
       </span>
     </div>
     <div class="flex items-center gap-0.5">
-      <Button variant="ghost" size="icon-sm" @click="minimizeWindow">
+      <Button variant="ghost" size="icon" @click="minimizeWindow">
         <Minus class="h-3.5 w-3.5" />
       </Button>
-      <Button variant="ghost" size="icon-sm" @click="toggleMaximize">
+      <Button variant="ghost" size="icon" @click="toggleMaximize">
         <Maximize2 v-if="!isMaximized" class="h-3.5 w-3.5" />
         <Minimize2 v-else class="h-3.5 w-3.5" />
       </Button>
-      <Button variant="ghost" size="icon-sm" class="hover:bg-destructive hover:text-destructive-foreground" @click="closeWindow">
+      <Button variant="ghost" size="icon" @click="closeWindow">
         <X class="h-3.5 w-3.5" />
       </Button>
     </div>

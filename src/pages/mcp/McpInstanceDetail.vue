@@ -39,13 +39,13 @@ function getInstanceStatusText(inst: McpInstance): string {
       <p class="text-xs text-muted-foreground mt-1">
         状态：
         <span :class="{
-          'text-green-500': getInstanceStatus(mcpStore.activeInstance) === 'running',
-          'text-yellow-500': getInstanceStatus(mcpStore.activeInstance) === 'starting',
+          'text-success': getInstanceStatus(mcpStore.activeInstance) === 'running',
+          'text-warning': getInstanceStatus(mcpStore.activeInstance) === 'starting',
           'text-muted-foreground': getInstanceStatus(mcpStore.activeInstance) === 'stopped',
         }">
           {{ getInstanceStatusText(mcpStore.activeInstance) }}
         </span>
-        <span v-if="mcpStore.errorMap[mcpStore.activeInstance.id]" class="text-red-500 ml-2">
+        <span v-if="mcpStore.errorMap[mcpStore.activeInstance.id]" class="text-error ml-2">
           ({{ mcpStore.errorMap[mcpStore.activeInstance.id] }})
         </span>
       </p>
@@ -67,7 +67,7 @@ function getInstanceStatusText(inst: McpInstance): string {
       </div>
       <div class="flex gap-2">
         <Button
-          size="sm"
+          size="default"
           :variant="getInstanceStatus(mcpStore.activeInstance) === 'running' ? 'default' : 'secondary'"
           :disabled="getInstanceStatus(mcpStore.activeInstance) === 'starting'"
           @click="emit('toggle', mcpStore.activeInstance.id, mcpStore.activeInstance.enabled)"
@@ -76,7 +76,7 @@ function getInstanceStatusText(inst: McpInstance): string {
              getInstanceStatus(mcpStore.activeInstance) === 'running' ? '暂停' : '启动' }}
         </Button>
         <Button
-          size="sm"
+          size="default"
           variant="secondary"
           :disabled="testingId === mcpStore.activeInstance.id"
           @click="emit('test', mcpStore.activeInstance.id)"
@@ -84,7 +84,7 @@ function getInstanceStatusText(inst: McpInstance): string {
           {{ testingId === mcpStore.activeInstance.id ? '测试中...' : '测试连接' }}
         </Button>
         <Button
-          size="sm"
+          size="default"
           variant="destructive"
           @click="emit('uninstall', mcpStore.activeInstance.id)"
         >
@@ -95,7 +95,7 @@ function getInstanceStatusText(inst: McpInstance): string {
         v-if="testResult && testResult.id === mcpStore.activeInstance.id"
         :class="cn(
           'mt-2 rounded-md border px-3 py-2 text-xs',
-          testResult.ok ? 'border-green-500/30 bg-green-500/5 text-green-600' : 'border-red-500/30 bg-red-500/5 text-red-600',
+          testResult.ok ? 'border-success/30 bg-success/5 text-success' : 'border-error/30 bg-error/5 text-error',
         )"
       >
         {{ testResult.msg }}

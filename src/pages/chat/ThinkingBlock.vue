@@ -71,7 +71,7 @@ const hasSearchResults = computed(() => (props.searchResults?.length ?? 0) > 0)
           :key="idx"
           class="flex items-center gap-1.5 text-sm text-muted-foreground"
         >
-          <Check class="size-3 shrink-0 text-green-600" />
+          <Check class="size-3 shrink-0 text-success" />
           <Globe class="size-3 shrink-0" />
           <span class="truncate">{{ result.title || result.url }}</span>
         </div>

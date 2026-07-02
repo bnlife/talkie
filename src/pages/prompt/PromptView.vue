@@ -155,19 +155,19 @@ onUnmounted(() => {
       class="flex h-9 shrink-0 items-center justify-between bg-muted px-3 select-none"
     >
       <div class="flex items-center gap-2">
-        <Button variant="ghost" size="icon-sm" @click.stop="toggleSidebar">
+        <Button variant="ghost" size="icon" @click.stop="toggleSidebar">
           <PanelLeftClose v-if="!sidebarCollapsed" class="h-3.5 w-3.5" />
           <PanelLeftOpen v-else class="h-3.5 w-3.5" />
         </Button>
         <span class="text-sm font-medium text-muted-foreground">提示词</span>
       </div>
       <div class="flex items-center gap-0.5">
-        <Button variant="ghost" size="icon-sm" @click="minimizeWindow"><Minus class="h-3.5 w-3.5" /></Button>
-        <Button variant="ghost" size="icon-sm" @click="toggleMaximize">
+        <Button variant="ghost" size="icon" @click="minimizeWindow"><Minus class="h-3.5 w-3.5" /></Button>
+        <Button variant="ghost" size="icon" @click="toggleMaximize">
           <Maximize2 v-if="!isMaximized" class="h-3.5 w-3.5" />
           <Minimize2 v-else class="h-3.5 w-3.5" />
         </Button>
-        <Button variant="ghost" size="icon-sm" class="hover:bg-destructive hover:text-destructive-foreground" @click="closeWindow"><X class="h-3.5 w-3.5" /></Button>
+        <Button variant="ghost" size="icon" @click="closeWindow"><X class="h-3.5 w-3.5" /></Button>
       </div>
     </header>
 
@@ -179,26 +179,24 @@ onUnmounted(() => {
           v-show="!sidebarCollapsed"
           class="w-[220px] shrink-0 border-r bg-background overflow-hidden flex flex-col"
         >
-          <div class="flex flex-col gap-1 p-2 text-sm">
+          <div class="sidebar-container h-full">
             <!-- 搜索栏 -->
             <div class="relative">
               <Search class="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
               <Input
                 v-model="searchQuery"
                 placeholder="搜索提示词..."
-                class="h-7 pl-8 text-sm"
+                class="sidebar-search h-8 pl-8"
               />
             </div>
 
             <!-- 新建提示词 -->
             <div
-              class="flex cursor-pointer items-center justify-between rounded-md border border-dashed px-2 py-1.5 text-sm transition-colors hover:bg-foreground/5"
+              class="sidebar-action"
               @click="createNew"
             >
-              <div class="flex items-center gap-2">
-                <Plus class="size-3.5" />
-                <span>新建提示词</span>
-              </div>
+              <Plus class="size-3.5" />
+              <span>新建提示词</span>
             </div>
 
             <!-- 提示词列表 -->
@@ -208,38 +206,36 @@ onUnmounted(() => {
                 :key="prompt.id"
                 :class="
                   cn(
-                    'group relative flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 transition-colors hover:bg-foreground/5',
+                    'group relative sidebar-item',
                     prompt.id === editingId && 'bg-accent text-accent-foreground',
                   )
                 "
                 @click="selectPrompt(prompt.id)"
                 @contextmenu="showContextMenu($event, prompt)"
               >
-                <div class="min-w-0 flex-1 flex items-center gap-2">
-                  <Star v-if="prompt.is_default" class="h-3 w-3 shrink-0 text-yellow-500" />
+                <div class="sidebar-item-content">
+                  <Star v-if="prompt.is_default" class="size-3 shrink-0 text-warning" />
                   <span class="truncate text-sm text-muted-foreground">{{ prompt.name }}</span>
                 </div>
 
                 <div
                   :class="
                     cn(
-                      'ml-1 flex shrink-0 items-center gap-0.5',
+                      'sidebar-item-actions',
                       'opacity-0 group-hover:opacity-100',
                     )
                   "
                 >
                   <Button
                     variant="ghost"
-                    size="icon-sm"
-                    class="size-5"
+                    size="icon"
                     @click.stop="selectPrompt(prompt.id)"
                   >
                     <Edit2 class="size-3" />
                   </Button>
                   <Button
                     variant="ghost"
-                    size="icon-sm"
-                    class="size-5"
+                    size="icon"
                     @click.stop="removePrompt(prompt.id)"
                   >
                     <Trash2 class="size-3" />

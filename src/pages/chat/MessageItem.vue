@@ -185,7 +185,7 @@ function onContentClick(e: MouseEvent) {
               <span class="max-w-[140px] truncate">{{ att.name }}</span>
               <button
                 v-if="att.content"
-                class="ml-0.5 rounded-sm p-0.5 hover:bg-foreground/10"
+                class="ml-0.5 rounded-sm p-0.5 hover:bg-hover-strong"
                 @click="downloadAttachment(att)"
               >
                 <Download class="size-3" />
@@ -227,13 +227,13 @@ function onContentClick(e: MouseEvent) {
             </button>
           </div>
           <div class="mt-1 flex items-center gap-2">
-            <span class="text-[11px] text-muted-foreground">
+            <span class="text-xs text-muted-foreground">
               <Globe class="size-3 inline -mt-0.5" />
               {{ searchResults.length }} 个来源
             </span>
             <button
               v-if="hasMoreResults"
-              class="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+              class="text-xs text-muted-foreground hover:text-foreground transition-colors"
               @click="searchExpanded = !searchExpanded"
             >
               <template v-if="searchExpanded">
@@ -251,14 +251,14 @@ function onContentClick(e: MouseEvent) {
           v-if="!streaming"
           class="absolute -bottom-7 left-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
         >
-          <Button variant="ghost" size="icon-sm" @click="handleCopy">
-            <Check v-if="isCopied" class="h-3 w-3 text-green-500" />
+          <Button variant="ghost" size="icon" @click="handleCopy">
+            <Check v-if="isCopied" class="h-3 w-3 text-success" />
             <Copy v-else class="h-3 w-3" />
           </Button>
-          <Button variant="ghost" size="icon-sm" @click="emit('delete', message.id)">
+          <Button variant="ghost" size="icon" @click="emit('delete', message.id)">
             <Trash2 class="h-3 w-3" />
           </Button>
-          <Button v-if="!isUser && isLast" variant="ghost" size="icon-sm" @click="emit('regenerate')">
+          <Button v-if="!isUser && isLast" variant="ghost" size="icon" @click="emit('regenerate')">
             <RefreshCw class="h-3 w-3" />
           </Button>
         </div>

@@ -52,7 +52,7 @@ function handleConfirm() {
           <div v-for="v in server.env_vars" :key="v.name">
             <label class="text-xs text-muted-foreground">
               {{ v.name }}
-              <span v-if="v.required" class="text-red-500">*</span>
+              <span v-if="v.required" class="text-error">*</span>
               <span v-if="v.description" class="ml-1 text-xs text-muted-foreground">({{ v.description }})</span>
             </label>
             <Input
@@ -68,7 +68,7 @@ function handleConfirm() {
           <div v-for="a in server.args" :key="a.valueHint || a.name || ''">
             <label class="text-xs text-muted-foreground">
               {{ a.description }}
-              <span v-if="a.required" class="text-red-500">*</span>
+              <span v-if="a.required" class="text-error">*</span>
             </label>
             <Input
               v-model="installConfig[a.valueHint || a.name || '']"
@@ -83,8 +83,8 @@ function handleConfirm() {
         </div>
 
         <div class="flex justify-end gap-2">
-          <Button size="sm" variant="secondary" @click="emit('cancel')">取消</Button>
-          <Button size="sm" @click="handleConfirm">确认添加</Button>
+          <Button size="default" variant="secondary" @click="emit('cancel')">取消</Button>
+          <Button size="default" @click="handleConfirm">确认添加</Button>
         </div>
       </div>
     </div>
