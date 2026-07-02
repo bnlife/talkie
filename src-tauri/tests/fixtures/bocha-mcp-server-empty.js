@@ -17,6 +17,7 @@ rl.on('line', (line) => {
       jsonrpc: '2.0',
       id: req.id,
       result: {
+        protocolVersion: '2024-11-05',
         serverInfo: { name: 'bocha-search-empty', version: '1.0.0' },
         capabilities: { tools: {} },
       },

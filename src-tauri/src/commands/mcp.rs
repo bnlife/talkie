@@ -49,13 +49,13 @@ pub fn add_mcp_instance(
 
 /// Remove an installed MCP instance. Stops it first if running.
 #[tauri::command]
-pub fn remove_mcp_instance(
+pub async fn remove_mcp_instance(
     id: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     log::info!("RS::CMD::mcp | remove | id={}", id);
     // Stop if running
-    let _ = state.mcp_pool.stop(&id);
+    let _ = state.mcp_pool.stop(&id).await;
     let db = state.db.lock().map_err(|e| e.to_string())?;
     crate::store::delete_mcp_instance(&db, &id).map_err(|e| e.to_string())
 }
@@ -87,39 +87,25 @@ pub async fn toggle_mcp_instance(
                 .ok_or_else(|| "MCP 实例不存在".to_string())?
         };
 
-        // Spawn in background thread — does NOT block the UI
+        // Spawn in background — does NOT block the UI
         let pool = Arc::clone(&state.mcp_pool);
         let instance_id = id.clone();
-        std::thread::spawn(move || {
-            log::info!("RS::CMD::mcp | thread start | id={}", instance_id);
-            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                pool.start(&instance)
-            }));
-            match result {
-                Ok(Ok(())) => {
+        tokio::spawn(async move {
+            log::info!("RS::CMD::mcp | task start | id={}", instance_id);
+            match pool.start(&instance).await {
+                Ok(()) => {
                     log::info!("RS::CMD::mcp | started | id={}", instance_id);
                     let _ = app.emit("mcp:started", serde_json::json!({ "id": instance_id }));
                 }
-                Ok(Err(e)) => {
+                Err(e) => {
                     log::error!("RS::CMD::mcp | start fail | id={} err={}", instance_id, e);
                     let _ = app.emit("mcp:error", serde_json::json!({ "id": instance_id, "error": e }));
-                }
-                Err(panic) => {
-                    let msg = if let Some(s) = panic.downcast_ref::<String>() {
-                        s.clone()
-                    } else if let Some(s) = panic.downcast_ref::<&str>() {
-                        s.to_string()
-                    } else {
-                        "unknown panic".to_string()
-                    };
-                    log::error!("RS::CMD::mcp | panic | id={} err={}", instance_id, msg);
-                    let _ = app.emit("mcp:error", serde_json::json!({ "id": instance_id, "error": format!("panic: {}", msg) }));
                 }
             }
         });
     } else {
         // Stop is fast, can be synchronous
-        state.mcp_pool.stop(&id)?;
+        state.mcp_pool.stop(&id).await?;
     }
 
     Ok(())
@@ -127,27 +113,28 @@ pub async fn toggle_mcp_instance(
 
 /// Start an MCP instance (spawn process).
 #[tauri::command]
-pub fn start_mcp_instance(
+pub async fn start_mcp_instance(
     id: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     log::info!("RS::CMD::mcp | start | id={}", id);
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let instance = crate::store::get_mcp_instance(&db, &id)
-        .map_err(|e| e.to_string())?
-        .ok_or_else(|| "MCP 实例不存在".to_string())?;
-    drop(db);
-    state.mcp_pool.start(&instance)
+    let instance = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        crate::store::get_mcp_instance(&db, &id)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "MCP 实例不存在".to_string())?
+    };
+    state.mcp_pool.start(&instance).await
 }
 
 /// Stop an MCP instance (kill process).
 #[tauri::command]
-pub fn stop_mcp_instance(
+pub async fn stop_mcp_instance(
     id: String,
     state: State<'_, AppState>,
 ) -> Result<(), String> {
     log::info!("RS::CMD::mcp | stop | id={}", id);
-    state.mcp_pool.stop(&id)
+    state.mcp_pool.stop(&id).await
 }
 
 /// Call a tool on a running MCP instance.
@@ -159,7 +146,7 @@ pub async fn call_mcp_tool(
     state: State<'_, AppState>,
 ) -> Result<serde_json::Value, String> {
     log::info!("RS::CMD::mcp | call | instance={} tool={}", instance_id, tool_name);
-    state.mcp_pool.call_tool(&instance_id, &tool_name, args)
+    state.mcp_pool.call_tool(&instance_id, &tool_name, args).await
 }
 
 /// Test MCP instance connectivity by listing its tools.
@@ -172,7 +159,7 @@ pub async fn test_mcp_connection(
     log::info!("RS::CMD::mcp::test | start | id={}", id);
 
     // If not running, try to start
-    let was_running = state.mcp_pool.is_running(&id);
+    let was_running = state.mcp_pool.is_running(&id).await;
     log::debug!("RS::CMD::mcp::test | was_running={} | id={}", was_running, id);
 
     if !was_running {
@@ -183,7 +170,7 @@ pub async fn test_mcp_connection(
                 .ok_or_else(|| "MCP 实例不存在".to_string())?
         };
         log::info!("RS::CMD::mcp::test | starting | id={} name={}", id, instance.name);
-        state.mcp_pool.start(&instance).map_err(|e| {
+        state.mcp_pool.start(&instance).await.map_err(|e| {
             log::error!("RS::CMD::mcp::test | start fail | id={} err={}", id, e);
             format!("启动失败: {}", e)
         })?;
@@ -191,7 +178,7 @@ pub async fn test_mcp_connection(
     }
 
     // Verify it's running
-    let running = state.mcp_pool.is_running(&id);
+    let running = state.mcp_pool.is_running(&id).await;
     log::debug!("RS::CMD::mcp::test | is_running={} after start | id={}", running, id);
 
     if !running {
@@ -200,7 +187,7 @@ pub async fn test_mcp_connection(
 
     // Call list_tools to verify connectivity
     log::debug!("RS::CMD::mcp::test | calling list_tools | id={}", id);
-    let tools = state.mcp_pool.list_tools(&id).map_err(|e| {
+    let tools = state.mcp_pool.list_tools(&id).await.map_err(|e| {
         log::error!("RS::CMD::mcp::test | list_tools fail | id={} err={}", id, e);
         format!("连接失败: {}", e)
     })?;

@@ -2,13 +2,14 @@ use crate::{models, store, AppState};
 
 /// Find a running MCP search instance and call it with the user's query.
 /// Returns (text_for_llm, structured_results).
-pub fn perform_search(state: &AppState, query: &str, search_engine: Option<&str>) -> Result<(String, Vec<models::SearchResult>), String> {
+pub async fn perform_search(state: &AppState, query: &str, search_engine: Option<&str>) -> Result<(String, Vec<models::SearchResult>), String> {
     log::info!("RS::CMD::search | start | query={} engine={:?}", query, search_engine);
 
     // Find a running MCP instance that provides search
-    let db = state.db.lock().map_err(|e| e.to_string())?;
-    let instances = store::list_mcp_instances(&db).map_err(|e| e.to_string())?;
-    drop(db);
+    let instances = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        store::list_mcp_instances(&db).map_err(|e| e.to_string())?
+    };
 
     log::debug!("RS::CMD::search | installed={}", instances.len());
     for inst in &instances {
@@ -47,10 +48,13 @@ pub fn perform_search(state: &AppState, query: &str, search_engine: Option<&str>
         }
     };
 
-    // If instance is not running, return error — user should enable it from MCP settings page
-    if !state.mcp_pool.is_running(&instance.id) {
-        log::warn!("RS::CMD::search | not running | id={}", instance.id);
-        return Err("搜索引擎未启动，请在 MCP 设置页面启用".to_string());
+    // If instance is not running, try to auto-start it
+    if !state.mcp_pool.is_running(&instance.id).await {
+        log::info!("RS::CMD::search | auto-starting | id={}", instance.id);
+        state.mcp_pool.start(instance).await.map_err(|e| {
+            log::error!("RS::CMD::search | auto-start failed | id={} err={}", instance.id, e);
+            format!("搜索引擎启动失败: {}", e)
+        })?;
     }
 
     // Call the search tool
@@ -76,7 +80,7 @@ pub fn perform_search(state: &AppState, query: &str, search_engine: Option<&str>
         })
     };
 
-    let result = state.mcp_pool.call_tool(&instance.id, tool_name, args)?;
+    let result = state.mcp_pool.call_tool(&instance.id, tool_name, args).await?;
     log::debug!("RS::CMD::search | raw | {}", serde_json::to_string(&result).unwrap_or_default());
 
     // Parse structured results and format text for LLM
@@ -133,11 +137,11 @@ pub fn parse_search_results(result: &serde_json::Value) -> Vec<models::SearchRes
     for cap in re.captures_iter(&text) {
         let title = cap.get(1).map(|m| m.as_str().to_string()).unwrap_or_default();
         let url = cap.get(2).map(|m| m.as_str().to_string()).unwrap_or_default();
-        let snippet = cap.get(3).map(|m| {
-            let s = m.as_str().trim();
-            // Filter out "Published:" lines from snippet
-            if s.starts_with("Published:") { None } else { Some(s.to_string()) }
-        }).flatten();
+    let snippet = cap.get(3).and_then(|m| {
+        let s = m.as_str().trim();
+        // Filter out "Published:" lines from snippet
+        if s.starts_with("Published:") { None } else { Some(s.to_string()) }
+    });
 
         if !title.is_empty() && !url.is_empty() {
             results.push(models::SearchResult { title, url, snippet });

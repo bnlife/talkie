@@ -48,6 +48,7 @@ function handleLine(line) {
 
   if (req.method === 'initialize') {
     respond(id, {
+      protocolVersion: '2024-11-05',
       serverInfo: { name: 'bocha-search', version: '1.0.0' },
       capabilities: { tools: {} },
     });

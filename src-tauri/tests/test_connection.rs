@@ -6,6 +6,16 @@
 /// Note: mockito's sync `Server::new()` cannot be used inside `#[tokio::test]`
 /// because it tries to create a nested runtime. Always use the `_async` variants.
 
+use reqwest::Client;
+
+/// Create a shared HTTP client for tests.
+fn test_client() -> Client {
+    Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .unwrap()
+}
+
 /// Test that a 200 response from the API returns `Ok("连接成功")`.
 #[tokio::test]
 async fn test_connection_success() {
@@ -17,9 +27,10 @@ async fn test_connection_success() {
         .create_async()
         .await;
 
+    let client = test_client();
     let headers = std::collections::HashMap::new();
     let result =
-        talkie::commands::settings::verify_connection(&server.url(), "test-key", "test-model", &headers)
+        talkie::commands::settings::verify_connection(&client, &server.url(), "test-key", "test-model", &headers)
             .await;
 
     assert!(result.is_ok());
@@ -38,9 +49,10 @@ async fn test_connection_unauthorized() {
         .create_async()
         .await;
 
+    let client = test_client();
     let headers = std::collections::HashMap::new();
     let result =
-        talkie::commands::settings::verify_connection(&server.url(), "invalid-key", "test-model", &headers)
+        talkie::commands::settings::verify_connection(&client, &server.url(), "invalid-key", "test-model", &headers)
             .await;
 
     assert!(result.is_err());
@@ -64,9 +76,10 @@ async fn test_connection_not_found() {
         .create_async()
         .await;
 
+    let client = test_client();
     let headers = std::collections::HashMap::new();
     let result =
-        talkie::commands::settings::verify_connection(&server.url(), "test-key", "test-model", &headers)
+        talkie::commands::settings::verify_connection(&client, &server.url(), "test-key", "test-model", &headers)
             .await;
 
     assert!(result.is_err());
@@ -100,10 +113,11 @@ async fn test_connection_timeout() {
     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
 
     // Wrap the call in a top-level timeout so the test never hangs indefinitely
+    let client = test_client();
     let headers = std::collections::HashMap::new();
     let result = tokio::time::timeout(
         std::time::Duration::from_secs(25),
-        talkie::commands::settings::verify_connection(&base_url, "test-key", "test-model", &headers),
+        talkie::commands::settings::verify_connection(&client, &base_url, "test-key", "test-model", &headers),
     )
     .await;
 

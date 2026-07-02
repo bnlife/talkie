@@ -35,17 +35,9 @@ pub fn update_settings(
 /// Verify LLM API connectivity by sending a POST request to the chat completions endpoint.
 ///
 /// This is a pure function (no Tauri dependency) so it can be tested directly.
-pub async fn verify_connection(base_url: &str, api_key: &str, model: &str, headers: &std::collections::HashMap<String, String>) -> Result<String, String> {
+pub async fn verify_connection(client: &reqwest::Client, base_url: &str, api_key: &str, model: &str, headers: &std::collections::HashMap<String, String>) -> Result<String, String> {
     log::info!("RS::CMD::verify | base_url={} model={}", base_url, model);
     let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
-
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()
-        .map_err(|e| {
-            log::error!("RS::CMD::verify | http client fail: {}", e);
-            format!("创建 HTTP 客户端失败: {}", e)
-        })?;
 
     let body = serde_json::json!({
         "model": model,
@@ -108,40 +100,35 @@ pub async fn verify_connection(base_url: &str, api_key: &str, model: &str, heade
 /// Test the LLM API connection with a single provider's configuration.
 #[tauri::command]
 pub async fn test_provider_connection(
+    state: State<'_, AppState>,
     provider: models::ModelProvider,
 ) -> Result<String, String> {
     log::info!("RS::CMD::test | provider={} base_url={}", provider.name, provider.base_url);
-    verify_connection(&provider.base_url, &provider.api_key, provider.models.first().unwrap_or(&"gpt-3.5-turbo".to_string()), &provider.headers).await
+    verify_connection(&state.http_client, &provider.base_url, &provider.api_key, provider.models.first().unwrap_or(&"gpt-3.5-turbo".to_string()), &provider.headers).await
 }
 
 /// Verify that a specific model is available on a provider by sending a test request.
 #[tauri::command]
 pub async fn verify_model(
+    state: State<'_, AppState>,
     provider: models::ModelProvider,
     model: String,
 ) -> Result<String, String> {
     log::info!("RS::CMD::verify_model | provider={} model={}", provider.name, model);
-    verify_connection(&provider.base_url, &provider.api_key, &model, &provider.headers).await
+    verify_connection(&state.http_client, &provider.base_url, &provider.api_key, &model, &provider.headers).await
 }
 
 /// Fetch available models from a provider's /v1/models endpoint.
 #[tauri::command]
 pub async fn fetch_provider_models(
+    state: State<'_, AppState>,
     provider: models::ModelProvider,
 ) -> Result<Vec<String>, String> {
     log::info!("RS::CMD::models | provider={} base_url={}", provider.name, provider.base_url);
 
     let url = format!("{}/models", provider.base_url.trim_end_matches('/'));
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(15))
-        .build()
-        .map_err(|e| {
-            log::error!("RS::CMD::models | http client fail: {}", e);
-            format!("创建 HTTP 客户端失败: {}", e)
-        })?;
-
-    let mut request = client
+    let mut request = state.http_client
         .get(&url)
         .header("Authorization", format!("Bearer {}", provider.api_key));
 

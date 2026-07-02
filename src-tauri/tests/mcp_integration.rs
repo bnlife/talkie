@@ -25,37 +25,37 @@ fn test_pool() -> McpPool {
     McpPool::new(PathBuf::from("."))
 }
 
-#[test]
-fn test_mcp_spawn_initialize_list_tools() {
+#[tokio::test]
+async fn test_mcp_spawn_initialize_list_tools() {
     let pool = test_pool();
     let inst = mock_instance("test-1");
 
     // Start the instance
-    pool.start(&inst).expect("start should succeed");
+    pool.start(&inst).await.expect("start should succeed");
 
     // List tools
-    let tools = pool.list_tools("test-1").expect("list_tools should succeed");
+    let tools = pool.list_tools("test-1").await.expect("list_tools should succeed");
     assert_eq!(tools.len(), 1);
     assert_eq!(tools[0].name, "mock_search");
     assert!(tools[0].description.is_some());
 
     // Stop
-    pool.stop("test-1").expect("stop should succeed");
-    assert!(!pool.is_running("test-1"));
+    pool.stop("test-1").await.expect("stop should succeed");
+    assert!(!pool.is_running("test-1").await);
 }
 
-#[test]
-fn test_mcp_call_tool() {
+#[tokio::test]
+async fn test_mcp_call_tool() {
     let pool = test_pool();
     let inst = mock_instance("test-2");
 
-    pool.start(&inst).expect("start should succeed");
+    pool.start(&inst).await.expect("start should succeed");
 
     let result = pool.call_tool(
         "test-2",
         "mock_search",
         serde_json::json!({"query": "hello world"}),
-    ).expect("call_tool should succeed");
+    ).await.expect("call_tool should succeed");
 
     // Parse the result
     let content = result.get("content").expect("result should have content");
@@ -65,30 +65,30 @@ fn test_mcp_call_tool() {
     let text_str = text.as_str().expect("text should be string");
     assert!(text_str.contains("hello world"));
 
-    pool.stop("test-2").expect("stop should succeed");
+    pool.stop("test-2").await.expect("stop should succeed");
 }
 
-#[test]
-fn test_mcp_double_start_fails() {
+#[tokio::test]
+async fn test_mcp_double_start_fails() {
     let pool = test_pool();
     let inst = mock_instance("test-3");
 
-    pool.start(&inst).expect("first start should succeed");
-    let result = pool.start(&inst);
+    pool.start(&inst).await.expect("first start should succeed");
+    let result = pool.start(&inst).await;
     assert!(result.is_err(), "second start should fail");
 
-    pool.stop("test-3").expect("stop should succeed");
+    pool.stop("test-3").await.expect("stop should succeed");
 }
 
-#[test]
-fn test_mcp_stop_non_running_is_ok() {
+#[tokio::test]
+async fn test_mcp_stop_non_running_is_ok() {
     let pool = test_pool();
-    pool.stop("nonexistent").expect("stop non-running should succeed");
+    pool.stop("nonexistent").await.expect("stop non-running should succeed");
 }
 
-#[test]
-fn test_mcp_call_tool_on_stopped_instance_fails() {
+#[tokio::test]
+async fn test_mcp_call_tool_on_stopped_instance_fails() {
     let pool = test_pool();
-    let result = pool.call_tool("nonexistent", "tool", serde_json::json!({}));
+    let result = pool.call_tool("nonexistent", "tool", serde_json::json!({})).await;
     assert!(result.is_err());
 }

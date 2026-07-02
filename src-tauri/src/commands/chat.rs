@@ -66,7 +66,7 @@ pub async fn send_message(
 
     // 3. If search is enabled, find a running search MCP instance and call it.
     let (search_context, search_results) = if search_enabled {
-        match chat::search::perform_search(&state, &llm_content, search_engine.as_deref()) {
+        match chat::search::perform_search(&state, &llm_content, search_engine.as_deref()).await {
             Ok((text, results)) => {
                 log::info!("RS::CMD::chat | search ok | results={} text_len={}", results.len(), text.len());
                 (Some(text), Some(results))
@@ -157,7 +157,7 @@ async fn do_generate(
 
     // 5. Stream the LLM response.
     let (full_text, thinking_content, usage_tokens) = match chat::engine::execute_stream(
-        app, conversation_id, &message_id,
+        app, &state.http_client, conversation_id, &message_id,
         &cfg, &ctx.messages, cancel,
     ).await? {
         Some(result) => result,

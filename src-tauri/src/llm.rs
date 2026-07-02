@@ -14,6 +14,7 @@ pub struct StreamResult {
 /// parse the SSE response line‑by‑line, invoke `on_chunk` for each content
 /// delta, `on_thinking` for each thinking delta, and return the accumulated text.
 pub async fn stream_chat<F, G>(
+    client: &reqwest::Client,
     base_url: &str,
     api_key: &str,
     model: &str,
@@ -34,16 +35,11 @@ where
         return Err("请求已取消".to_string());
     }
 
-    let has_system = messages.first().map_or(false, |m| m.role == "system");
+    let has_system = messages.first().is_some_and(|m| m.role == "system");
     log::info!(
         "RS::llm::stream | url={} model={} msgs={} temp={} top_p={} sys={}",
         base_url, model, messages.len(), temperature, top_p, has_system
     );
-
-    let client = reqwest::Client::builder()
-        .connect_timeout(std::time::Duration::from_secs(30))
-        .build()
-        .map_err(|e| format!("创建 HTTP 客户端失败: {}", e))?;
 
     let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
 
@@ -208,6 +204,13 @@ mod tests {
     use super::*;
     use crate::models::Message;
 
+    fn test_client() -> reqwest::Client {
+        reqwest::Client::builder()
+            .connect_timeout(std::time::Duration::from_secs(30))
+            .build()
+            .unwrap()
+    }
+
     fn run_with_mock<F>(test_fn: F)
     where
         F: FnOnce(mockito::ServerGuard) + Send + 'static,
@@ -247,12 +250,13 @@ mod tests {
                 Message { id: "u1".into(), conversation_id: "c1".into(), role: "user".into(), content: "hello".into(), created_at: 0, token_count: None, search_results: None, thinking_content: None, attachments: None },
             ];
 
+            let client = test_client();
             let mut headers = std::collections::HashMap::new();
             headers.insert("X-Custom".to_string(), "test".to_string());
 
             let rt = tokio::runtime::Runtime::new().unwrap();
             let result = rt.block_on(stream_chat(
-                &server.url(), "sk-test", "gpt-4o", &headers,
+                &client, &server.url(), "sk-test", "gpt-4o", &headers,
                 0.8, 0.95, &messages, CancellationToken::new(), |_| {}, |_| {},
             ));
 
@@ -284,9 +288,10 @@ mod tests {
                 Message { id: "u1".into(), conversation_id: "c1".into(), role: "user".into(), content: "hi".into(), created_at: 0, token_count: None, search_results: None, thinking_content: None, attachments: None },
             ];
 
+            let client = test_client();
             let rt = tokio::runtime::Runtime::new().unwrap();
             let result = rt.block_on(stream_chat(
-                &server.url(), "sk-test", "deepseek-chat", &std::collections::HashMap::new(),
+                &client, &server.url(), "sk-test", "deepseek-chat", &std::collections::HashMap::new(),
                 0.5, 1.0, &messages, CancellationToken::new(), |_| {}, |_| {},
             ));
 
@@ -308,12 +313,13 @@ mod tests {
                 .create();
 
             let messages = vec![];
+            let client = test_client();
             let mut headers = std::collections::HashMap::new();
             headers.insert("X-Custom".to_string(), "test-value".to_string());
 
             let rt = tokio::runtime::Runtime::new().unwrap();
             let result = rt.block_on(stream_chat(
-                &server.url(), "sk-test", "gpt-4o", &headers,
+                &client, &server.url(), "sk-test", "gpt-4o", &headers,
                 0.7, 1.0, &messages, CancellationToken::new(), |_| {}, |_| {},
             ));
 

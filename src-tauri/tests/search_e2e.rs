@@ -11,6 +11,7 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+use reqwest::Client;
 use talkie::chat::search::perform_search;
 use talkie::mcp::pool::McpPool;
 use talkie::models::{Conversation, ConversationConfig, McpInstance};
@@ -19,6 +20,7 @@ use talkie::store;
 fn setup_state() -> talkie::AppState {
     let conn = store::init(&PathBuf::from(":memory:")).unwrap();
     talkie::AppState {
+        http_client: Client::new(),
         db: Mutex::new(conn),
         config: Mutex::new(talkie::models::Settings::default()),
         config_path: PathBuf::from(":memory:"),
@@ -68,14 +70,14 @@ fn insert_conversation(state: &talkie::AppState, conv_id: &str) {
 // E2E Test 1: Full search flow — DB → perform_search → MCP → parse
 // ===========================================================================
 
-#[test]
-fn test_search_e2e_full_flow() {
+#[tokio::test]
+async fn test_search_e2e_full_flow() {
     let state = setup_state();
     insert_conversation(&state, "conv-1");
     insert_bocha_instance(&state);
 
     // perform_search: find instance in DB → auto-start MCP → call_tool → parse
-    let (text, results) = perform_search(&state, "test query", None).expect("search should succeed");
+    let (text, results) = perform_search(&state, "test query", None).await.expect("search should succeed");
 
     // Verify text for LLM
     assert!(text.contains("Search results for"), "text should contain header, got: {}", text);
@@ -97,20 +99,20 @@ fn test_search_e2e_full_flow() {
     assert_eq!(results[2].snippet, Some("Where developers build software".to_string()));
 
     // Verify MCP is now running in pool
-    assert!(state.mcp_pool.is_running("inst-bocha"), "MCP should be auto-started");
+    assert!(state.mcp_pool.is_running("inst-bocha").await, "MCP should be auto-started");
 }
 
 // ===========================================================================
 // E2E Test 2: Search + persist to DB
 // ===========================================================================
 
-#[test]
-fn test_search_e2e_persist_results() {
+#[tokio::test]
+async fn test_search_e2e_persist_results() {
     let state = setup_state();
     insert_conversation(&state, "conv-2");
     insert_bocha_instance(&state);
 
-    let (text, results) = perform_search(&state, "rust lang", None).expect("search should succeed");
+    let (text, results) = perform_search(&state, "rust lang", None).await.expect("search should succeed");
 
     // Simulate what finalize_response does: create assistant message with search_results
     let msg = talkie::models::Message {
@@ -146,13 +148,13 @@ fn test_search_e2e_persist_results() {
 // E2E Test 3: No search instance → error
 // ===========================================================================
 
-#[test]
-fn test_search_e2e_no_instance() {
+#[tokio::test]
+async fn test_search_e2e_no_instance() {
     let state = setup_state();
     insert_conversation(&state, "conv-3");
     // Don't insert any MCP instance
 
-    let result = perform_search(&state, "test query", None);
+    let result = perform_search(&state, "test query", None).await;
     assert!(result.is_err(), "should fail when no search instance");
     let err = result.unwrap_err();
     assert!(err.contains("没有启用的搜索 MCP 实例"), "error should mention no instance, got: {}", err);
@@ -162,35 +164,35 @@ fn test_search_e2e_no_instance() {
 // E2E Test 4: Auto-start MCP when instance is enabled but not running
 // ===========================================================================
 
-#[test]
-fn test_search_e2e_auto_start() {
+#[tokio::test]
+async fn test_search_e2e_auto_start() {
     let state = setup_state();
     insert_conversation(&state, "conv-4");
     insert_bocha_instance(&state);
 
     // Verify MCP is NOT running before search
-    assert!(!state.mcp_pool.is_running("inst-bocha"), "MCP should not be running before search");
+    assert!(!state.mcp_pool.is_running("inst-bocha").await, "MCP should not be running before search");
 
-    let (text, results) = perform_search(&state, "auto start test", None).expect("search should succeed");
+    let (text, results) = perform_search(&state, "auto start test", None).await.expect("search should succeed");
 
     // Verify MCP WAS auto-started
-    assert!(state.mcp_pool.is_running("inst-bocha"), "MCP should be auto-started after search");
+    assert!(state.mcp_pool.is_running("inst-bocha").await, "MCP should be auto-started after search");
 
     // Verify results
     assert!(results.len() > 0, "should have results");
     assert!(text.contains("Search results for"), "text should contain header");
 
     // Stop and verify
-    state.mcp_pool.stop("inst-bocha").unwrap();
-    assert!(!state.mcp_pool.is_running("inst-bocha"), "MCP should be stopped");
+    state.mcp_pool.stop("inst-bocha").await.unwrap();
+    assert!(!state.mcp_pool.is_running("inst-bocha").await, "MCP should be stopped");
 }
 
 // ===========================================================================
 // E2E Test 5: Empty search results
 // ===========================================================================
 
-#[test]
-fn test_search_e2e_empty_results() {
+#[tokio::test]
+async fn test_search_e2e_empty_results() {
     let state = setup_state();
     insert_conversation(&state, "conv-5");
 
@@ -211,7 +213,7 @@ fn test_search_e2e_empty_results() {
     store::create_mcp_instance(&db, &inst).unwrap();
     drop(db);
 
-    let (text, results) = perform_search(&state, "nonexistent query", None).expect("search should succeed even with no results");
+    let (text, results) = perform_search(&state, "nonexistent query", None).await.expect("search should succeed even with no results");
 
     // Empty results: parse_search_results returns 0 items, text contains "No results"
     assert_eq!(results.len(), 0, "empty fixture should return 0 results");

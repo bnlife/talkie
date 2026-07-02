@@ -17,6 +17,9 @@ use tokio_util::sync::CancellationToken;
 
 /// Global application state managed by Tauri.
 pub struct AppState {
+    /// Shared HTTP client for all outbound requests (LLM, provider, MCP HTTP).
+    /// Reusing a single client enables TCP connection pooling and reduces latency.
+    pub http_client: reqwest::Client,
     pub db: std::sync::Mutex<rusqlite::Connection>,
     pub config: std::sync::Mutex<models::Settings>,
     pub config_path: PathBuf,
@@ -82,8 +85,16 @@ pub fn run() {
             std::fs::write(&bocha_script, script_content)?;
             log::info!("RS::lib | bocha script deployed | path={}", bocha_script.display());
 
+            // Create a shared HTTP client for all outbound requests.
+            // This enables TCP connection pooling across LLM, provider, and MCP HTTP calls.
+            let http_client = reqwest::Client::builder()
+                .connect_timeout(std::time::Duration::from_secs(30))
+                .build()
+                .expect("RS::lib | failed to create HTTP client");
+
             // Inject state so Tauri commands can access it via State<>.
             app.manage(AppState {
+                http_client,
                 db: std::sync::Mutex::new(db),
                 config: std::sync::Mutex::new(settings),
                 config_path,

@@ -168,6 +168,7 @@ pub fn setup_cancel_token(state: &AppState) -> Result<CancellationToken, String>
 /// and return `(full_text, token_count)` on success.
 pub async fn execute_stream(
     app: &AppHandle,
+    client: &reqwest::Client,
     conversation_id: &str,
     message_id: &str,
     cfg: &LlmConfig,
@@ -179,6 +180,7 @@ pub async fn execute_stream(
     let app_handle_thinking = app.clone();
     let mid_thinking = message_id.to_string();
     let result = llm::stream_chat(
+        client,
         &cfg.base_url,
         &cfg.api_key,
         &cfg.model,

@@ -5,12 +5,20 @@
 
 use std::sync::Arc;
 
+use reqwest::Client;
 use talkie::llm::stream_chat;
 use talkie::models::Message;
 use tokio_util::sync::CancellationToken;
 
 fn empty_headers() -> std::collections::HashMap<String, String> {
     std::collections::HashMap::new()
+}
+
+fn test_client() -> Client {
+    Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(30))
+        .build()
+        .unwrap()
 }
 
 // ---------------------------------------------------------------------------
@@ -35,6 +43,7 @@ async fn test_single_chunk() {
         .create_async()
         .await;
 
+    let client = test_client();
     let cancel = CancellationToken::new();
 
     // Shared buffer to assert on_chunk invocations
@@ -54,6 +63,7 @@ async fn test_single_chunk() {
     }];
 
     let result = stream_chat(
+        &client,
         &server.url(),
         "test-key",
         "test-model",
@@ -104,6 +114,7 @@ async fn test_multi_chunk_stream() {
         .create_async()
         .await;
 
+    let client = test_client();
     let cancel = CancellationToken::new();
 
     let chunks = Arc::new(std::sync::Mutex::new(Vec::new()));
@@ -122,6 +133,7 @@ async fn test_multi_chunk_stream() {
     }];
 
     let result = stream_chat(
+        &client,
         &server.url(),
         "test-key",
         "test-model",
@@ -158,6 +170,7 @@ async fn test_multi_chunk_stream() {
 /// returns `Err` immediately **without** issuing any HTTP request.
 #[tokio::test]
 async fn test_cancel_before_request() {
+    let client = test_client();
     let cancel = CancellationToken::new();
     cancel.cancel();
 
@@ -176,6 +189,7 @@ async fn test_cancel_before_request() {
     // Use a deliberately broken URL — the cancellation check runs first, so
     // no connection attempt is ever made.
     let result = stream_chat(
+        &client,
         "http://localhost:0",
         "key",
         "model",
@@ -206,6 +220,7 @@ async fn test_http_error_401() {
         .create_async()
         .await;
 
+    let client = test_client();
     let messages = vec![Message {
         id: "test-4".into(),
         conversation_id: "conv-1".into(),
@@ -219,6 +234,7 @@ async fn test_http_error_401() {
     }];
 
     let result = stream_chat(
+        &client,
         &server.url(),
         "bad-key",
         "model",
@@ -253,6 +269,7 @@ async fn test_http_error_500() {
         .create_async()
         .await;
 
+    let client = test_client();
     let messages = vec![Message {
         id: "test-5".into(),
         conversation_id: "conv-1".into(),
@@ -266,6 +283,7 @@ async fn test_http_error_500() {
     }];
 
     let result = stream_chat(
+        &client,
         &server.url(),
         "key",
         "model",
@@ -312,6 +330,7 @@ data: [DONE]
         .create_async()
         .await;
 
+    let client = test_client();
     let chunks = Arc::new(std::sync::Mutex::new(Vec::new()));
     let chunks_clone = chunks.clone();
 
@@ -328,6 +347,7 @@ data: [DONE]
     }];
 
     let result = stream_chat(
+        &client,
         &server.url(),
         "key",
         "model",

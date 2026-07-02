@@ -38,6 +38,11 @@ keyring = "3"
 aes-gcm = "0.10"
 base64 = "0.22"
 rand = "0.8"
+rmcp = { version = "2.1", features = [
+    "client",
+    "transport-streamable-http-client-reqwest",
+    "transport-child-process",
+] }
 
 [dev-dependencies]
 mockito = "1.7.2"

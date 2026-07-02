@@ -499,6 +499,7 @@ fn test_appstate_full_lifecycle() {
 fn test_real_appstate_cancel_field() {
     let conn = store::init(&PathBuf::from(":memory:")).unwrap();
     let state = talkie::AppState {
+        http_client: reqwest::Client::new(),
         db: Mutex::new(conn),
         config: Mutex::new(talkie::models::Settings::default()),
         config_path: PathBuf::from(":memory:"),
