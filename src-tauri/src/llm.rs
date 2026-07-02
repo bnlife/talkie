@@ -13,6 +13,7 @@ pub struct StreamResult {
 /// Send a streaming chat-completion request to an OpenAI-compatible endpoint,
 /// parse the SSE response line‑by‑line, invoke `on_chunk` for each content
 /// delta, `on_thinking` for each thinking delta, and return the accumulated text.
+#[allow(clippy::too_many_arguments)]
 pub async fn stream_chat<F, G>(
     client: &reqwest::Client,
     base_url: &str,

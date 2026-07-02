@@ -154,7 +154,8 @@ fn seed_mcp_registry(conn: &Connection) -> Result<(), AppError> {
     }
 
     // Servers (built-in popular ones)
-    let servers: Vec<(&str, &str, &str, &str, &str, &str, &str, Option<&str>, Option<&str>, i64)> = vec![
+    type ServerEntry<'a> = (&'a str, &'a str, &'a str, &'a str, &'a str, &'a str, &'a str, Option<&'a str>, Option<&'a str>, i64);
+    let servers: Vec<ServerEntry> = vec![
         ("filesystem", "filesystem", "Filesystem", "读写本地文件、搜索内容、目录管理", "Anthropic", "npm", "@modelcontextprotocol/server-filesystem",
          None, Some(r#"[{"type":"positional","valueHint":"target_dir","description":"访问路径","required":true,"repeated":true}]"#), 75000),
         ("filesystem", "memory", "Memory", "知识图谱持久化存储", "Anthropic", "npm", "@modelcontextprotocol/server-memory",

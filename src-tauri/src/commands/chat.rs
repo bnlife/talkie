@@ -170,12 +170,14 @@ async fn do_generate(
     // 6. Persist and signal completion.
     chat::engine::finalize_response(
         app, state,
-        conversation_id.to_string(),
-        message_id,
-        full_text,
-        thinking_content,
-        usage_tokens,
-        search_results,
+        chat::engine::FinalizeParams {
+            conversation_id: conversation_id.to_string(),
+            message_id,
+            full_text,
+            thinking_content,
+            usage_tokens,
+            search_results,
+        },
     )
 }
 

@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::crypto;
 use crate::error::AppError;
@@ -43,7 +43,7 @@ pub fn load(path: PathBuf) -> Result<Settings, AppError> {
 }
 
 /// Migrate old flat config format to new multi-provider format.
-fn migrate_old_format(raw: &serde_json::Value, path: &PathBuf) -> Result<Settings, AppError> {
+fn migrate_old_format(raw: &serde_json::Value, path: &Path) -> Result<Settings, AppError> {
     let base_url = raw.get("base_url").and_then(|v| v.as_str()).unwrap_or("").to_string();
     let api_key = raw.get("api_key").and_then(|v| v.as_str()).unwrap_or("").to_string();
     let model = raw.get("model").and_then(|v| v.as_str()).unwrap_or("").to_string();
@@ -73,7 +73,7 @@ fn migrate_old_format(raw: &serde_json::Value, path: &PathBuf) -> Result<Setting
     };
 
     // Save migrated config
-    if let Err(e) = save(path.clone(), &settings) {
+    if let Err(e) = save(path.to_path_buf(), &settings) {
         log::warn!("RS::config::migrate | save fail | err={}", e);
     } else {
         log::info!("RS::config::migrate | ok");

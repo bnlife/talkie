@@ -3,6 +3,16 @@ use tauri::{AppHandle, Emitter};
 use crate::{llm, models, store, AppState};
 use tokio_util::sync::CancellationToken;
 
+/// Parameters for `finalize_response`.
+pub struct FinalizeParams {
+    pub conversation_id: String,
+    pub message_id: String,
+    pub full_text: String,
+    pub thinking_content: String,
+    pub usage_tokens: Option<i64>,
+    pub search_results: Option<Vec<models::SearchResult>>,
+}
+
 /// Guess the code language identifier from a filename extension.
 pub fn guess_language(filename: &str) -> &'static str {
     let ext = filename.rfind('.').map(|i| &filename[i..]).unwrap_or("");
@@ -231,26 +241,21 @@ pub async fn execute_stream(
 pub fn finalize_response(
     app: &AppHandle,
     state: &AppState,
-    conversation_id: String,
-    message_id: String,
-    full_text: String,
-    thinking_content: String,
-    usage_tokens: Option<i64>,
-    search_results: Option<Vec<models::SearchResult>>,
+    params: FinalizeParams,
 ) -> Result<(), String> {
-    let search_results_clone = search_results.clone();
+    let search_results_clone = params.search_results.clone();
     let assistant_msg = models::Message {
-        id: message_id.clone(),
-        conversation_id,
+        id: params.message_id.clone(),
+        conversation_id: params.conversation_id,
         role: "assistant".to_string(),
-        content: full_text,
+        content: params.full_text,
         created_at: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_secs() as i64,
-        token_count: usage_tokens,
-        search_results,
-        thinking_content: if thinking_content.is_empty() { None } else { Some(thinking_content) },
+        token_count: params.usage_tokens,
+        search_results: params.search_results,
+        thinking_content: if params.thinking_content.is_empty() { None } else { Some(params.thinking_content) },
         attachments: None,
     };
     {
@@ -272,8 +277,8 @@ pub fn finalize_response(
     let _ = app.emit(
         "chat:stream-done",
         serde_json::json!({
-            "message_id": message_id,
-            "token_count": usage_tokens,
+            "message_id": params.message_id,
+            "token_count": params.usage_tokens,
             "search_results": search_results_clone,
         }),
     );

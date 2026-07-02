@@ -73,6 +73,7 @@ pub fn create_conversation(
 
 /// Update a conversation's config fields.
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 pub fn update_conversation(
     id: String,
     title: Option<String>,
@@ -109,7 +110,7 @@ pub fn update_conversation(
     if provider_id.is_some() || model.is_some() || prompt_id.is_some() || search_enabled.is_some() || search_engine.is_some() {
         // Treat empty string as None (clear), missing field keeps old value
         let effective_prompt_id = match prompt_id.as_deref() {
-            Some(s) if s.is_empty() => None,
+            Some("") => None,
             Some(s) => Some(s.to_string()),
             None => conv.prompt_id.clone(),
         };
