@@ -82,10 +82,16 @@ User Input → ChatInput → emit('send') → ChatView → chatStore.sendMessage
 |--------|---------------|
 | `main.rs` | App entry, window setup |
 | `lib.rs` | Tauri command registration, AppState |
-| `models.rs` | Message, Conversation, ModelProvider, Settings, Prompt structs |
-| `store.rs` | SQLite: conversations, messages, prompts CRUD + migrations |
+| `models.rs` | Message, Conversation, ModelProvider, Settings, Prompt, MCP structs |
+| `store/mod.rs` | Store module entry + pub use re-exports |
+| `store/migrations.rs` | SQLite table creation, ALTER TABLE migrations, MCP seed data |
+| `store/chat.rs` | Conversation + Message CRUD |
+| `store/prompt.rs` | Prompt CRUD |
+| `store/mcp.rs` | MCP categories, servers, instances CRUD |
 | `config.rs` | JSON config read/write + old format migration |
-| `commands/chat.rs` | send_message, stop_stream, get_messages, delete_message, regenerate_message |
+| `chat/engine.rs` | Core LLM generation logic: gather_context, resolve_llm_config, execute_stream, finalize_response |
+| `chat/search.rs` | MCP search integration: perform_search, parse_search_results |
+| `commands/chat.rs` | Thin controller: send_message, stop_stream, get_messages, delete_message, regenerate_message |
 | `commands/conversation.rs` | list, create, update, delete, pin, unpin |
 | `commands/settings.rs` | get_settings, update_settings, test_provider_connection, fetch_provider_models |
 | `commands/prompt.rs` | list_prompts, create_prompt, update_prompt, delete_prompt, set_default_prompt |

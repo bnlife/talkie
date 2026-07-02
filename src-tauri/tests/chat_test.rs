@@ -526,7 +526,7 @@ fn test_parse_search_results_bocha_format() {
         }]
     });
 
-    let results = talkie::commands::chat::parse_search_results(&mcp_response);
+    let results = talkie::chat::search::parse_search_results(&mcp_response);
     assert_eq!(results.len(), 2);
     assert_eq!(results[0].title, "Rust 语言官网");
     assert_eq!(results[0].url, "https://www.rust-lang.org");
@@ -545,7 +545,7 @@ fn test_parse_search_results_no_snippet() {
         }]
     });
 
-    let results = talkie::commands::chat::parse_search_results(&mcp_response);
+    let results = talkie::chat::search::parse_search_results(&mcp_response);
     assert_eq!(results.len(), 2);
     assert_eq!(results[0].title, "Example");
     assert_eq!(results[0].url, "https://example.com");
@@ -561,7 +561,7 @@ fn test_parse_search_results_empty() {
         }]
     });
 
-    let results = talkie::commands::chat::parse_search_results(&mcp_response);
+    let results = talkie::chat::search::parse_search_results(&mcp_response);
     assert_eq!(results.len(), 0);
 }
 
@@ -575,6 +575,6 @@ fn test_parse_search_results_fallback_json() {
         }]
     });
 
-    let results = talkie::commands::chat::parse_search_results(&mcp_response);
+    let results = talkie::chat::search::parse_search_results(&mcp_response);
     assert_eq!(results.len(), 0);
 }

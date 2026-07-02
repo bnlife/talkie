@@ -11,7 +11,7 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use talkie::commands::chat::perform_search;
+use talkie::chat::search::perform_search;
 use talkie::mcp::pool::McpPool;
 use talkie::models::{Conversation, ConversationConfig, McpInstance};
 use talkie::store;
