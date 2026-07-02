@@ -30,8 +30,6 @@
   --color-btn-ghost-foreground: var(--btn-ghost-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
-  --color-warning: var(--warning);
-  --color-warning-foreground: var(--warning-foreground);
   --color-error: var(--error);
   --color-error-foreground: var(--error-foreground);
   --color-hover: var(--hover);
@@ -104,8 +102,6 @@
   --btn-ghost-foreground: hsl(0 0% 55%);
   --success: hsl(142 50% 50%);
   --success-foreground: hsl(0 0% 100%);
-  --warning: hsl(38 70% 50%);
-  --warning-foreground: hsl(0 0% 100%);
   --error: hsl(0 70% 70%);
   --error-foreground: hsl(0 0% 100%);
   --hover: hsl(0 0% 90%);
@@ -144,8 +140,6 @@
   --btn-ghost-foreground: hsl(0 0% 65%);
   --success: hsl(142 50% 50%);
   --success-foreground: hsl(0 0% 100%);
-  --warning: hsl(38 70% 50%);
-  --warning-foreground: hsl(0 0% 100%);
   --error: hsl(0 70% 70%);
   --error-foreground: hsl(0 0% 100%);
   --hover: hsl(0 0% 20%);

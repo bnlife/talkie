@@ -113,7 +113,7 @@ async function handleRegenerate() {
     style="scrollbar-gutter: stable"
     @scroll="onScroll"
   >
-    <div class="flex flex-col gap-3 px-4 py-2">
+    <div class="flex flex-col gap-3 px-4 pt-2 pb-16">
       <template v-if="allMessages.length">
         <MessageItem
           v-for="msg in allMessages"

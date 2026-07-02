@@ -143,6 +143,9 @@ function isPinned() {
       >
         <!-- 标题 / 重命名输入框 -->
         <div class="sidebar-item-content">
+          <Pin
+            :class="cn('size-3 shrink-0', conv.pinned ? 'text-foreground' : 'opacity-0')"
+          />
           <template v-if="editingId === conv.id">
             <Input
               v-model="editingTitle"
@@ -183,12 +186,6 @@ function isPinned() {
             <Trash2 class="size-3" />
           </Button>
         </div>
-
-        <!-- 置顶图标 -->
-        <Pin
-          v-if="conv.pinned && editingId !== conv.id"
-          class="ml-1 size-3 shrink-0 text-muted-foreground"
-        />
       </div>
 
       <!-- 空状态 -->

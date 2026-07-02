@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem } from '@/components/ui/context-menu'
 import {
   Minus, Maximize2, Minimize2, X,
-  Plus, Search, Star, Trash2, Edit2,
+  Plus, Search, Pin, Trash2, Edit2,
 } from 'lucide-vue-next'
 import SettingsPanel from './SettingsPanel.vue'
 
@@ -165,9 +165,8 @@ function isDefault(id: string) {
                 <template v-else>
                   <span class="truncate text-sm text-muted-foreground">{{ provider.name }}</span>
                 </template>
-                <Star
-                  v-if="isDefault(provider.id) && renamingId !== provider.id"
-                  class="size-3 shrink-0 fill-warning text-warning"
+                <Pin
+                  :class="cn('size-3 shrink-0', isDefault(provider.id) ? 'text-foreground' : 'opacity-0')"
                 />
               </div>
               <div class="sidebar-item-actions opacity-0 group-hover:opacity-100">
@@ -199,6 +198,7 @@ function isDefault(id: string) {
                 重命名
               </ContextMenuItem>
               <ContextMenuItem @select="handleSetDefault">
+                <Pin class="size-3.5" />
                 设为默认
               </ContextMenuItem>
             </ContextMenuContent>

@@ -19,7 +19,7 @@ import {
   Search,
   Edit2,
   Trash2,
-  Star,
+  Pin,
 } from 'lucide-vue-next'
 
 const promptStore = usePromptStore()
@@ -191,7 +191,9 @@ onMounted(async () => {
                 @contextmenu="contextMenuPromptId = prompt.id"
               >
                 <div class="sidebar-item-content">
-                  <Star v-if="prompt.is_default" class="size-3 shrink-0 text-warning" />
+                  <Pin
+                    :class="cn('size-3 shrink-0', prompt.is_default ? 'text-foreground' : 'opacity-0')"
+                  />
                   <span class="truncate text-sm text-muted-foreground">{{ prompt.name }}</span>
                 </div>
 
@@ -231,7 +233,7 @@ onMounted(async () => {
               </ContextMenuTrigger>
               <ContextMenuContent>
                 <ContextMenuItem @select="handleContextMenuDefault">
-                  <Star class="size-3.5" />
+                  <Pin class="size-3.5" />
                   设为默认
                 </ContextMenuItem>
                 <ContextMenuItem @select="handleContextMenuDelete">
