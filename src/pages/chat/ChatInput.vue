@@ -269,7 +269,7 @@ onUnmounted(() => {
         variant="ghost"
         size="sm"
         :class="cn(
-          'h-6 gap-1 rounded-full px-2.5 text-xs',
+          'h-6 gap-1 px-2.5 text-xs',
           searchEnabled
             ? 'bg-muted text-foreground font-medium'
             : 'text-muted-foreground',
@@ -285,7 +285,7 @@ onUnmounted(() => {
         variant="ghost"
         size="sm"
         :class="cn(
-          'h-6 max-w-28 gap-1 rounded-full px-2.5 text-xs',
+          'h-6 max-w-28 gap-1 px-2.5 text-xs',
           currentPrompt?.id
             ? 'bg-muted text-foreground'
             : 'text-muted-foreground',
@@ -301,7 +301,7 @@ onUnmounted(() => {
         variant="ghost"
         size="sm"
         :class="cn(
-          'h-6 max-w-36 gap-1 rounded-full px-2.5 text-xs',
+          'h-6 max-w-36 gap-1 px-2.5 text-xs',
           currentModel?.model
             ? 'bg-muted text-foreground'
             : 'text-muted-foreground',

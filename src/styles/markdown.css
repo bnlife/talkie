@@ -6,7 +6,7 @@
   --md-paragraph-spacing: 0.75rem;
   --md-blockquote-border: hsl(0 0% 80%);
   --md-blockquote-bg: hsl(0 0% 96%);
-  --md-code-bg: hsl(0 0% 95%);
+  --md-code-bg: hsl(0 0% 90%);
   --md-code-radius: 4px;
   --md-code-font-size: 0.875rem;
   --md-table-border: hsl(0 0% 85%);
@@ -16,7 +16,7 @@
 .dark {
   --md-blockquote-border: hsl(0 0% 30%);
   --md-blockquote-bg: hsl(0 0% 14%);
-  --md-code-bg: hsl(0 0% 14%);
+  --md-code-bg: hsl(0 0% 18%);
   --md-table-border: hsl(0 0% 25%);
   --md-link-color: hsl(0 0% 75%);
 }
