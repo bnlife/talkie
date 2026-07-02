@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useChatStore } from '@/stores/chatStore'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useChatEvents } from './useChatEvents'
+import type { AttachmentMeta } from '@/lib/attachment'
 import Sidebar from './Sidebar.vue'
 import MessageList from './MessageList.vue'
 import ChatInput from './ChatInput.vue'
@@ -24,7 +25,7 @@ function handleClose(id: string) { chatStore.deleteConversation(id) }
 async function handleRename(id: string, title: string) { await chatStore.renameConversation(id, title) }
 function handlePin(id: string) { chatStore.pinConversation(id) }
 function handleUnpin(id: string) { chatStore.unpinConversation(id) }
-function handleSend(content: string) { chatStore.sendMessage(content) }
+function handleSend(displayContent: string, fullContent: string, attachments?: AttachmentMeta[]) { chatStore.sendMessage(displayContent, fullContent, attachments) }
 
 onMounted(async () => {
   await settingsStore.loadSettings()

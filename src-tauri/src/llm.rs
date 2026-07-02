@@ -242,8 +242,8 @@ mod tests {
                 .create();
 
             let messages = vec![
-                Message { id: "system".into(), conversation_id: "c1".into(), role: "system".into(), content: "你是翻译助手".into(), created_at: 0, token_count: None, search_results: None, thinking_content: None },
-                Message { id: "u1".into(), conversation_id: "c1".into(), role: "user".into(), content: "hello".into(), created_at: 0, token_count: None, search_results: None, thinking_content: None },
+                Message { id: "system".into(), conversation_id: "c1".into(), role: "system".into(), content: "你是翻译助手".into(), created_at: 0, token_count: None, search_results: None, thinking_content: None, attachments: None },
+                Message { id: "u1".into(), conversation_id: "c1".into(), role: "user".into(), content: "hello".into(), created_at: 0, token_count: None, search_results: None, thinking_content: None, attachments: None },
             ];
 
             let mut headers = std::collections::HashMap::new();
@@ -280,7 +280,7 @@ mod tests {
                 .create();
 
             let messages = vec![
-                Message { id: "u1".into(), conversation_id: "c1".into(), role: "user".into(), content: "hi".into(), created_at: 0, token_count: None, search_results: None, thinking_content: None },
+                Message { id: "u1".into(), conversation_id: "c1".into(), role: "user".into(), content: "hi".into(), created_at: 0, token_count: None, search_results: None, thinking_content: None, attachments: None },
             ];
 
             let rt = tokio::runtime::Runtime::new().unwrap();

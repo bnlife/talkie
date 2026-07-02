@@ -135,7 +135,7 @@ pub fn list_messages_by_conversation(
 ) -> Result<Vec<Message>, AppError> {
     log::debug!("RS::list_messages | conv={}", conversation_id);
     let mut stmt = conn.prepare(
-        "SELECT id, conversation_id, role, content, created_at, token_count, search_results, thinking_content \
+        "SELECT id, conversation_id, role, content, created_at, token_count, search_results, thinking_content, attachments \
          FROM messages WHERE conversation_id = ?1 ORDER BY created_at ASC",
     )?;
     let rows = stmt.query_map(params![conversation_id], |row| {
@@ -143,6 +143,9 @@ pub fn list_messages_by_conversation(
         let search_results = search_results_json
             .and_then(|json| serde_json::from_str::<Vec<crate::models::SearchResult>>(&json).ok());
         let thinking_content: Option<String> = row.get(7)?;
+        let attachments_json: Option<String> = row.get(8)?;
+        let attachments = attachments_json
+            .and_then(|json| serde_json::from_str::<Vec<crate::models::AttachmentMeta>>(&json).ok());
         Ok(Message {
             id: row.get(0)?,
             conversation_id: row.get(1)?,
@@ -152,6 +155,7 @@ pub fn list_messages_by_conversation(
             token_count: row.get(5)?,
             search_results,
             thinking_content,
+            attachments,
         })
     })?;
     let mut messages = Vec::new();
@@ -166,9 +170,11 @@ pub fn create_message(conn: &Connection, message: &Message) -> Result<(), AppErr
     log::debug!("RS::create_message | conv={} role={}", message.conversation_id, message.role);
     let search_results_json = message.search_results.as_ref()
         .map(|sr| serde_json::to_string(sr).unwrap_or_default());
+    let attachments_json = message.attachments.as_ref()
+        .map(|a| serde_json::to_string(a).unwrap_or_default());
     conn.execute(
-        "INSERT INTO messages (id, conversation_id, role, content, created_at, token_count, search_results, thinking_content) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        "INSERT INTO messages (id, conversation_id, role, content, created_at, token_count, search_results, thinking_content, attachments) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             message.id,
             message.conversation_id,
@@ -178,6 +184,7 @@ pub fn create_message(conn: &Connection, message: &Message) -> Result<(), AppErr
             message.token_count,
             search_results_json,
             message.thinking_content,
+            attachments_json,
         ],
     )?;
     Ok(())
@@ -190,9 +197,11 @@ pub fn batch_create_messages(conn: &Connection, messages: &[Message]) -> Result<
     for msg in messages {
         let search_results_json = msg.search_results.as_ref()
             .map(|sr| serde_json::to_string(sr).unwrap_or_default());
+        let attachments_json = msg.attachments.as_ref()
+            .map(|a| serde_json::to_string(a).unwrap_or_default());
         tx.execute(
-            "INSERT INTO messages (id, conversation_id, role, content, created_at, token_count, search_results, thinking_content) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            "INSERT INTO messages (id, conversation_id, role, content, created_at, token_count, search_results, thinking_content, attachments) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
                 msg.id,
                 msg.conversation_id,
@@ -202,6 +211,7 @@ pub fn batch_create_messages(conn: &Connection, messages: &[Message]) -> Result<
                 msg.token_count,
                 search_results_json,
                 msg.thinking_content,
+                attachments_json,
             ],
         )?;
     }
@@ -368,6 +378,7 @@ mod tests {
             token_count: Some(100),
             search_results: Some(search_results),
             thinking_content: None,
+            attachments: None,
         };
         create_message(&conn, &msg).unwrap();
 
@@ -412,6 +423,7 @@ mod tests {
             token_count: None,
             search_results: None,
             thinking_content: None,
+            attachments: None,
         };
         create_message(&conn, &msg).unwrap();
 

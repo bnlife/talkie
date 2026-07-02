@@ -6,7 +6,7 @@ import { renderMarkdown } from '@/lib/markdown'
 import { openUrl } from '@/bridge/settings'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Copy, Trash2, RefreshCw, Check, Globe, ChevronDown, ChevronUp } from 'lucide-vue-next'
+import { Copy, Trash2, RefreshCw, Check, Globe, ChevronDown, ChevronUp, Paperclip, Download } from 'lucide-vue-next'
 import ThinkingBlock from './ThinkingBlock.vue'
 
 const props = defineProps<{
@@ -113,6 +113,17 @@ async function handleCopy() {
   emit('copy', props.message.content)
 }
 
+function downloadAttachment(att: { name: string; content?: string }) {
+  if (!att.content) return
+  const blob = new Blob([att.content], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = att.name
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 function onContentClick(e: MouseEvent) {
   const target = e.target as HTMLElement
   if (target.classList.contains('search-citation')) {
@@ -134,6 +145,7 @@ function onContentClick(e: MouseEvent) {
   <div class="group relative flex w-full gap-3 pb-4">
     <!-- 头像 -->
     <Avatar
+      shape="square"
       :class="cn(
         'h-8 w-8 shrink-0 mt-1',
         isUser ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
@@ -162,6 +174,24 @@ function onContentClick(e: MouseEvent) {
       <!-- 消息正文 -->
       <div class="relative">
         <div class="p-0">
+          <!-- 附件标签 -->
+          <div v-if="isUser && message.attachments && message.attachments.length > 0" class="mb-1.5 flex flex-wrap gap-1.5">
+            <span
+              v-for="att in message.attachments"
+              :key="att.name"
+              class="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+            >
+              <Paperclip class="size-3 shrink-0" />
+              <span class="max-w-[140px] truncate">{{ att.name }}</span>
+              <button
+                v-if="att.content"
+                class="ml-0.5 rounded-sm p-0.5 hover:bg-foreground/10"
+                @click="downloadAttachment(att)"
+              >
+                <Download class="size-3" />
+              </button>
+            </span>
+          </div>
           <p v-if="isUser" class="text-base leading-relaxed whitespace-pre-wrap break-words">
             {{ message.content }}
           </p>

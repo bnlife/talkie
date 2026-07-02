@@ -3,6 +3,43 @@ use tauri::{AppHandle, Emitter};
 use crate::{llm, models, store, AppState};
 use tokio_util::sync::CancellationToken;
 
+/// Guess the code language identifier from a filename extension.
+pub fn guess_language(filename: &str) -> &'static str {
+    let ext = filename.rfind('.').map(|i| &filename[i..]).unwrap_or("");
+    match ext {
+        ".js" | ".mjs" | ".cjs" | ".jsx" => "javascript",
+        ".ts" | ".tsx" => "typescript",
+        ".py" => "python",
+        ".rs" => "rust",
+        ".go" => "go",
+        ".java" => "java",
+        ".c" | ".h" => "c",
+        ".cpp" | ".cc" | ".cxx" | ".hpp" => "cpp",
+        ".cs" => "csharp",
+        ".swift" => "swift",
+        ".kt" => "kotlin",
+        ".scala" => "scala",
+        ".lua" => "lua",
+        ".r" => "r",
+        ".rb" => "ruby",
+        ".php" => "php",
+        ".css" | ".scss" | ".less" => "css",
+        ".html" | ".htm" => "html",
+        ".xml" | ".svg" => "xml",
+        ".json" | ".jsonl" => "json",
+        ".yaml" | ".yml" => "yaml",
+        ".toml" => "toml",
+        ".sql" => "sql",
+        ".sh" | ".bash" | ".zsh" => "bash",
+        ".bat" | ".cmd" => "batch",
+        ".ps1" => "powershell",
+        ".md" | ".markdown" => "markdown",
+        ".vue" => "vue",
+        ".svelte" => "svelte",
+        _ => "",
+    }
+}
+
 /// Conversation context: history messages + optional system prompt.
 pub struct ConversationContext {
     pub messages: Vec<models::Message>,
@@ -55,6 +92,7 @@ pub fn gather_context(
             token_count: None,
             search_results: None,
             thinking_content: None,
+            attachments: None,
         });
     }
     messages.extend(history.iter().cloned());
@@ -211,6 +249,7 @@ pub fn finalize_response(
         token_count: usage_tokens,
         search_results,
         thinking_content: if thinking_content.is_empty() { None } else { Some(thinking_content) },
+        attachments: None,
     };
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;

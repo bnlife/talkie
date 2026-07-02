@@ -4,6 +4,12 @@ export interface SearchResult {
   snippet?: string
 }
 
+export interface AttachmentMeta {
+  name: string
+  size: number
+  content?: string
+}
+
 export interface Message {
   id: string
   conversation_id: string
@@ -13,6 +19,7 @@ export interface Message {
   token_count?: number
   search_results?: SearchResult[]
   thinking_content?: string
+  attachments?: AttachmentMeta[]
 }
 
 export interface ModelProvider {

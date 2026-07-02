@@ -35,6 +35,7 @@ describe('chat bridge', () => {
     expect(mockedInvoke).toHaveBeenCalledWith('send_message', {
       conversationId: 'conv-1',
       content: 'hello',
+      attachments: null,
       searchEnabled: false,
       searchEngine: null,
     })

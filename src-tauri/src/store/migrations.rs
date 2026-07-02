@@ -120,6 +120,12 @@ pub fn run_migrations(conn: &Connection) -> Result<(), AppError> {
         [],
     );
 
+    // 迁移：为 messages 表添加 attachments 列（JSON 数组，存储附件元数据+内容）
+    let _ = conn.execute(
+        "ALTER TABLE messages ADD COLUMN attachments TEXT",
+        [],
+    );
+
     // Seed built-in MCP registry data (skip if already populated).
     seed_mcp_registry(conn)?;
 

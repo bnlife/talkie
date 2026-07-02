@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { ConversationView, Message } from '../types'
+import type { ConversationView, Message, AttachmentMeta } from '../types'
 import * as chatBridge from '../bridge/chat'
 import * as conversationBridge from '../bridge/conversation'
 import { log } from '../bridge/log'
@@ -118,21 +118,23 @@ export const useChatStore = defineStore('chat', {
       }
     },
 
-    async sendMessage(content: string): Promise<void> {
+    async sendMessage(displayContent: string, fullContent?: string, attachments?: AttachmentMeta[]): Promise<void> {
       const conv = this.conversations.find(c => c.id === this.activeConversationId)
-      await log('info', `FE::chatStore | send | len=${content.length} search=${conv?.search_enabled ?? false} engine=${conv?.search_engine ?? ''}`)
+      const apiContent = fullContent || displayContent
+      await log('info', `FE::chatStore | send | len=${apiContent.length} search=${conv?.search_enabled ?? false} engine=${conv?.search_engine ?? ''}`)
       if (!this.activeConversationId || !conv) return
       this.clearDraft(this.activeConversationId)
       const tempMsg: Message = {
         id: crypto.randomUUID(),
         conversation_id: this.activeConversationId,
         role: 'user',
-        content,
+        content: displayContent,
         created_at: Date.now(),
+        attachments: attachments && attachments.length > 0 ? attachments : undefined,
       }
       this.messages.push(tempMsg)
       this.waitingForResponse = true
-      await chatBridge.sendMessage(this.activeConversationId, content, conv.search_enabled, conv.search_engine || undefined)
+      await chatBridge.sendMessage(this.activeConversationId, displayContent, attachments && attachments.length > 0 ? attachments : undefined, conv.search_enabled, conv.search_engine || undefined)
     },
 
     async selectSearchEngine(engine: string): Promise<void> {

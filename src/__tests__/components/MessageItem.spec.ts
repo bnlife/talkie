@@ -398,4 +398,58 @@ describe('MessageItem.vue', () => {
       })
     })
   })
+
+  describe('attachments', () => {
+    it('有附件的用户消息显示文件名标签', () => {
+      const wrapper = mount(MessageItem, {
+        props: {
+          message: createMsg({
+            role: 'user',
+            content: '分析代码',
+            attachments: [{ name: 'main.rs', size: 100 }],
+          }),
+        },
+      })
+      expect(wrapper.text()).toContain('main.rs')
+    })
+
+    it('无附件的消息不显示附件区域', () => {
+      const wrapper = mount(MessageItem, {
+        props: {
+          message: createMsg({ role: 'user', content: '纯文字' }),
+        },
+      })
+      expect(wrapper.find('.lucide-paperclip').exists()).toBe(false)
+    })
+
+    it('多个附件显示所有文件名', () => {
+      const wrapper = mount(MessageItem, {
+        props: {
+          message: createMsg({
+            role: 'user',
+            content: '看下这两个',
+            attachments: [
+              { name: 'a.py', size: 50 },
+              { name: 'b.js', size: 80 },
+            ],
+          }),
+        },
+      })
+      expect(wrapper.text()).toContain('a.py')
+      expect(wrapper.text()).toContain('b.js')
+    })
+
+    it('assistant 消息即使有 attachments 也不显示附件标签', () => {
+      const wrapper = mount(MessageItem, {
+        props: {
+          message: createMsg({
+            role: 'assistant',
+            content: '回复',
+            attachments: [{ name: 'output.txt', size: 200 }],
+          }),
+        },
+      })
+      expect(wrapper.find('.lucide-paperclip').exists()).toBe(false)
+    })
+  })
 })

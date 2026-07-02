@@ -9,6 +9,15 @@ pub struct SearchResult {
     pub snippet: Option<String>,
 }
 
+/// Attachment metadata stored with a message.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AttachmentMeta {
+    pub name: String,
+    pub size: i64,
+    #[serde(default)]
+    pub content: Option<String>,
+}
+
 /// A single chat message within a conversation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
@@ -23,6 +32,8 @@ pub struct Message {
     pub search_results: Option<Vec<SearchResult>>,
     #[serde(default)]
     pub thinking_content: Option<String>,
+    #[serde(default)]
+    pub attachments: Option<Vec<AttachmentMeta>>,
 }
 
 /// A model provider (e.g. OpenAI, DeepSeek, Ollama).

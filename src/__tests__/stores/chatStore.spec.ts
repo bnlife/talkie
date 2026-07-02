@@ -229,7 +229,7 @@ describe('chatStore', () => {
       })
       expect(typeof store.messages[0].id).toBe('string')
       expect(typeof store.messages[0].created_at).toBe('number')
-      expect(chatBridge.sendMessage).toHaveBeenCalledWith('conv-1', 'hello', false, undefined)
+      expect(chatBridge.sendMessage).toHaveBeenCalledWith('conv-1', 'hello', undefined, false, undefined)
     })
 
     it('sendMessage passes searchEnabled=true when search is on', async () => {
@@ -241,7 +241,7 @@ describe('chatStore', () => {
 
       await store.sendMessage('搜索天气')
 
-      expect(chatBridge.sendMessage).toHaveBeenCalledWith('conv-1', '搜索天气', true, 'bocha-search')
+      expect(chatBridge.sendMessage).toHaveBeenCalledWith('conv-1', '搜索天气', undefined, true, 'bocha-search')
     })
   })
 
