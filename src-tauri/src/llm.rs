@@ -3,6 +3,7 @@ use tokio_util::sync::CancellationToken;
 use crate::models;
 
 /// Result of a streaming chat completion.
+#[derive(Debug, PartialEq)]
 pub struct StreamResult {
     pub content: String,
     pub thinking: String,

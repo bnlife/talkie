@@ -49,6 +49,8 @@ async fn test_single_chunk() {
         created_at: 1000,
         token_count: None,
         search_results: None,
+        thinking_content: None,
+        attachments: None,
     }];
 
     let result = stream_chat(
@@ -63,12 +65,15 @@ async fn test_single_chunk() {
         move |chunk| {
             chunks_clone.lock().unwrap().push(chunk);
         },
+        |_| {},
     )
     .await;
 
     // Verify return value
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), ("你好".into(), None));
+    let r = result.unwrap();
+    assert_eq!(r.content, "你好");
+    assert_eq!(r.tokens, None);
 
     // Verify on_chunk was called exactly once with the correct content
     let captured = chunks.lock().unwrap();
@@ -112,6 +117,8 @@ async fn test_multi_chunk_stream() {
         created_at: 1000,
         token_count: None,
         search_results: None,
+        thinking_content: None,
+        attachments: None,
     }];
 
     let result = stream_chat(
@@ -126,12 +133,15 @@ async fn test_multi_chunk_stream() {
         move |chunk| {
             chunks_clone.lock().unwrap().push(chunk);
         },
+        |_| {},
     )
     .await;
 
     // Final accumulated text
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), ("你好世界".into(), None));
+    let r = result.unwrap();
+    assert_eq!(r.content, "你好世界");
+    assert_eq!(r.tokens, None);
 
     // Per‑delta callbacks
     let captured = chunks.lock().unwrap();
@@ -159,6 +169,8 @@ async fn test_cancel_before_request() {
         created_at: 1000,
         token_count: None,
         search_results: None,
+        thinking_content: None,
+        attachments: None,
     }];
 
     // Use a deliberately broken URL — the cancellation check runs first, so
@@ -172,6 +184,7 @@ async fn test_cancel_before_request() {
         1.0,
         &messages,
         cancel,
+        |_| {},
         |_| {},
     )
     .await;
@@ -201,6 +214,8 @@ async fn test_http_error_401() {
         created_at: 1000,
         token_count: None,
         search_results: None,
+        thinking_content: None,
+        attachments: None,
     }];
 
     let result = stream_chat(
@@ -212,6 +227,7 @@ async fn test_http_error_401() {
         1.0,
         &messages,
         CancellationToken::new(),
+        |_| {},
         |_| {},
     )
     .await;
@@ -245,6 +261,8 @@ async fn test_http_error_500() {
         created_at: 1000,
         token_count: None,
         search_results: None,
+        thinking_content: None,
+        attachments: None,
     }];
 
     let result = stream_chat(
@@ -256,6 +274,7 @@ async fn test_http_error_500() {
         1.0,
         &messages,
         CancellationToken::new(),
+        |_| {},
         |_| {},
     )
     .await;
@@ -304,6 +323,8 @@ data: [DONE]
         created_at: 1000,
         token_count: None,
         search_results: None,
+        thinking_content: None,
+        attachments: None,
     }];
 
     let result = stream_chat(
@@ -318,12 +339,15 @@ data: [DONE]
         move |chunk| {
             chunks_clone.lock().unwrap().push(chunk);
         },
+        |_| {},
     )
     .await;
 
     // Even with malformed lines, valid content must be extracted
     assert!(result.is_ok());
-    assert_eq!(result.unwrap(), ("部分有效".into(), None));
+    let r = result.unwrap();
+    assert_eq!(r.content, "部分有效");
+    assert_eq!(r.tokens, None);
 
     let captured = chunks.lock().unwrap();
     assert_eq!(captured.len(), 1);

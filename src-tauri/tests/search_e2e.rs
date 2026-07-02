@@ -75,7 +75,7 @@ fn test_search_e2e_full_flow() {
     insert_bocha_instance(&state);
 
     // perform_search: find instance in DB → auto-start MCP → call_tool → parse
-    let (text, results) = perform_search(&state, "test query").expect("search should succeed");
+    let (text, results) = perform_search(&state, "test query", None).expect("search should succeed");
 
     // Verify text for LLM
     assert!(text.contains("Search results for"), "text should contain header, got: {}", text);
@@ -110,7 +110,7 @@ fn test_search_e2e_persist_results() {
     insert_conversation(&state, "conv-2");
     insert_bocha_instance(&state);
 
-    let (text, results) = perform_search(&state, "rust lang").expect("search should succeed");
+    let (text, results) = perform_search(&state, "rust lang", None).expect("search should succeed");
 
     // Simulate what finalize_response does: create assistant message with search_results
     let msg = talkie::models::Message {
@@ -121,6 +121,8 @@ fn test_search_e2e_persist_results() {
         created_at: 2000,
         token_count: Some(100),
         search_results: Some(results),
+        thinking_content: None,
+        attachments: None,
     };
 
     {
@@ -150,7 +152,7 @@ fn test_search_e2e_no_instance() {
     insert_conversation(&state, "conv-3");
     // Don't insert any MCP instance
 
-    let result = perform_search(&state, "test query");
+    let result = perform_search(&state, "test query", None);
     assert!(result.is_err(), "should fail when no search instance");
     let err = result.unwrap_err();
     assert!(err.contains("没有启用的搜索 MCP 实例"), "error should mention no instance, got: {}", err);
@@ -169,7 +171,7 @@ fn test_search_e2e_auto_start() {
     // Verify MCP is NOT running before search
     assert!(!state.mcp_pool.is_running("inst-bocha"), "MCP should not be running before search");
 
-    let (text, results) = perform_search(&state, "auto start test").expect("search should succeed");
+    let (text, results) = perform_search(&state, "auto start test", None).expect("search should succeed");
 
     // Verify MCP WAS auto-started
     assert!(state.mcp_pool.is_running("inst-bocha"), "MCP should be auto-started after search");
@@ -209,7 +211,7 @@ fn test_search_e2e_empty_results() {
     store::create_mcp_instance(&db, &inst).unwrap();
     drop(db);
 
-    let (text, results) = perform_search(&state, "nonexistent query").expect("search should succeed even with no results");
+    let (text, results) = perform_search(&state, "nonexistent query", None).expect("search should succeed even with no results");
 
     // Empty results: parse_search_results returns 0 items, text contains "No results"
     assert_eq!(results.len(), 0, "empty fixture should return 0 results");

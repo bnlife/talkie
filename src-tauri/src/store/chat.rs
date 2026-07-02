@@ -331,6 +331,7 @@ mod tests {
                 token_count INTEGER,
                 search_results TEXT,
                 thinking_content TEXT,
+                attachments TEXT,
                 FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
             );",
         ).unwrap();

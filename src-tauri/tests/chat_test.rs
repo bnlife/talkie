@@ -18,7 +18,7 @@ use std::time::Duration;
 
 use tokio_util::sync::CancellationToken;
 
-use talkie::models::{Conversation, ConversationConfig, Message, MessagesPage};
+use talkie::models::{Conversation, ConversationConfig, Message};
 use talkie::store;
 
 // ---------------------------------------------------------------------------
@@ -618,9 +618,10 @@ fn test_store_paginated_first_page() {
     assert_eq!(page.messages.len(), 30);
     assert_eq!(page.total, 50);
     assert!(page.has_more);
-    // Should be in DESC order (newest first)
-    assert_eq!(page.messages[0].created_at, 1049);
-    assert_eq!(page.messages[29].created_at, 1020);
+    // Should be in ASC order (oldest first, reversed from DB DESC)
+    // First page (offset=0, limit=30) covers created_at 1020..1049
+    assert_eq!(page.messages[0].created_at, 1020);
+    assert_eq!(page.messages[29].created_at, 1049);
 }
 
 /// Last page returns remaining messages and has_more=false.
@@ -686,8 +687,8 @@ fn test_store_paginated_order() {
     let page = store::list_messages_paginated(&conn, "conv-order", 0, 30).unwrap();
     for i in 0..page.messages.len() - 1 {
         assert!(
-            page.messages[i].created_at > page.messages[i + 1].created_at,
-            "messages should be in descending order"
+            page.messages[i].created_at < page.messages[i + 1].created_at,
+            "messages should be in ascending order (chronological)"
         );
     }
 }
