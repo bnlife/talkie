@@ -114,7 +114,7 @@ export const useChatStore = defineStore('chat', {
       if (this.activeConversationId === id) return
       this.activeConversationId = id
       const page = await chatBridge.getMessages(id, 0, this.pageSize)
-      this.messages = page.messages.reverse()
+      this.messages = page.messages
       this.hasMore = page.has_more
       await log('debug', `FE::chatStore | switch | loaded=${page.messages.length} has_more=${page.has_more}`)
       const settingsStore = useSettingsStore()
@@ -133,7 +133,7 @@ export const useChatStore = defineStore('chat', {
       const offset = this.messages.length
       await log('debug', `FE::chatStore | loadMore | offset=${offset}`)
       const page = await chatBridge.getMessages(this.activeConversationId, offset, this.pageSize)
-      this.messages.unshift(...page.messages.reverse())
+      this.messages.unshift(...page.messages)
       this.hasMore = page.has_more
       this.loadingMore = false
       await log('debug', `FE::chatStore | loadMore | loaded=${page.messages.length} has_more=${page.has_more}`)
