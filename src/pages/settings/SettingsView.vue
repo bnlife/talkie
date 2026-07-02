@@ -116,18 +116,18 @@ function isDefault(id: string) {
     >
       <span class="text-sm font-medium text-muted-foreground">设置</span>
       <div class="flex items-center gap-0.5">
-        <Button variant="ghost" size="icon" class="h-6 w-6 hover:bg-background" @click="minimizeWindow"><Minus class="h-3.5 w-3.5" /></Button>
-        <Button variant="ghost" size="icon" class="h-6 w-6 hover:bg-background" @click="toggleMaximize">
+        <Button variant="ghost" size="icon-sm" @click="minimizeWindow"><Minus class="h-3.5 w-3.5" /></Button>
+        <Button variant="ghost" size="icon-sm" @click="toggleMaximize">
           <Maximize2 v-if="!isMaximized" class="h-3.5 w-3.5" />
-          <Minimize2 v-else class="h-3.5 w-3.5" />
+          <Minimize2 v-else class="h-3.5 w-5.5" />
         </Button>
-        <Button variant="ghost" size="icon" class="h-6 w-6 hover:bg-destructive hover:text-destructive-foreground" @click="closeWindow"><X class="h-3.5 w-3.5" /></Button>
+        <Button variant="ghost" size="icon-sm" class="hover:bg-destructive hover:text-destructive-foreground" @click="closeWindow"><X class="h-3.5 w-3.5" /></Button>
       </div>
     </header>
     <div class="flex flex-1 overflow-hidden p-1">
       <div class="flex flex-1 overflow-hidden rounded-lg border bg-background">
         <!-- Sidebar -->
-        <div class="flex w-60 shrink-0 flex-col gap-1 border-r p-1.5 text-sm">
+        <div class="flex w-[220px] shrink-0 flex-col gap-1 border-r p-1.5 text-sm">
           <!-- 搜索 -->
           <div class="relative">
             <Search class="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -232,14 +232,14 @@ function isDefault(id: string) {
         @click.stop
       >
         <button
-          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-foreground/5 hover:text-foreground"
+          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
           @click="handleRename"
         >
           <Edit2 class="size-3.5" />
           重命名
         </button>
         <button
-          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-foreground/5 hover:text-foreground"
+          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
           @click="handleSetDefault"
         >
           设为默认

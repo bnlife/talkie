@@ -4,8 +4,8 @@ import { useMcpStore } from '@/stores/mcpStore'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Search, Trash2, Settings } from 'lucide-vue-next'
-import type { McpInstance } from '@/types'
+import { Plus, Search, Trash2, Settings, FolderOpen, Database, Code, Cloud, MessageSquare, Zap } from 'lucide-vue-next'
+import type { McpInstance } from 'types'
 
 const props = defineProps<{
   searchQuery: string
@@ -21,6 +21,20 @@ const emit = defineEmits<{
 }>()
 
 const mcpStore = useMcpStore()
+
+const categoryIconMap: Record<string, any> = {
+  filesystem: FolderOpen,
+  database: Database,
+  search: Search,
+  devtools: Code,
+  cloud: Cloud,
+  comms: MessageSquare,
+  productivity: Zap,
+}
+
+function getCategoryIcon(id: string) {
+  return categoryIconMap[id] || FolderOpen
+}
 
 function getInstanceStatus(inst: McpInstance): 'running' | 'starting' | 'stopped' {
   if (mcpStore.startingIds.has(inst.id)) return 'starting'
@@ -64,7 +78,7 @@ function getInstanceStatus(inst: McpInstance): 'running' | 'starting' | 'stopped
       )"
       @click="emit('selectCategory', cat.id)"
     >
-      <span>{{ cat.icon }}</span>
+      <component :is="getCategoryIcon(cat.id)" class="size-3.5 shrink-0 text-muted-foreground" />
       <span class="truncate text-sm text-muted-foreground">{{ cat.name }}</span>
     </div>
 

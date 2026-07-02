@@ -221,14 +221,14 @@ function onContentClick(e: MouseEvent) {
           v-if="!streaming"
           class="absolute -bottom-7 left-0 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
         >
-          <Button variant="ghost" size="icon" class="h-6 w-6" @click="handleCopy">
+          <Button variant="ghost" size="icon-sm" @click="handleCopy">
             <Check v-if="isCopied" class="h-3 w-3 text-green-500" />
             <Copy v-else class="h-3 w-3" />
           </Button>
-          <Button variant="ghost" size="icon" class="h-6 w-6" @click="emit('delete', message.id)">
+          <Button variant="ghost" size="icon-sm" @click="emit('delete', message.id)">
             <Trash2 class="h-3 w-3" />
           </Button>
-          <Button v-if="!isUser && isLast" variant="ghost" size="icon" class="h-6 w-6" @click="emit('regenerate')">
+          <Button v-if="!isUser && isLast" variant="ghost" size="icon-sm" @click="emit('regenerate')">
             <RefreshCw class="h-3 w-3" />
           </Button>
         </div>

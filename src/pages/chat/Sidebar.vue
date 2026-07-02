@@ -240,7 +240,7 @@ onBeforeUnmount(() => {
         @click.stop
       >
         <button
-          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-foreground/5 hover:text-foreground"
+          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
           @click="handlePin"
         >
           <template v-if="isPinned()">
@@ -253,7 +253,7 @@ onBeforeUnmount(() => {
           </template>
         </button>
         <button
-          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-foreground/5 hover:text-foreground"
+          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
           @click="handleRenameFromMenu"
         >
           <Edit2 class="size-3.5" />

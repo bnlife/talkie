@@ -155,19 +155,19 @@ onUnmounted(() => {
       class="flex h-9 shrink-0 items-center justify-between bg-muted px-3 select-none"
     >
       <div class="flex items-center gap-2">
-        <Button variant="ghost" size="icon" class="h-6 w-6" @click.stop="toggleSidebar">
+        <Button variant="ghost" size="icon-sm" @click.stop="toggleSidebar">
           <PanelLeftClose v-if="!sidebarCollapsed" class="h-3.5 w-3.5" />
           <PanelLeftOpen v-else class="h-3.5 w-3.5" />
         </Button>
         <span class="text-sm font-medium text-muted-foreground">提示词</span>
       </div>
       <div class="flex items-center gap-0.5">
-        <Button variant="ghost" size="icon" class="h-6 w-6 hover:bg-background" @click="minimizeWindow"><Minus class="h-3.5 w-3.5" /></Button>
-        <Button variant="ghost" size="icon" class="h-6 w-6 hover:bg-background" @click="toggleMaximize">
+        <Button variant="ghost" size="icon-sm" @click="minimizeWindow"><Minus class="h-3.5 w-3.5" /></Button>
+        <Button variant="ghost" size="icon-sm" @click="toggleMaximize">
           <Maximize2 v-if="!isMaximized" class="h-3.5 w-3.5" />
           <Minimize2 v-else class="h-3.5 w-3.5" />
         </Button>
-        <Button variant="ghost" size="icon" class="h-6 w-6 hover:bg-destructive hover:text-destructive-foreground" @click="closeWindow"><X class="h-3.5 w-3.5" /></Button>
+        <Button variant="ghost" size="icon-sm" class="hover:bg-destructive hover:text-destructive-foreground" @click="closeWindow"><X class="h-3.5 w-3.5" /></Button>
       </div>
     </header>
 
@@ -177,7 +177,7 @@ onUnmounted(() => {
         <!-- Sidebar -->
         <aside
           v-show="!sidebarCollapsed"
-          class="w-60 shrink-0 border-r bg-background overflow-hidden flex flex-col"
+          class="w-[220px] shrink-0 border-r bg-background overflow-hidden flex flex-col"
         >
           <div class="flex flex-col gap-1 p-2 text-sm">
             <!-- 搜索栏 -->
@@ -299,14 +299,14 @@ onUnmounted(() => {
         @click.stop
       >
         <button
-          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-foreground/5 hover:text-foreground"
+          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
           @click="handleContextMenuDefault"
         >
           <Star class="size-3.5" />
           设为默认
         </button>
         <button
-          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-foreground/5 hover:text-foreground"
+          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
           @click="handleContextMenuDelete"
         >
           <Trash2 class="size-3.5" />

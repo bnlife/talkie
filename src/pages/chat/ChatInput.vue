@@ -265,12 +265,14 @@ onUnmounted(() => {
 
     <!-- Search + Prompt Switcher + Model Switcher -->
     <div class="mt-1.5 flex items-center gap-1.5">
-      <button
+      <Button
+        variant="ghost"
+        size="sm"
         :class="cn(
-          'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs transition-all',
+          'h-6 gap-1 rounded-full px-2.5 text-xs',
           searchEnabled
             ? 'bg-muted text-foreground font-medium'
-            : 'text-muted-foreground hover:bg-muted/50',
+            : 'text-muted-foreground',
         )"
         data-menu-trigger
         @click.stop="showSearchMenu = !showSearchMenu; showModelMenu = false; showPromptMenu = false"
@@ -278,13 +280,15 @@ onUnmounted(() => {
         <Globe class="size-3 shrink-0" />
         <span>{{ searchEnabled ? (searchEngineName ?? '搜索') : '搜索' }}</span>
         <ChevronDown class="size-2.5 shrink-0 opacity-60" />
-      </button>
-      <button
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
         :class="cn(
-          'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs transition-all max-w-28',
+          'h-6 max-w-28 gap-1 rounded-full px-2.5 text-xs',
           currentPrompt?.id
             ? 'bg-muted text-foreground'
-            : 'text-muted-foreground hover:bg-muted/50',
+            : 'text-muted-foreground',
         )"
         data-menu-trigger
         @click.stop="showPromptMenu = !showPromptMenu; showModelMenu = false; showSearchMenu = false"
@@ -292,13 +296,15 @@ onUnmounted(() => {
         <FileText class="size-3 shrink-0" />
         <span class="truncate">{{ currentPrompt?.name ?? '提示词' }}</span>
         <ChevronDown class="size-2.5 shrink-0 opacity-60" />
-      </button>
-      <button
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
         :class="cn(
-          'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs transition-all max-w-36',
+          'h-6 max-w-36 gap-1 rounded-full px-2.5 text-xs',
           currentModel?.model
             ? 'bg-muted text-foreground'
-            : 'text-muted-foreground hover:bg-muted/50',
+            : 'text-muted-foreground',
         )"
         data-menu-trigger
         @click.stop="showModelMenu = !showModelMenu; showPromptMenu = false; showSearchMenu = false"
@@ -306,7 +312,7 @@ onUnmounted(() => {
         <component :is="getIcon(currentModel?.provider?.icon)" class="size-3 shrink-0" />
         <span class="truncate">{{ currentModel?.model ?? '模型' }}</span>
         <ChevronDown class="size-2.5 shrink-0 opacity-60" />
-      </button>
+      </Button>
     </div>
   </div>
 </template>

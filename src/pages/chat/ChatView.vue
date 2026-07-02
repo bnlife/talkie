@@ -40,7 +40,7 @@ onMounted(async () => {
       <div class="flex flex-1 overflow-hidden rounded-lg border">
         <aside
           v-show="!sidebarCollapsed"
-          class="w-60 shrink-0 border-r bg-background overflow-hidden"
+          class="w-[220px] shrink-0 border-r bg-background overflow-hidden"
         >
           <Sidebar
             :conversations="chatStore.conversations"

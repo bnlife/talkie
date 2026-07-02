@@ -2,7 +2,8 @@
 import { ref, computed, onUnmounted } from 'vue'
 import { cn } from '@/lib/utils'
 import { renderMarkdown } from '@/lib/markdown'
-import { ChevronDown, ChevronUp, Loader2, Check, Globe } from 'lucide-vue-next'
+import { ChevronDown, ChevronUp, Loader2, Check, Globe, Brain } from 'lucide-vue-next'
+import { Button } from '@/components/ui/button'
 import type { SearchResult } from '@/types'
 
 const props = defineProps<{
@@ -40,12 +41,18 @@ const hasSearchResults = computed(() => (props.searchResults?.length ?? 0) > 0)
 <template>
   <div class="mb-2">
     <!-- Collapsed header -->
-    <button
-      class="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-foreground/5"
+    <Button
+      variant="ghost"
+      class="flex w-full justify-start gap-1.5 px-2 py-1 text-sm text-muted-foreground"
       @click="expanded = !expanded"
     >
       <template v-if="streaming">
         <Loader2 class="size-3 animate-spin" />
+      </template>
+      <template v-else>
+        <Brain class="size-3" />
+      </template>
+      <template v-if="streaming">
         <span>思考中...</span>
       </template>
       <template v-else>
@@ -53,7 +60,7 @@ const hasSearchResults = computed(() => (props.searchResults?.length ?? 0) > 0)
       </template>
       <ChevronDown v-if="!expanded" class="size-3 ml-auto" />
       <ChevronUp v-else class="size-3 ml-auto" />
-    </button>
+    </Button>
 
     <!-- Expanded content -->
     <div v-if="expanded" class="mt-1 rounded-md border bg-muted/30 p-2.5">
