@@ -35,11 +35,24 @@ src/
 
 ```bash
 npm run dev          # 启动开发服务器
-npm run build        # 构建（会先运行 prebuild lint）
+npm run build        # 构建（会先运行 prebuild lint + clippy）
 npm run test         # 运行测试
 npm run typecheck    # 类型检查
-npm run prebuild     # 运行 lint 检查
+npm run clippy       # Rust 代码静态检查
+npm run prebuild     # 运行 lint 检查 + clippy
 ```
+
+## Rust 开发规则（强制）
+
+修改 `src-tauri/` 下任何 `.rs` 文件后，**必须运行 clippy 验证**：
+
+```bash
+npm run clippy
+```
+
+- 有警告就修掉，不要跳过
+- 禁止用 `#[allow(clippy::xxx)]` 抑制警告（除非有明确理由）
+- `too_many_arguments` 警告 → 封装成 struct 传参
 
 ## 前端开发规则（强制）
 

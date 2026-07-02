@@ -24,8 +24,8 @@ src/
 │   │   ├── ChatHeader.vue            ← 聊天头部：标题 + 窗口控制按钮
 │   │   ├── Sidebar.vue               ← 对话列表侧栏：搜索 / 新建 / 重命名 / 右键菜单
 │   │   ├── MessageList.vue           ← 消息滚动容器 + 自动滚底
-│   │   ├── MessageItem.vue           ← 单条消息：头像 + 名称时间 + 内容 + Markdown 渲染
-│   │   ├── ChatInput.vue             ← 输入区：Textarea + 发送/停止按钮 + 模型切换器
+│   │   ├── MessageItem.vue           ← 单条消息容器：组装子组件
+│   │   ├── ChatInput.vue             ← 输入区容器：组装子组件
 │   │   ├── ThinkingBlock.vue         ← 思考过程折叠展示
 │   │   └── useChatEvents.ts          ← 聊天事件 composable：监听流式 chunks + 错误
 │   ├── settings/
@@ -46,6 +46,15 @@ src/
 ├── components/
 │   ├── app/
 │   │   └── Toolstrip.vue             ← 左侧工具条：导航按钮（chat/knowledge/prompt/mcp）+ 暗黑模式 + 设置
+│   ├── chat/                         ← 聊天相关子组件
+│   │   ├── MessageHeader.vue         ← 消息头像
+│   │   ├── MessageContent.vue        ← 消息内容渲染（用户文本/AI Markdown）
+│   │   ├── MessageActions.vue        ← 操作按钮（复制、删除、重新生成）+ Token 计数
+│   │   ├── AttachmentList.vue        ← 附件标签和下载功能
+│   │   ├── SearchSources.vue         ← 搜索来源列表和展开/折叠
+│   │   ├── SearchSelect.vue          ← 搜索引擎选择器
+│   │   ├── ModelSelect.vue           ← 模型选择器
+│   │   └── PromptSelect.vue          ← 提示词选择器
 │   └── ui/                           ← shadcn-vue 组件（通过 MCP CLI 安装）
 │       ├── avatar/
 │       ├── badge/
@@ -67,6 +76,13 @@ src/
 │   ├── settings.ts                   ← get / update / test_connection / fetch_models
 │   ├── mcp.ts                        ← list / add / remove / start / stop / call_tool
 │   └── log.ts                        ← log 命令封装
+│
+├── composables/                      ← 组合式函数
+│   ├── useAttachment.ts              ← 附件管理：添加/删除/拖拽/构建内容
+│   ├── useMessageRender.ts           ← 消息渲染：Markdown + 内联引用
+│   ├── useSearchSelect.ts            ← 搜索引擎选择逻辑
+│   ├── useModelSelect.ts             ← 模型选择逻辑
+│   └── usePromptSelect.ts            ← 提示词选择逻辑
 │
 ├── lib/                              ← 工具函数库
 │   ├── utils.ts                      ← cn() 类名合并、通用工具
@@ -139,17 +155,17 @@ src-tauri/
 ## 数据流
 
 ```
-用户输入 → ChatInput → emit('send') → ChatView → chatStore.sendMessage()
-                                                         ↓
-                                              chatBridge.sendMessage() → Tauri invoke → Rust
-                                                         ↓
-                                              读取对话 → 获取 provider_id + model → 查找 Provider
-                                                         ↓
-                                              llm::stream_chat(base_url, api_key, model, headers, temperature, top_p, messages)
-                                                         ↓
-                                              流式响应 → Tauri event "chat:stream-chunk"
-                                                         ↓
-                                              chatStore.appendStreamChunk() → 响应式更新 → UI 渲染
+用户输入 → ChatInput → 子组件(ModelSelect/SearchSelect/PromptSelect) → emit('send') → ChatView → chatStore.sendMessage()
+                                                                                                        ↓
+                                                                                              chatBridge.sendMessage() → Tauri invoke → Rust
+                                                                                                        ↓
+                                                                                              读取对话 → 获取 provider_id + model → 查找 Provider
+                                                                                                        ↓
+                                                                                              llm::stream_chat(base_url, api_key, model, headers, temperature, top_p, messages)
+                                                                                                        ↓
+                                                                                              流式响应 → Tauri event "chat:stream-chunk"
+                                                                                                        ↓
+                                                                                              chatStore.appendStreamChunk() → 响应式更新 → MessageItem → 子组件渲染
 ```
 
 ## 关键设计决策
