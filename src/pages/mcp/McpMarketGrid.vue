@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useMcpStore } from '@/stores/mcpStore'
 import { Button } from '@/components/ui/button'
-import { Search, FolderOpen, Database, Code, Cloud, MessageSquare, Zap, Star } from 'lucide-vue-next'
+import { Search, FolderOpen, Database, Code, Cloud, MessageSquare, Zap, Star, Plus, Check } from 'lucide-vue-next'
 import type { McpServer } from '@/types'
 
 const props = defineProps<{
@@ -51,7 +51,7 @@ const filteredServers = computed(() => {
     <div
       v-for="server in filteredServers"
       :key="server.id"
-      class="rounded-lg border p-3 transition-colors hover:bg-foreground/5"
+      class="rounded-lg border p-3"
     >
       <div class="mb-1 flex items-center justify-between">
         <span class="text-sm font-medium">{{ server.name }}</span>
@@ -64,12 +64,23 @@ const filteredServers = computed(() => {
         <Button
           v-if="!installedServerIds.has(server.id)"
           size="sm"
-          class="h-6 text-xs"
+          variant="secondary"
+          class="h-7 text-xs"
           @click="emit('install', server)"
         >
+          <Plus class="size-3" />
           添加
         </Button>
-        <span v-else class="text-xs text-green-500">✓ 已添加</span>
+        <Button
+          v-else
+          size="sm"
+          variant="secondary"
+          class="h-7 text-xs"
+          disabled
+        >
+          <Check class="size-3" />
+          已添加
+        </Button>
       </div>
     </div>
   </div>

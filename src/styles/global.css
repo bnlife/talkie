@@ -54,6 +54,12 @@
   --border: hsl(0 0% 90%);
   --input: hsl(0 0% 90%);
   --ring: hsl(0 0% 64%);
+  --btn-primary: hsl(0 0% 62%);
+  --btn-primary-foreground: hsl(0 0% 9%);
+  --btn-primary-hover: hsl(0 0% 56%);
+  --btn-danger: hsl(0 0% 92%);
+  --btn-danger-foreground: hsl(0 84% 50%);
+  --btn-danger-hover: hsl(0 84% 95%);
 }
 
 /* ── Dark ── */
@@ -77,4 +83,10 @@
   --border: hsl(0 0% 16%);
   --input: hsl(0 0% 16%);
   --ring: hsl(0 0% 44%);
+  --btn-primary: hsl(0 0% 43%);
+  --btn-primary-foreground: hsl(0 0% 98%);
+  --btn-primary-hover: hsl(0 0% 48%);
+  --btn-danger: hsl(0 0% 16%);
+  --btn-danger-foreground: hsl(0 63% 65%);
+  --btn-danger-hover: hsl(0 63% 25%);
 }

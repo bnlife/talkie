@@ -240,7 +240,7 @@ async function handleParamChange() {
           class="h-7 text-sm"
           @keyup.enter="handleAddModel"
         />
-        <Button variant="outline" size="sm" class="h-7" @click="handleAddModel">
+        <Button variant="secondary" size="sm" class="h-7" @click="handleAddModel">
           <Plus class="size-3" />
           添加
         </Button>
