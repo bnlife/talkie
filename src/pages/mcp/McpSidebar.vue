@@ -91,7 +91,7 @@ function getInstanceStatus(inst: McpInstance): 'running' | 'starting' | 'stopped
 
     <!-- 已安装 -->
     <div class="sidebar-section-title">已安装</div>
-    <div class="flex-1 overflow-y-auto">
+    <div class="flex-1 overflow-y-auto" style="scrollbar-gutter: stable">
       <div
         v-for="inst in mcpStore.instances"
         :key="inst.id"

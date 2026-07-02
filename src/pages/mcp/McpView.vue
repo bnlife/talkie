@@ -161,7 +161,7 @@ async function handleTest(id: string) {
         />
 
         <!-- Main content -->
-        <div class="flex-1 overflow-y-auto p-4">
+        <div class="flex-1 overflow-y-auto p-4" style="scrollbar-gutter: stable">
           <!-- 市场视图：显示 server 卡片列表 -->
           <template v-if="mcpStore.activeCategoryId && !mcpStore.activeInstanceId">
             <McpMarketGrid
