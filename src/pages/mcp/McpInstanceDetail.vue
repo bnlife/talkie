@@ -68,7 +68,7 @@ function getInstanceStatusText(inst: McpInstance): string {
       <div class="flex gap-2">
         <Button
           size="sm"
-          :variant="getInstanceStatus(mcpStore.activeInstance) === 'running' ? 'outline' : 'default'"
+          variant="outline"
           :disabled="getInstanceStatus(mcpStore.activeInstance) === 'starting'"
           @click="emit('toggle', mcpStore.activeInstance.id, mcpStore.activeInstance.enabled)"
         >
@@ -85,7 +85,8 @@ function getInstanceStatusText(inst: McpInstance): string {
         </Button>
         <Button
           size="sm"
-          variant="destructive"
+          variant="outline"
+          class="text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
           @click="emit('uninstall', mcpStore.activeInstance.id)"
         >
           移除
