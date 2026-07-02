@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use crate::crypto;
 use crate::error::AppError;
 use crate::models::{ModelProvider, Settings};
 
@@ -29,10 +30,14 @@ pub fn load(path: PathBuf) -> Result<Settings, AppError> {
         return Ok(settings);
     }
 
-    let settings: Settings = serde_json::from_value(raw).map_err(|e| {
+    let mut settings: Settings = serde_json::from_value(raw).map_err(|e| {
         log::error!("RS::config::load | parse fail | path={:?} err={}", path, e);
         AppError::ConfigError(e.to_string())
     })?;
+
+    // Decrypt API keys (handles both ENC: and legacy plaintext)
+    decrypt_provider_keys(&mut settings);
+
     log::info!("RS::config::load | ok | providers={}", settings.providers.len());
     Ok(settings)
 }
@@ -79,6 +84,7 @@ fn migrate_old_format(raw: &serde_json::Value, path: &PathBuf) -> Result<Setting
 
 /// Save settings to a JSON configuration file.
 ///
+/// API keys are encrypted before writing to disk.
 /// Creates parent directories if they do not exist.
 pub fn save(path: PathBuf, settings: &Settings) -> Result<(), AppError> {
     log::info!("RS::config::save | path={:?}", path);
@@ -88,7 +94,12 @@ pub fn save(path: PathBuf, settings: &Settings) -> Result<(), AppError> {
             AppError::ConfigError(e.to_string())
         })?;
     }
-    let content = serde_json::to_string_pretty(settings).map_err(|e| {
+
+    // Encrypt API keys before writing to disk
+    let mut encrypted = settings.clone();
+    encrypt_provider_keys(&mut encrypted);
+
+    let content = serde_json::to_string_pretty(&encrypted).map_err(|e| {
         log::error!("RS::config::save | serialize fail | err={}", e);
         AppError::ConfigError(e.to_string())
     })?;
@@ -97,6 +108,26 @@ pub fn save(path: PathBuf, settings: &Settings) -> Result<(), AppError> {
         AppError::ConfigError(e.to_string())
     })?;
     Ok(())
+}
+
+/// Decrypt all provider API keys in-place.
+fn decrypt_provider_keys(settings: &mut Settings) {
+    for p in &mut settings.providers {
+        match crypto::ensure_decrypted(&p.api_key) {
+            Ok(decrypted) => p.api_key = decrypted,
+            Err(e) => log::warn!("RS::config | decrypt fail provider={} err={}", p.id, e),
+        }
+    }
+}
+
+/// Encrypt all provider API keys in-place.
+fn encrypt_provider_keys(settings: &mut Settings) {
+    for p in &mut settings.providers {
+        match crypto::ensure_encrypted(&p.api_key) {
+            Ok(encrypted) => p.api_key = encrypted,
+            Err(e) => log::warn!("RS::config | encrypt fail provider={} err={}", p.id, e),
+        }
+    }
 }
 
 #[cfg(test)]

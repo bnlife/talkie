@@ -1,6 +1,7 @@
 pub mod chat;
 pub mod commands;
 pub mod config;
+pub mod crypto;
 pub mod error;
 pub mod llm;
 pub mod mcp;
