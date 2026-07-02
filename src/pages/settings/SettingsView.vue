@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem } from '@/components/ui/context-menu'
 import {
   Minus, Maximize2, Minimize2, X,
   Plus, Search, Star, Trash2, Edit2,
@@ -22,11 +23,6 @@ const renameValue = ref('')
 onMounted(async () => {
   isMaximized.value = await appWindow.isMaximized()
   await settingsStore.loadSettings()
-  document.addEventListener('click', hideContextMenu)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', hideContextMenu)
 })
 
 async function minimizeWindow() { await appWindow.minimize() }
@@ -67,27 +63,16 @@ const editingProvider = computed(() => {
 })
 
 // --- 右键菜单 ---
-const contextMenu = ref({ visible: false, x: 0, y: 0, providerId: '' })
-
-function showContextMenu(e: MouseEvent, id: string) {
-  e.preventDefault()
-  contextMenu.value = { visible: true, x: e.clientX, y: e.clientY, providerId: id }
-}
-
-function hideContextMenu() {
-  contextMenu.value.visible = false
-}
+const contextMenuProviderId = ref('')
 
 async function handleSetDefault() {
-  await settingsStore.setActiveProvider(contextMenu.value.providerId)
-  hideContextMenu()
+  await settingsStore.setActiveProvider(contextMenuProviderId.value)
 }
 
 function handleRename() {
-  renamingId.value = contextMenu.value.providerId
-  const p = settingsStore.providers.find(p => p.id === contextMenu.value.providerId)
+  renamingId.value = contextMenuProviderId.value
+  const p = settingsStore.providers.find(p => p.id === contextMenuProviderId.value)
   renameValue.value = p?.name ?? ''
-  hideContextMenu()
 }
 
 async function confirmRename() {
@@ -131,7 +116,7 @@ function isDefault(id: string) {
           <!-- 搜索 -->
           <div class="relative">
             <Search class="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input v-model="searchQuery" placeholder="搜索 Provider..." class="sidebar-search h-8 pl-8" />
+            <Input v-model="searchQuery" placeholder="搜索 Provider..." size="sidebar" class="sidebar-search" />
           </div>
 
           <!-- 新建按钮 -->
@@ -147,17 +132,19 @@ function isDefault(id: string) {
           <div v-if="filteredProviders.length > 0" class="my-1 border-t" />
 
           <!-- Provider 列表 -->
-          <div class="flex-1 overflow-y-auto">
-            <div
-              v-for="provider in filteredProviders"
-              :key="provider.id"
-              :class="cn(
-                'group relative sidebar-item',
-                editingId === provider.id && 'bg-accent text-accent-foreground',
-              )"
-              @click="selectProvider(provider.id)"
-              @contextmenu="showContextMenu($event, provider.id)"
-            >
+          <ContextMenu>
+            <ContextMenuTrigger as-child>
+            <div class="flex-1 overflow-y-auto">
+              <div
+                v-for="provider in filteredProviders"
+                :key="provider.id"
+                :class="cn(
+                  'group relative sidebar-item',
+                  editingId === provider.id && 'bg-accent text-accent-foreground',
+                )"
+                @click="selectProvider(provider.id)"
+                @contextmenu="contextMenuProviderId = provider.id"
+              >
               <div class="sidebar-item-content">
                 <span
                   :class="cn(
@@ -166,9 +153,10 @@ function isDefault(id: string) {
                   )"
                 />
                 <template v-if="renamingId === provider.id">
-                  <input
+                  <Input
                     v-model="renameValue"
-                    class="w-full truncate rounded bg-background px-1 py-0.5 text-sm text-foreground outline-none ring-1 ring-ring"
+                    size="rename"
+                    class="w-full truncate"
                     @keyup.enter="confirmRename"
                     @keyup.escape="cancelRename"
                     @blur="confirmRename"
@@ -203,7 +191,18 @@ function isDefault(id: string) {
             <div v-if="filteredProviders.length === 0" class="flex flex-col items-center py-8 text-muted-foreground">
               <span class="text-sm">{{ searchQuery ? '无匹配结果' : '暂无 Provider' }}</span>
             </div>
-          </div>
+           </div>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              <ContextMenuItem @select="handleRename">
+                <Edit2 class="size-3.5" />
+                重命名
+              </ContextMenuItem>
+              <ContextMenuItem @select="handleSetDefault">
+                设为默认
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
         </div>
 
         <!-- Main: ProviderEditor -->
@@ -218,29 +217,5 @@ function isDefault(id: string) {
         </div>
       </div>
     </div>
-
-    <!-- 右键菜单 -->
-    <Teleport to="body">
-      <div
-        v-if="contextMenu.visible"
-        :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
-        class="fixed z-50 min-w-28 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
-        @click.stop
-      >
-        <button
-          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
-          @click="handleRename"
-        >
-          <Edit2 class="size-3.5" />
-          重命名
-        </button>
-        <button
-          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
-          @click="handleSetDefault"
-        >
-          设为默认
-        </button>
-      </div>
-    </Teleport>
   </div>
 </template>

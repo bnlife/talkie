@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onMounted } from 'vue'
 import { usePromptStore } from '@/stores/promptStore'
 import { getCurrentWindow } from '@tauri-apps/api/window'
 import { cn } from '@/lib/utils'
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
+import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem } from '@/components/ui/context-menu'
 import {
   PanelLeftOpen,
   PanelLeftClose,
@@ -91,28 +92,11 @@ async function removePrompt(id: string) {
 }
 
 // --- 右键菜单 ---
-const contextMenuVisible = ref(false)
-const contextMenuX = ref(0)
-const contextMenuY = ref(0)
 const contextMenuPromptId = ref<string | null>(null)
-
-function showContextMenu(e: MouseEvent, prompt: { id: string; is_default: boolean }) {
-  e.preventDefault()
-  contextMenuPromptId.value = prompt.id
-  contextMenuX.value = e.clientX
-  contextMenuY.value = e.clientY
-  contextMenuVisible.value = true
-}
-
-function hideContextMenu() {
-  contextMenuVisible.value = false
-  contextMenuPromptId.value = null
-}
 
 function handleContextMenuDelete() {
   if (!contextMenuPromptId.value) return
   const id = contextMenuPromptId.value
-  hideContextMenu()
   if (editingId.value === id) {
     editingId.value = null
     editName.value = ''
@@ -125,25 +109,15 @@ function handleContextMenuDelete() {
 function handleContextMenuDefault() {
   if (!contextMenuPromptId.value) return
   const id = contextMenuPromptId.value
-  hideContextMenu()
   promptStore.setDefaultPrompt(id)
   if (editingId.value === id) {
     // refresh local state
   }
 }
 
-function onDocumentClick() {
-  if (contextMenuVisible.value) hideContextMenu()
-}
-
 onMounted(async () => {
   isMaximized.value = await appWindow.isMaximized()
   await promptStore.loadPrompts()
-  document.addEventListener('click', onDocumentClick)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', onDocumentClick)
 })
 </script>
 
@@ -186,7 +160,8 @@ onUnmounted(() => {
               <Input
                 v-model="searchQuery"
                 placeholder="搜索提示词..."
-                class="sidebar-search h-8 pl-8"
+                size="sidebar"
+                class="sidebar-search"
               />
             </div>
 
@@ -200,6 +175,8 @@ onUnmounted(() => {
             </div>
 
             <!-- 提示词列表 -->
+            <ContextMenu>
+              <ContextMenuTrigger as-child>
             <div class="flex-1 overflow-y-auto">
               <div
                 v-for="prompt in filteredPrompts"
@@ -211,7 +188,7 @@ onUnmounted(() => {
                   )
                 "
                 @click="selectPrompt(prompt.id)"
-                @contextmenu="showContextMenu($event, prompt)"
+                @contextmenu="contextMenuPromptId = prompt.id"
               >
                 <div class="sidebar-item-content">
                   <Star v-if="prompt.is_default" class="size-3 shrink-0 text-warning" />
@@ -251,6 +228,18 @@ onUnmounted(() => {
                 <span class="text-sm">{{ searchQuery ? '无匹配结果' : '暂无提示词' }}</span>
               </div>
             </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem @select="handleContextMenuDefault">
+                  <Star class="size-3.5" />
+                  设为默认
+                </ContextMenuItem>
+                <ContextMenuItem @select="handleContextMenuDelete">
+                  <Trash2 class="size-3.5" />
+                  删除
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
           </div>
         </aside>
 
@@ -262,7 +251,8 @@ onUnmounted(() => {
                 id="prompt-name"
                 v-model="editName"
                 placeholder="模板名称"
-                class="h-7 text-sm font-medium"
+                size="sm"
+                class="font-medium"
                 @blur="save"
               />
               <Textarea
@@ -285,30 +275,5 @@ onUnmounted(() => {
         </main>
       </div>
     </div>
-
-    <!-- 右键菜单 -->
-    <Teleport to="body">
-      <div
-        v-if="contextMenuVisible"
-        :style="{ left: `${contextMenuX}px`, top: `${contextMenuY}px` }"
-        class="fixed z-50 min-w-28 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
-        @click.stop
-      >
-        <button
-          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
-          @click="handleContextMenuDefault"
-        >
-          <Star class="size-3.5" />
-          设为默认
-        </button>
-        <button
-          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
-          @click="handleContextMenuDelete"
-        >
-          <Trash2 class="size-3.5" />
-          删除
-        </button>
-      </div>
-    </Teleport>
   </div>
 </template>

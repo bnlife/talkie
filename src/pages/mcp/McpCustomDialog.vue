@@ -50,23 +50,23 @@ function handleConfirm() {
         <div class="space-y-2 mb-3">
           <div>
             <label class="text-xs text-muted-foreground">名称</label>
-            <Input v-model="customForm.name" placeholder="我的搜索服务" class="h-7 text-sm mt-0.5" />
+            <Input v-model="customForm.name" placeholder="我的搜索服务" size="sm" class="mt-0.5" />
           </div>
           <div>
             <label class="text-xs text-muted-foreground">命令</label>
-            <Input v-model="customForm.command" placeholder="npx" class="h-7 text-sm mt-0.5" />
+            <Input v-model="customForm.command" placeholder="npx" size="sm" class="mt-0.5" />
           </div>
           <div>
             <label class="text-xs text-muted-foreground">参数（空格分隔）</label>
-            <Input v-model="customForm.args" placeholder="-y @humansean/mcp-bocha" class="h-7 text-sm mt-0.5" />
+            <Input v-model="customForm.args" placeholder="-y @humansean/mcp-bocha" size="sm" class="mt-0.5" />
           </div>
           <div>
             <label class="text-xs text-muted-foreground">环境变量 Key</label>
-            <Input v-model="customForm.envKey" placeholder="BOCHA_API_KEY" class="h-7 text-sm mt-0.5" />
+            <Input v-model="customForm.envKey" placeholder="BOCHA_API_KEY" size="sm" class="mt-0.5" />
           </div>
           <div>
             <label class="text-xs text-muted-foreground">环境变量 Value</label>
-            <Input v-model="customForm.envValue" type="password" placeholder="sk-xxx" class="h-7 text-sm mt-0.5" />
+            <Input v-model="customForm.envValue" type="password" placeholder="sk-xxx" size="sm" class="mt-0.5" />
           </div>
         </div>
 

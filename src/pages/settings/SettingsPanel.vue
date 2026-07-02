@@ -7,6 +7,7 @@ import { toast } from 'vue-sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
 import {
   Eye, EyeOff, RefreshCw, Plus, Check, XIcon,
 } from 'lucide-vue-next'
@@ -100,30 +101,17 @@ async function handleParamChange() {
     <div :class="cn('flex items-center justify-between')">
       <Input
         v-model="form.name"
-        class="h-6 w-40 border-none bg-transparent px-1 text-sm font-medium shadow-none focus-visible:ring-0"
+        size="bare"
+        class="w-40 font-medium"
         @blur="saveName"
         @keyup.enter="saveName"
       />
       <div class="flex items-center gap-1.5">
         <span class="text-xs text-muted-foreground">{{ form.enabled ? '已启用' : '已禁用' }}</span>
-        <button
-          type="button"
-          role="switch"
-          :aria-checked="form.enabled"
-          :class="cn(
-            'peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full',
-            'border-2 border-transparent transition-colors',
-            form.enabled ? 'bg-primary' : 'bg-input',
-          )"
-          @click="toggleEnabled"
-        >
-          <span
-            :class="cn(
-              'pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg transition-transform',
-              form.enabled ? 'translate-x-4' : 'translate-x-0',
-            )"
-          />
-        </button>
+        <Switch
+          :checked="form.enabled"
+          @update:checked="toggleEnabled"
+        />
       </div>
     </div>
 
@@ -138,7 +126,8 @@ async function handleParamChange() {
             v-model="form.api_key"
             :type="showApiKey ? 'text' : 'password'"
             placeholder="sk-..."
-            class="h-full border-0 rounded-none text-sm pr-16"
+            size="inline"
+            class="pr-16"
             @blur="saveApiKey"
           />
           <div class="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
@@ -199,7 +188,8 @@ async function handleParamChange() {
           :min="0"
           :max="2"
           :step="0.1"
-          class="h-7 w-20 text-sm"
+          size="sm"
+          class="w-20"
           @blur="handleParamChange"
         />
         <span class="w-10 text-right text-xs text-muted-foreground">Top-P</span>
@@ -209,7 +199,8 @@ async function handleParamChange() {
           :min="0"
           :max="1"
           :step="0.05"
-          class="h-7 w-20 text-sm"
+          size="sm"
+          class="w-20"
           @blur="handleParamChange"
         />
       </div>

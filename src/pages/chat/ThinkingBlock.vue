@@ -43,7 +43,7 @@ const hasSearchResults = computed(() => (props.searchResults?.length ?? 0) > 0)
     <!-- Collapsed header -->
     <Button
       variant="ghost"
-      class="flex w-full justify-start gap-1.5 px-2 py-1 text-sm text-muted-foreground"
+      class="flex w-full justify-start gap-1.5 px-2 py-1 text-sm hover:bg-hover"
       @click="expanded = !expanded"
     >
       <template v-if="streaming">

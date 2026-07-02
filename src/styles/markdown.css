@@ -165,36 +165,32 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 1.2em;
-  height: 1.1em;
-  margin: 0 1px;
-  padding: 0 3px;
-  font-size: 0.6rem;
+  min-width: 1.4em;
+  height: 1.3em;
+  margin: 0 2px;
+  padding: 0 4px;
+  font-size: 0.65rem;
   font-weight: 600;
   line-height: 1;
   color: hsl(0 0% 40%);
   background: hsl(0 0% 93%);
-  border: 1px solid hsl(0 0% 82%);
   border-radius: 9999px;
   vertical-align: super;
   cursor: pointer;
   user-select: none;
   text-decoration: none;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s;
 }
 
 .search-citation:hover {
   background: hsl(0 0% 86%);
-  border-color: hsl(0 0% 64%);
 }
 
 .dark .search-citation {
   color: hsl(0 0% 70%);
   background: hsl(0 0% 18%);
-  border-color: hsl(0 0% 28%);
 }
 
 .dark .search-citation:hover {
   background: hsl(0 0% 24%);
-  border-color: hsl(0 0% 40%);
 }

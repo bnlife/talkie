@@ -183,13 +183,9 @@ function onContentClick(e: MouseEvent) {
             >
               <Paperclip class="size-3 shrink-0" />
               <span class="max-w-[140px] truncate">{{ att.name }}</span>
-              <button
-                v-if="att.content"
-                class="ml-0.5 rounded-sm p-0.5 hover:bg-hover-strong"
-                @click="downloadAttachment(att)"
-              >
+              <Button variant="ghost" size="icon" class="ml-0.5" @click="downloadAttachment(att)">
                 <Download class="size-3" />
-              </button>
+              </Button>
             </span>
           </div>
           <p v-if="isUser" class="text-base leading-relaxed whitespace-pre-wrap break-words">
@@ -212,11 +208,12 @@ function onContentClick(e: MouseEvent) {
         <!-- 搜索来源底栏 -->
         <div v-if="showSearchResults" class="mt-2">
           <div class="flex flex-wrap gap-1.5">
-            <button
+            <a
               v-for="(result, idx) in visibleResults"
               :key="idx"
-              class="inline-flex items-center gap-1.5 rounded-md border bg-muted/40 px-2 py-1 text-xs transition-colors hover:bg-muted/70 max-w-48"
-              @click="openUrl(result.url)"
+              href="#"
+              class="inline-flex items-center gap-1.5 rounded-md bg-muted/40 px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/70 max-w-48"
+              @click.prevent="openUrl(result.url)"
             >
               <img
                 :src="getFaviconUrl(result.url)"
@@ -224,25 +221,21 @@ function onContentClick(e: MouseEvent) {
                 @error="($event.target as HTMLImageElement).style.display='none'"
               />
               <span class="truncate">{{ result.title || getDomain(result.url) }}</span>
-            </button>
+            </a>
           </div>
           <div class="mt-1 flex items-center gap-2">
             <span class="text-xs text-muted-foreground">
               <Globe class="size-3 inline -mt-0.5" />
               {{ searchResults.length }} 个来源
             </span>
-            <button
-              v-if="hasMoreResults"
-              class="text-xs text-muted-foreground hover:text-foreground transition-colors"
-              @click="searchExpanded = !searchExpanded"
-            >
+            <Button v-if="hasMoreResults" variant="ghost" size="default" class="text-xs" @click="searchExpanded = !searchExpanded">
               <template v-if="searchExpanded">
-                <ChevronUp class="size-3 inline -mt-0.5" /> 收起
+                <ChevronUp class="size-3" /> 收起
               </template>
               <template v-else>
                 展开更多
               </template>
-            </button>
+            </Button>
           </div>
         </div>
 

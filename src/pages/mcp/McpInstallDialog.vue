@@ -59,7 +59,8 @@ function handleConfirm() {
               v-model="installConfig[v.name]"
               :type="v.secret ? 'password' : 'text'"
               :placeholder="v.default || ''"
-              class="h-7 text-sm mt-0.5"
+              size="sm"
+              class="mt-0.5"
             />
           </div>
         </div>
@@ -73,7 +74,8 @@ function handleConfirm() {
             <Input
               v-model="installConfig[a.valueHint || a.name || '']"
               :placeholder="a.default || ''"
-              class="h-7 text-sm mt-0.5"
+              size="sm"
+              class="mt-0.5"
             />
           </div>
         </div>

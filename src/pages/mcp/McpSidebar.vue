@@ -51,7 +51,8 @@ function getInstanceStatus(inst: McpInstance): 'running' | 'starting' | 'stopped
       <Input
         :value="searchQuery"
         placeholder="搜索 MCP 服务..."
-        class="sidebar-search h-8 pl-8"
+        size="sidebar"
+        class="sidebar-search"
         @input="emit('update:searchQuery', ($event.target as HTMLInputElement).value)"
       />
     </div>

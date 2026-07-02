@@ -98,7 +98,7 @@ describe('MessageItem.vue', () => {
     await copyBtn.trigger('click')
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.find('.text-green-500').exists()).toBe(true)
+    expect(wrapper.find('.text-success').exists()).toBe(true)
   })
 
   it('emits delete event with message id', async () => {

@@ -77,7 +77,8 @@ function handleConfirm() {
                 <Input
                   v-model="modelName"
                   placeholder="模型名称，例如: gpt-4o"
-                  class="h-full border-0 rounded-none text-sm pr-10"
+                  size="inline"
+                  class="pr-10"
                   @keyup.enter="handleCheck"
                 />
                 <div class="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">

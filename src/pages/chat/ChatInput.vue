@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
 import { Send, Square, ChevronDown, Bot, Sparkles, Brain, Diamond, Server, Settings, Globe, FileText, Paperclip, X } from 'lucide-vue-next'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { usePromptStore } from '@/stores/promptStore'
@@ -35,9 +36,6 @@ const {
 defineExpose({ addFiles })
 
 const input = ref(chatStore.activeConversationId ? chatStore.getDraft(chatStore.activeConversationId) : '')
-const showModelMenu = ref(false)
-const showPromptMenu = ref(false)
-const showSearchMenu = ref(false)
 
 // Restore draft when conversation changes
 watch(() => chatStore.activeConversationId, (newId) => {
@@ -80,7 +78,6 @@ const searchEngineName = computed(() => {
 
 async function selectSearchEngine(engine: string) {
   await chatStore.selectSearchEngine(engine)
-  showSearchMenu.value = false
 }
 
 const iconMap: Record<string, any> = { Bot, Sparkles, Brain, Diamond, Server, Settings }
@@ -110,12 +107,10 @@ const currentPrompt = computed(() => {
 
 async function selectModel(providerId: string, model: string) {
   await chatStore.switchModel(providerId, model)
-  showModelMenu.value = false
 }
 
 async function selectPrompt(promptId: string | null) {
   await chatStore.selectPrompt(promptId)
-  showPromptMenu.value = false
 }
 
 // --- Send logic ---
@@ -141,114 +136,10 @@ async function handleSend() {
   emit('send', displayContent, fullContent, metas)
   input.value = ''
 }
-
-function handleOutsideClick(e: MouseEvent) {
-  const target = e.target as HTMLElement
-  if (!target.closest('[data-model-menu]') && !target.closest('[data-prompt-menu]') && !target.closest('[data-search-menu]') && !target.closest('[data-menu-trigger]')) {
-    showModelMenu.value = false
-    showPromptMenu.value = false
-    showSearchMenu.value = false
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('click', handleOutsideClick, true)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('click', handleOutsideClick, true)
-})
 </script>
 
 <template>
   <div class="relative bg-background px-3 pt-1 pb-2">
-    <!-- Model Switcher Dropdown -->
-    <div v-if="showModelMenu" class="absolute bottom-full left-3 z-50 mb-1 w-72 rounded-xl bg-popover p-1 shadow-lg" data-model-menu>
-      <div class="max-h-64 overflow-y-auto">
-        <template v-for="provider in settingsStore.enabledProviders" :key="provider.id">
-          <div class="flex items-center gap-2 px-2 py-1.5 text-xs font-medium text-muted-foreground">
-            <component :is="getIcon(provider.icon)" class="size-3" />
-            {{ provider.name }}
-          </div>
-          <div
-            v-for="model in provider.models"
-            :key="`${provider.id}-${model}`"
-            :class="cn(
-              'flex cursor-pointer items-center gap-2 rounded-sm px-6 py-1.5 text-sm transition-colors hover:bg-hover',
-              currentModel?.provider?.id === provider.id && currentModel?.model === model && 'bg-accent',
-            )"
-            @click="selectModel(provider.id, model)"
-          >
-            {{ model }}
-          </div>
-          <div v-if="provider.models.length === 0" class="px-6 py-1.5 text-xs text-muted-foreground italic">
-            无模型
-          </div>
-        </template>
-      </div>
-    </div>
-
-    <!-- Prompt Switcher Dropdown -->
-    <div v-if="showPromptMenu" class="absolute bottom-full left-3 z-50 mb-1 w-64 rounded-xl bg-popover p-1 shadow-lg" data-prompt-menu>
-      <div class="max-h-64 overflow-y-auto">
-        <div
-          :class="cn(
-            'flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-hover',
-            currentPrompt?.id === null && 'bg-accent',
-          )"
-          @click="selectPrompt(null)"
-        >
-          无
-        </div>
-        <div
-          :class="cn(
-            'flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-hover',
-            currentPrompt?.id === 'default' && 'bg-accent',
-          )"
-          @click="selectPrompt('default')"
-        >
-          默认提示词
-        </div>
-        <div v-if="promptStore.prompts.length > 0" class="my-1 border-t" />
-        <div
-          v-for="prompt in promptStore.prompts"
-          :key="prompt.id"
-          :class="cn(
-            'flex cursor-pointer items-center rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-hover',
-            currentPrompt?.id === prompt.id && 'bg-accent',
-          )"
-          @click="selectPrompt(prompt.id)"
-        >
-          {{ prompt.name }}
-        </div>
-      </div>
-    </div>
-
-    <!-- Search Engine Switcher Dropdown -->
-    <div v-if="showSearchMenu" class="absolute bottom-full left-3 z-50 mb-1 w-56 rounded-xl bg-popover p-1 shadow-lg" data-search-menu>
-      <div class="max-h-64 overflow-y-auto">
-        <div
-          v-if="searchInstances.length === 0"
-          class="px-2 py-1.5 text-xs text-muted-foreground italic"
-        >
-          无已安装的搜索引擎
-        </div>
-        <div
-          v-for="inst in searchInstances"
-          :key="inst.id"
-          :class="cn(
-            'flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm transition-colors hover:bg-hover',
-            searchEnabled && searchEngine === inst.server_id && 'bg-accent',
-          )"
-          @click="selectSearchEngine(inst.server_id)"
-        >
-          <Globe class="size-3 shrink-0" />
-          <span>{{ inst.name }}</span>
-          <span v-if="searchEnabled && searchEngine === inst.server_id" class="ml-auto text-xs text-muted-foreground">✓</span>
-        </div>
-      </div>
-    </div>
-
     <!-- Attachment List -->
     <div v-if="attachments.length > 0" class="mb-1.5 flex flex-wrap gap-1.5">
       <div
@@ -261,12 +152,9 @@ onUnmounted(() => {
       >
         <span class="max-w-[140px] truncate">{{ att.name }}</span>
         <span class="text-2xs opacity-60">{{ formatSize(att.size) }}</span>
-        <button
-          class="ml-0.5 rounded-sm p-0.5 hover:bg-hover-strong"
-          @click="removeAttachment(idx)"
-        >
+        <Button variant="ghost" size="icon" class="ml-0.5" @click="removeAttachment(idx)">
           <X class="size-3" />
-        </button>
+        </Button>
       </div>
     </div>
 
@@ -297,7 +185,7 @@ onUnmounted(() => {
         <Button
           variant="ghost"
           size="icon"
-          class="text-muted-foreground hover:text-foreground"
+          class="hover:text-foreground"
           :disabled="disabled"
           @click="triggerFileInput"
         >
@@ -324,54 +212,138 @@ onUnmounted(() => {
 
     <!-- Search + Prompt Switcher + Model Switcher -->
     <div class="mt-1.5 flex items-center gap-1.5">
-      <Button
-        variant="ghost"
-        size="default"
-        :class="cn(
-          'h-6 gap-1 px-2.5 text-xs',
-          searchEnabled
-            ? 'bg-muted text-foreground font-medium'
-            : 'text-muted-foreground',
-        )"
-        data-menu-trigger
-        @click.stop="showSearchMenu = !showSearchMenu; showModelMenu = false; showPromptMenu = false"
-      >
-        <Globe class="size-3 shrink-0" />
-        <span>{{ searchEnabled ? (searchEngineName ?? '搜索') : '搜索' }}</span>
-        <ChevronDown class="size-2.5 shrink-0 opacity-60" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="default"
-        :class="cn(
-          'h-6 max-w-28 gap-1 px-2.5 text-xs',
-          currentPrompt?.id
-            ? 'bg-muted text-foreground'
-            : 'text-muted-foreground',
-        )"
-        data-menu-trigger
-        @click.stop="showPromptMenu = !showPromptMenu; showModelMenu = false; showSearchMenu = false"
-      >
-        <FileText class="size-3 shrink-0" />
-        <span class="truncate">{{ currentPrompt?.name ?? '提示词' }}</span>
-        <ChevronDown class="size-2.5 shrink-0 opacity-60" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="default"
-        :class="cn(
-          'h-6 max-w-36 gap-1 px-2.5 text-xs',
-          currentModel?.model
-            ? 'bg-muted text-foreground'
-            : 'text-muted-foreground',
-        )"
-        data-menu-trigger
-        @click.stop="showModelMenu = !showModelMenu; showPromptMenu = false; showSearchMenu = false"
-      >
-        <component :is="getIcon(currentModel?.provider?.icon)" class="size-3 shrink-0" />
-        <span class="truncate">{{ currentModel?.model ?? '模型' }}</span>
-        <ChevronDown class="size-2.5 shrink-0 opacity-60" />
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger as-child>
+          <Button
+            variant="ghost"
+            size="default"
+            :class="cn(
+              'h-6 gap-1 px-2.5 text-xs',
+              searchEnabled
+                ? 'bg-muted text-foreground font-medium'
+                : '',
+            )"
+          >
+            <Globe class="size-3 shrink-0" />
+            <span>{{ searchEnabled ? (searchEngineName ?? '搜索') : '搜索' }}</span>
+            <ChevronDown class="size-2.5 shrink-0 opacity-60" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="top" :side-offset="4" class="w-56 max-h-64 overflow-y-auto">
+          <div
+            v-if="searchInstances.length === 0"
+            class="px-2 py-1.5 text-xs text-muted-foreground italic"
+          >
+            无已安装的搜索引擎
+          </div>
+          <DropdownMenuItem
+            v-for="inst in searchInstances"
+            :key="inst.id"
+            :class="cn(
+              'cursor-pointer gap-2',
+              searchEnabled && searchEngine === inst.server_id && 'bg-accent',
+            )"
+            @click="selectSearchEngine(inst.server_id)"
+          >
+            <Globe class="size-3 shrink-0" />
+            <span>{{ inst.name }}</span>
+            <span v-if="searchEnabled && searchEngine === inst.server_id" class="ml-auto text-xs text-muted-foreground">✓</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger as-child>
+          <Button
+            variant="ghost"
+            size="default"
+            :class="cn(
+              'h-6 max-w-28 gap-1 px-2.5 text-xs',
+              currentPrompt?.id
+                ? 'bg-muted text-foreground'
+                : '',
+            )"
+          >
+            <FileText class="size-3 shrink-0" />
+            <span class="truncate">{{ currentPrompt?.name ?? '提示词' }}</span>
+            <ChevronDown class="size-2.5 shrink-0 opacity-60" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="top" :side-offset="4" class="w-64 max-h-64 overflow-y-auto">
+          <DropdownMenuItem
+            :class="cn(
+              'cursor-pointer',
+              currentPrompt?.id === null && 'bg-accent',
+            )"
+            @click="selectPrompt(null)"
+          >
+            无
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            :class="cn(
+              'cursor-pointer',
+              currentPrompt?.id === 'default' && 'bg-accent',
+            )"
+            @click="selectPrompt('default')"
+          >
+            默认提示词
+          </DropdownMenuItem>
+          <DropdownMenuSeparator v-if="promptStore.prompts.length > 0" />
+          <DropdownMenuItem
+            v-for="prompt in promptStore.prompts"
+            :key="prompt.id"
+            :class="cn(
+              'cursor-pointer',
+              currentPrompt?.id === prompt.id && 'bg-accent',
+            )"
+            @click="selectPrompt(prompt.id)"
+          >
+            {{ prompt.name }}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger as-child>
+          <Button
+            variant="ghost"
+            size="default"
+            :class="cn(
+              'h-6 max-w-36 gap-1 px-2.5 text-xs',
+              currentModel?.model
+                ? 'bg-muted text-foreground'
+                : '',
+            )"
+          >
+            <component :is="getIcon(currentModel?.provider?.icon)" class="size-3 shrink-0" />
+            <span class="truncate">{{ currentModel?.model ?? '模型' }}</span>
+            <ChevronDown class="size-2.5 shrink-0 opacity-60" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="top" :side-offset="4" class="w-72 max-h-64 overflow-y-auto">
+          <template v-for="provider in settingsStore.enabledProviders" :key="provider.id">
+            <DropdownMenuLabel class="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+              <component :is="getIcon(provider.icon)" class="size-3" />
+              {{ provider.name }}
+            </DropdownMenuLabel>
+            <DropdownMenuItem
+              v-for="model in provider.models"
+              :key="`${provider.id}-${model}`"
+              :class="cn(
+                'cursor-pointer gap-2 pl-6',
+                currentModel?.provider?.id === provider.id && currentModel?.model === model && 'bg-accent',
+              )"
+              @click="selectModel(provider.id, model)"
+            >
+              {{ model }}
+            </DropdownMenuItem>
+            <div v-if="provider.models.length === 0" class="px-2 py-1.5 text-xs text-muted-foreground italic">
+              无模型
+            </div>
+            <DropdownMenuSeparator v-if="provider.models.length > 0" />
+          </template>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   </div>
 </template>

@@ -27,6 +27,7 @@
   --color-btn-danger: var(--btn-danger);
   --color-btn-danger-foreground: var(--btn-danger-foreground);
   --color-btn-danger-hover: var(--btn-danger-hover);
+  --color-btn-ghost-foreground: var(--btn-ghost-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
@@ -100,6 +101,7 @@
   --btn-danger: hsl(0 0% 90%);
   --btn-danger-foreground: hsl(0 70% 50%);
   --btn-danger-hover: hsl(0 70% 90%);
+  --btn-ghost-foreground: hsl(0 0% 55%);
   --success: hsl(142 50% 50%);
   --success-foreground: hsl(0 0% 100%);
   --warning: hsl(38 70% 50%);
@@ -139,6 +141,7 @@
   --btn-danger: hsl(0 0% 20%);
   --btn-danger-foreground: hsl(0 70% 70%);
   --btn-danger-hover: hsl(0 70% 30%);
+  --btn-ghost-foreground: hsl(0 0% 65%);
   --success: hsl(142 50% 50%);
   --success-foreground: hsl(0 0% 100%);
   --warning: hsl(38 70% 50%);

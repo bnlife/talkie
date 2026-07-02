@@ -83,8 +83,8 @@ describe('SettingsPanel.vue', () => {
     const settingsStore = useSettingsStore()
     settingsStore.updateProvider = vi.fn().mockResolvedValue(undefined)
 
-    const toggle = wrapper.find('button[role="switch"]')
-    await toggle.trigger('click')
+    const toggle = wrapper.findComponent({ name: 'SwitchRoot' })
+    await toggle.vm.$emit('update:checked', false)
 
     expect(settingsStore.updateProvider).toHaveBeenCalledWith('prov-1', { enabled: false })
   })

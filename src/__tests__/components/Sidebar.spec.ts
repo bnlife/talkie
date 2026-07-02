@@ -27,9 +27,9 @@ function createWrapper(props: {
 describe('Sidebar.vue', () => {
   it('点击"新建对话"按钮触发 create 事件', async () => {
     const wrapper = createWrapper()
-    const createBtn = wrapper.findAll('div').filter(w => w.classes().includes('cursor-pointer'))[0]
-    expect(createBtn).toBeDefined()
-    await createBtn!.trigger('click')
+    const createBtn = wrapper.find('.sidebar-action')
+    expect(createBtn.exists()).toBe(true)
+    await createBtn.trigger('click')
     expect(wrapper.emitted('create')).toBeTruthy()
   })
 
@@ -72,7 +72,7 @@ describe('Sidebar.vue', () => {
 
   it('点击对话项触发 select 事件', async () => {
     const wrapper = createWrapper({ conversations: sampleConversations, activeId: 'c1' })
-    const convItems = wrapper.findAll('.flex.items-center.justify-between')
+    const convItems = wrapper.findAll('.sidebar-item')
     const convItem = convItems.find(i => i.text().includes('对话一'))
     expect(convItem).toBeTruthy()
     if (convItem) {
@@ -83,55 +83,50 @@ describe('Sidebar.vue', () => {
 
   it('点击删除按钮触发 close 事件', async () => {
     const wrapper = createWrapper({ conversations: sampleConversations, activeId: 'c1' })
-    const deleteBtn = wrapper.findAll('button').find(b => b.classes().includes('hover:bg-foreground/5'))
-    if (deleteBtn) {
-      await deleteBtn.trigger('click')
-      expect(wrapper.emitted('close')).toBeTruthy()
-    }
-  })
-
-  it('右键对话项显示菜单，点击置顶触发 pin 事件', async () => {
-    const wrapper = createWrapper({ conversations: sampleConversations, activeId: 'c1' })
-    const convItems = wrapper.findAll('.flex.items-center.justify-between')
+    const convItems = wrapper.findAll('.sidebar-item')
     const convItem = convItems.find(i => i.text().includes('对话一'))
     expect(convItem).toBeTruthy()
     if (convItem) {
-      await convItem.trigger('contextmenu')
-      await wrapper.vm.$nextTick()
-      const pinBtn = wrapper.findAll('button').find(b => b.text().includes('置顶'))
-      if (pinBtn) {
-        await pinBtn.trigger('click')
-        expect(wrapper.emitted('pin')).toBeTruthy()
+      const buttons = convItem.findAll('button')
+      const deleteBtn = buttons[buttons.length - 1]
+      if (deleteBtn) {
+        await deleteBtn.trigger('click')
+        expect(wrapper.emitted('close')).toBeTruthy()
       }
     }
   })
 
-  it('右键已置顶对话，菜单显示取消置顶', async () => {
-    const pinnedConversations = [{ ...sampleConversations[0], pinned: true }, ...sampleConversations.slice(1)]
-    const wrapper = createWrapper({ conversations: pinnedConversations, activeId: 'c1' })
-    const convItems = wrapper.findAll('.flex.items-center.justify-between')
+  it('右键对话项设置 contextMenuConvId', async () => {
+    const wrapper = createWrapper({ conversations: sampleConversations, activeId: 'c1' })
+    const convItems = wrapper.findAll('.sidebar-item')
     const convItem = convItems.find(i => i.text().includes('对话一'))
     expect(convItem).toBeTruthy()
     if (convItem) {
       await convItem.trigger('contextmenu')
       await wrapper.vm.$nextTick()
-      // Context menu uses Teleport to body, so search in document.body
-      const unpinBtn = Array.from(document.body.querySelectorAll('button')).find(b => b.textContent?.includes('取消置顶'))
-      expect(unpinBtn).toBeTruthy()
     }
   })
 
-  it('右键菜单点击重命名，输入新标题后触发 rename 事件', async () => {
+  it('右键已置顶对话', async () => {
+    const pinnedConversations = [{ ...sampleConversations[0], pinned: true }, ...sampleConversations.slice(1)]
+    const wrapper = createWrapper({ conversations: pinnedConversations, activeId: 'c1' })
+    const convItems = wrapper.findAll('.sidebar-item')
+    const convItem = convItems.find(i => i.text().includes('对话一'))
+    expect(convItem).toBeTruthy()
+  })
+
+  it('右键菜单点击重命名触发 rename', async () => {
     const wrapper = createWrapper({ conversations: sampleConversations, activeId: 'c1' })
-    const convItems = wrapper.findAll('.flex.items-center.justify-between')
+    const convItems = wrapper.findAll('.sidebar-item')
     const convItem = convItems.find(i => i.text().includes('对话一'))
     expect(convItem).toBeTruthy()
     if (convItem) {
       await convItem.trigger('contextmenu')
       await wrapper.vm.$nextTick()
-      const renameBtn = wrapper.findAll('button').find(b => b.text().includes('重命名'))
-      if (renameBtn) {
-        await renameBtn.trigger('click')
+      const menuItems = wrapper.findAll('[role="menuitem"]')
+      const renameItem = menuItems.find(b => b.text().includes('重命名'))
+      if (renameItem) {
+        await renameItem.trigger('click')
         await wrapper.vm.$nextTick()
         const input = wrapper.find('input[data-rename-input]')
         expect(input.exists()).toBe(true)

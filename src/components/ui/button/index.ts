@@ -14,7 +14,8 @@ export const buttonVariants = cva(
           "bg-btn-danger text-btn-danger-foreground shadow-sm hover:bg-btn-danger-hover",
         secondary:
           "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
-        ghost: "hover:bg-hover-strong hover:text-accent-foreground",
+        ghost: "text-btn-ghost-foreground hover:bg-hover-strong hover:text-accent-foreground",
+        active: "bg-background text-foreground shadow-sm",
       },
       size: {
         "default": "h-8 px-3",

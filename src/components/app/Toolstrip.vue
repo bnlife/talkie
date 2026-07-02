@@ -11,33 +11,29 @@ const settingsStore = useSettingsStore()
 <template>
   <div class="flex w-10 flex-col items-center gap-2 bg-muted py-2" data-tauri-drag-region>
     <Button
-      variant="ghost"
+      :variant="activeView === 'chat' ? 'active' : 'ghost'"
       size="icon"
-      :class="activeView === 'chat' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background'"
       @click="emit('select', 'chat')"
     >
       <MessageSquare class="size-4" />
     </Button>
     <Button
-      variant="ghost"
+      :variant="activeView === 'knowledge' ? 'active' : 'ghost'"
       size="icon"
-      :class="activeView === 'knowledge' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background'"
       @click="emit('select', 'knowledge')"
     >
       <BookOpen class="size-4" />
     </Button>
     <Button
-      variant="ghost"
+      :variant="activeView === 'prompt' ? 'active' : 'ghost'"
       size="icon"
-      :class="activeView === 'prompt' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background'"
       @click="emit('select', 'prompt')"
     >
       <FileText class="size-4" />
     </Button>
     <Button
-      variant="ghost"
+      :variant="activeView === 'mcp' ? 'active' : 'ghost'"
       size="icon"
-      :class="activeView === 'mcp' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background'"
       @click="emit('select', 'mcp')"
     >
       <Puzzle class="size-4" />
@@ -46,16 +42,14 @@ const settingsStore = useSettingsStore()
       <Button
         variant="ghost"
         size="icon"
-        class="hover:bg-background"
         @click="settingsStore.darkMode = !settingsStore.darkMode; settingsStore.saveSettings()"
       >
         <Moon v-if="!settingsStore.darkMode" class="size-4" />
         <Sun v-else class="size-4" />
       </Button>
       <Button
-        variant="ghost"
+        :variant="activeView === 'settings' ? 'active' : 'ghost'"
         size="icon"
-        :class="activeView === 'settings' ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background'"
         @click="emit('select', 'settings')"
       >
         <Settings class="size-4" />

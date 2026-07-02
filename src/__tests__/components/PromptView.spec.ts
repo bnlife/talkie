@@ -58,7 +58,7 @@ describe('PromptView.vue', () => {
     const wrapper = mount(PromptView)
     await flushPromises()
 
-    const createArea = wrapper.find('.border-dashed')
+    const createArea = wrapper.find('.sidebar-action')
     await createArea.trigger('click')
     await wrapper.vm.$nextTick()
 
@@ -80,7 +80,7 @@ describe('PromptView.vue', () => {
     const wrapper = mount(PromptView)
     await flushPromises()
 
-    const createArea = wrapper.find('.border-dashed')
+    const createArea = wrapper.find('.sidebar-action')
     await createArea.trigger('click')
     await wrapper.vm.$nextTick()
 

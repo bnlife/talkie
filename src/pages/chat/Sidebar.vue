@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { ContextMenu, ContextMenuTrigger, ContextMenuContent, ContextMenuItem } from '@/components/ui/context-menu'
 import {
   Plus,
   Pin,
@@ -73,23 +74,7 @@ function cancelRename() {
 }
 
 // --- 右键菜单 ---
-const contextMenuVisible = ref(false)
-const contextMenuX = ref(0)
-const contextMenuY = ref(0)
 const contextMenuConvId = ref<string | null>(null)
-
-function showContextMenu(e: MouseEvent, conv: ConversationView) {
-  e.preventDefault()
-  contextMenuConvId.value = conv.id
-  contextMenuX.value = e.clientX
-  contextMenuY.value = e.clientY
-  contextMenuVisible.value = true
-}
-
-function hideContextMenu() {
-  contextMenuVisible.value = false
-  contextMenuConvId.value = null
-}
 
 function handlePin() {
   if (!contextMenuConvId.value) return
@@ -100,13 +85,11 @@ function handlePin() {
   } else {
     emit('pin', conv.id)
   }
-  hideContextMenu()
 }
 
 function handleRenameFromMenu() {
   if (!contextMenuConvId.value) return
   const conv = props.conversations.find((c) => c.id === contextMenuConvId.value)
-  hideContextMenu()
   if (conv) {
     nextTick(() => startRename(conv))
   }
@@ -117,20 +100,6 @@ function isPinned() {
   const conv = props.conversations.find((c) => c.id === contextMenuConvId.value)
   return conv?.pinned ?? false
 }
-
-function onDocumentClick() {
-  if (contextMenuVisible.value) {
-    hideContextMenu()
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('click', onDocumentClick)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', onDocumentClick)
-})
 </script>
 
 <template>
@@ -141,7 +110,8 @@ onBeforeUnmount(() => {
       <Input
         :model-value="searchQuery"
         placeholder="搜索对话..."
-        class="sidebar-search h-8 pl-8"
+        size="sidebar"
+        class="sidebar-search"
         @update:model-value="(v: string | number) => emit('update:searchQuery', String(v))"
       />
     </div>
@@ -156,6 +126,8 @@ onBeforeUnmount(() => {
     </div>
 
     <!-- 对话列表 -->
+    <ContextMenu>
+      <ContextMenuTrigger as-child>
     <div class="flex-1 overflow-y-auto">
       <div
         v-for="conv in filteredConversations"
@@ -167,15 +139,16 @@ onBeforeUnmount(() => {
           )
         "
         @click="emit('select', conv.id)"
-        @contextmenu="showContextMenu($event, conv)"
+        @contextmenu="contextMenuConvId = conv.id"
       >
         <!-- 标题 / 重命名输入框 -->
         <div class="sidebar-item-content">
           <template v-if="editingId === conv.id">
-            <input
+            <Input
               v-model="editingTitle"
               :data-rename-input="conv.id"
-              class="w-full truncate rounded bg-background px-1 py-0.5 text-sm text-foreground outline-none ring-1 ring-ring"
+              size="rename"
+              class="w-full truncate"
               @keyup.enter="confirmRename"
               @keyup.escape="cancelRename"
               @blur="confirmRename"
@@ -226,36 +199,23 @@ onBeforeUnmount(() => {
         <span class="text-sm">{{ searchQuery ? '无匹配结果' : '暂无对话' }}</span>
       </div>
     </div>
-
-    <!-- 右键菜单（teleport 到 body） -->
-    <Teleport to="body">
-      <div
-        v-if="contextMenuVisible"
-        :style="{ left: `${contextMenuX}px`, top: `${contextMenuY}px` }"
-        class="fixed z-50 min-w-28 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
-        @click.stop
-      >
-        <button
-          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
-          @click="handlePin"
-        >
-          <template v-if="isPinned()">
-            <PinOff class="size-3.5" />
-            取消置顶
-          </template>
-          <template v-else>
-            <Pin class="size-3.5" />
-            置顶
-          </template>
-        </button>
-        <button
-          class="flex w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground"
-          @click="handleRenameFromMenu"
-        >
-          <Edit2 class="size-3.5" />
-          重命名
-        </button>
-      </div>
-    </Teleport>
-  </div>
+      </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem @select="handlePin">
+            <template v-if="isPinned()">
+              <PinOff class="size-3.5" />
+              取消置顶
+            </template>
+            <template v-else>
+              <Pin class="size-3.5" />
+              置顶
+            </template>
+          </ContextMenuItem>
+          <ContextMenuItem @select="handleRenameFromMenu">
+            <Edit2 class="size-3.5" />
+            重命名
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+    </div>
 </template>
