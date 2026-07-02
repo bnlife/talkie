@@ -135,7 +135,7 @@ function handleOutsideClick(e: MouseEvent) {
 <template>
   <div class="relative bg-background px-3 pt-1 pb-2">
     <!-- Model Switcher Dropdown -->
-    <div v-if="showModelMenu" class="absolute bottom-full left-3 z-50 mb-1 w-72 rounded-lg border bg-popover p-1 shadow-md" data-model-menu>
+    <div v-if="showModelMenu" class="absolute bottom-full left-3 z-50 mb-1 w-72 rounded-xl bg-popover p-1 shadow-lg" data-model-menu>
       <div class="max-h-64 overflow-y-auto">
         <template v-for="provider in settingsStore.enabledProviders" :key="provider.id">
           <div class="flex items-center gap-2 px-2 py-1.5 text-xs font-medium text-muted-foreground">
@@ -161,7 +161,7 @@ function handleOutsideClick(e: MouseEvent) {
     </div>
 
     <!-- Prompt Switcher Dropdown -->
-    <div v-if="showPromptMenu" class="absolute bottom-full left-3 z-50 mb-1 w-64 rounded-lg border bg-popover p-1 shadow-md" data-prompt-menu>
+    <div v-if="showPromptMenu" class="absolute bottom-full left-3 z-50 mb-1 w-64 rounded-xl bg-popover p-1 shadow-lg" data-prompt-menu>
       <div class="max-h-64 overflow-y-auto">
         <div
           :class="cn(
@@ -197,7 +197,7 @@ function handleOutsideClick(e: MouseEvent) {
     </div>
 
     <!-- Search Engine Switcher Dropdown -->
-    <div v-if="showSearchMenu" class="absolute bottom-full left-3 z-50 mb-1 w-56 rounded-lg border bg-popover p-1 shadow-md" data-search-menu>
+    <div v-if="showSearchMenu" class="absolute bottom-full left-3 z-50 mb-1 w-56 rounded-xl bg-popover p-1 shadow-lg" data-search-menu>
       <div class="max-h-64 overflow-y-auto">
         <div
           v-if="searchInstances.length === 0"
@@ -229,7 +229,7 @@ function handleOutsideClick(e: MouseEvent) {
         :rows="1"
         placeholder="输入消息..."
         :class="cn(
-          'min-h-[80px] max-h-[240px] resize-none w-full text-sm leading-relaxed bg-muted/50 border-border/50 focus-visible:ring-1 focus-visible:ring-ring pr-12',
+          'min-h-[80px] max-h-[240px] resize-none w-full text-sm leading-relaxed bg-muted/50 border-border/50 focus-visible:ring-1 focus-visible:ring-border pr-12',
         )"
         @keydown="handleKeydown"
       />
