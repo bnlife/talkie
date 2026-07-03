@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "vite",
-    "prebuild": "vitest run src/__tests__/lint/",
+    "clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml -- -W clippy::all",
+    "prebuild": "vitest run src/__tests__/lint/ && npm run clippy",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
