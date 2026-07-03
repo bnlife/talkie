@@ -11,6 +11,9 @@ const settingsStore = useSettingsStore()
 <template>
   <div class="flex w-10 flex-col items-center gap-2 bg-muted py-2" data-tauri-drag-region>
     <Button
+      v-motion
+      :initial="{ scale: 1 }"
+      :hovered="{ scale: 1.1 }"
       :variant="activeView === 'chat' ? 'active' : 'ghost'"
       size="icon"
       @click="emit('select', 'chat')"
@@ -18,6 +21,9 @@ const settingsStore = useSettingsStore()
       <MessageSquare class="size-4" />
     </Button>
     <Button
+      v-motion
+      :initial="{ scale: 1 }"
+      :hovered="{ scale: 1.1 }"
       :variant="activeView === 'knowledge' ? 'active' : 'ghost'"
       size="icon"
       @click="emit('select', 'knowledge')"
@@ -25,6 +31,9 @@ const settingsStore = useSettingsStore()
       <BookOpen class="size-4" />
     </Button>
     <Button
+      v-motion
+      :initial="{ scale: 1 }"
+      :hovered="{ scale: 1.1 }"
       :variant="activeView === 'prompt' ? 'active' : 'ghost'"
       size="icon"
       @click="emit('select', 'prompt')"
@@ -32,6 +41,9 @@ const settingsStore = useSettingsStore()
       <FileText class="size-4" />
     </Button>
     <Button
+      v-motion
+      :initial="{ scale: 1 }"
+      :hovered="{ scale: 1.1 }"
       :variant="activeView === 'mcp' ? 'active' : 'ghost'"
       size="icon"
       @click="emit('select', 'mcp')"
@@ -40,6 +52,9 @@ const settingsStore = useSettingsStore()
     </Button>
     <div class="mt-auto flex flex-col items-center gap-2">
       <Button
+        v-motion
+        :initial="{ scale: 1 }"
+        :hovered="{ scale: 1.1 }"
         variant="ghost"
         size="icon"
         @click="settingsStore.darkMode = !settingsStore.darkMode; settingsStore.saveSettings()"
@@ -48,6 +63,9 @@ const settingsStore = useSettingsStore()
         <Sun v-else class="size-4" />
       </Button>
       <Button
+        v-motion
+        :initial="{ scale: 1 }"
+        :hovered="{ scale: 1.1 }"
         :variant="activeView === 'settings' ? 'active' : 'ghost'"
         size="icon"
         @click="emit('select', 'settings')"

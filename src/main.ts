@@ -1,5 +1,6 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
+import { MotionPlugin } from '@vueuse/motion'
 import './styles/global.css'
 import App from './App.vue'
 import { log } from './bridge/log'
@@ -12,6 +13,7 @@ app.config.errorHandler = (err, _instance, _info) => {
 }
 
 app.use(createPinia())
+app.use(MotionPlugin)
 app.mount('#app')
 
 // 未捕获 Promise 拒绝

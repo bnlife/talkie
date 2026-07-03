@@ -18,6 +18,17 @@ const promptStore = usePromptStore()
 const mcpStore = useMcpStore()
 const activeView = ref('chat')
 
+function switchView(view: string) {
+  if (view === activeView.value) return
+  if (document.startViewTransition) {
+    document.startViewTransition(() => {
+      activeView.value = view
+    })
+  } else {
+    activeView.value = view
+  }
+}
+
 onMounted(async () => {
   mcpStore.listenEvents()
   await Promise.all([
@@ -45,7 +56,7 @@ watch(
 <template>
   <Toaster />
   <div class="flex h-screen w-screen overflow-hidden bg-muted text-foreground">
-    <Toolstrip :active-view="activeView" @select="activeView = $event" />
+    <Toolstrip :active-view="activeView" @select="switchView" />
     <ChatView v-if="activeView === 'chat'" class="flex flex-1 overflow-hidden" />
     <SettingsView v-else-if="activeView === 'settings'" class="flex flex-1 flex-col overflow-hidden" />
     <KnowledgeView v-else-if="activeView === 'knowledge'" class="flex flex-1 flex-col overflow-hidden" />
