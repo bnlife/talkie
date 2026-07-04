@@ -23,11 +23,14 @@ impl McpPool {
 
     /// Start an MCP instance: spawn process, initialize, store in pool.
     pub async fn start(&self, instance: &McpInstance) -> Result<(), String> {
-        let mut clients = self.clients.lock().await;
-        if clients.contains_key(&instance.id) {
-            log::debug!("RS::mcp::pool | start | already running | id={}", instance.id);
-            return Err(format!("MCP 实例已在运行: {}", instance.id));
-        }
+        // First quick check (not holding lock across await)
+        {
+            let clients = self.clients.lock().await;
+            if clients.contains_key(&instance.id) {
+                log::warn!("RS::ERR::E4002 | instance_already_running | id={}", instance.id);
+                return Err(format!("instance_already_running: {}", instance.id));
+            }
+        } // Lock released here
 
         // Resolve local: scripts to actual paths
         let mut resolved = instance.clone();
@@ -42,6 +45,13 @@ impl McpPool {
         log::info!("RS::mcp::pool | start | spawning | id={} name={}", instance.id, instance.name);
         let client = McpClient::connect_stdio(&resolved).await?;
         log::info!("RS::mcp::pool | start | connected | id={}", instance.id);
+
+        // Second check + insert (TOCTOU protection)
+        let mut clients = self.clients.lock().await;
+        if clients.contains_key(&instance.id) {
+            log::warn!("RS::ERR::E4002 | instance_race | id={}", instance.id);
+            return Err(format!("instance_was_started_by_another_task: {}", instance.id));
+        }
         clients.insert(instance.id.clone(), client);
         log::info!("RS::mcp::pool | start | done | id={} | pool size={}", instance.id, clients.len());
         Ok(())
@@ -67,8 +77,11 @@ impl McpPool {
     pub async fn list_tools(&self, id: &str) -> Result<Vec<rmcp::model::Tool>, String> {
         log::debug!("RS::mcp::pool | list_tools | id={}", id);
         let clients = self.clients.lock().await;
-        log::debug!("RS::mcp::pool | list_tools | pool size={} | id={}", clients.len(), id);
-        let client = clients.get(id).ok_or(format!("MCP 实例未运行: {}", id))?;
+        log::debug!("RS::mcp::pool | list_tools | pool_size={} | id={}", clients.len(), id);
+        let client = clients.get(id).ok_or_else(|| {
+            log::error!("RS::ERR::E4001 | instance_not_running | id={}", id);
+            format!("instance_not_running: {}", id)
+        })?;
         client.list_tools().await
     }
 
@@ -77,11 +90,11 @@ impl McpPool {
         log::debug!("RS::mcp::pool | call_tool | instance={} tool={}", instance_id, tool_name);
         let clients = self.clients.lock().await;
         let client = clients.get(instance_id).ok_or_else(|| {
-            log::error!("RS::mcp::pool | call_tool | instance not running | id={}", instance_id);
-            format!("MCP 实例未运行: {}", instance_id)
+            log::error!("RS::ERR::E4001 | instance_not_running | id={}", instance_id);
+            format!("instance_not_running: {}", instance_id)
         })?;
         client.call_tool(tool_name, args).await.map_err(|e| {
-            log::error!("RS::mcp::pool | call_tool failed | instance={} tool={} err={}", instance_id, tool_name, e);
+            log::error!("RS::ERR::E4004 | call_tool_fail | instance={} tool={} err={}", instance_id, tool_name, e);
             e
         })
     }

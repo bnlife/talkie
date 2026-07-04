@@ -11,6 +11,7 @@ pub mod store;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::error::AppError;
 use tauri::Manager;
 use tauri_plugin_log::{RotationStrategy, Target, TargetKind};
 use tokio_util::sync::CancellationToken;
@@ -33,7 +34,14 @@ pub struct AppState {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_wdio_webdriver::init())
         .setup(|app| {
+            // Boot log: session anchor
+            let session_id = uuid::Uuid::new_v4().to_string();
+            let ver = env!("CARGO_PKG_VERSION");
+            let plat = std::env::consts::OS;
+            log::info!("RS::boot | session={} ver={} plat={}", session_id, ver, plat);
+
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -90,7 +98,7 @@ pub fn run() {
             let http_client = reqwest::Client::builder()
                 .connect_timeout(std::time::Duration::from_secs(30))
                 .build()
-                .expect("RS::lib | failed to create HTTP client");
+                .map_err(|e| AppError::ConfigError(format!("failed to create HTTP client: {}", e)))?;
 
             // Inject state so Tauri commands can access it via State<>.
             app.manage(AppState {

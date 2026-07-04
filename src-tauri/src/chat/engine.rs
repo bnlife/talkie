@@ -63,15 +63,27 @@ pub fn gather_context(
     conversation_id: &str,
 ) -> Result<ConversationContext, String> {
     let history = {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let db = state.db.lock().map_err(|e| {
+            log::error!("RS::ERR::E1001 | db_lock_fail | conv={}", conversation_id);
+            e.to_string()
+        })?;
         store::list_messages_by_conversation(&db, conversation_id)
-            .map_err(|e| e.to_string())?
+            .map_err(|e| {
+                log::error!("RS::ERR::E1002 | db_query_fail | conv={}", conversation_id);
+                e.to_string()
+            })?
     };
 
     let system_prompt = {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let db = state.db.lock().map_err(|e| {
+            log::error!("RS::ERR::E1001 | db_lock_fail | conv={}", conversation_id);
+            e.to_string()
+        })?;
         let conv = store::get_conversation(&db, conversation_id)
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| {
+                log::error!("RS::ERR::E1002 | db_query_fail | conv={}", conversation_id);
+                e.to_string()
+            })?;
         match conv.as_ref().and_then(|c| c.prompt_id.as_ref()).filter(|s| !s.is_empty()) {
             Some(id) if id == "default" => {
                 store::get_default_prompt(&db)
@@ -125,10 +137,19 @@ pub fn resolve_llm_config(
     state: &AppState,
     conversation_id: &str,
 ) -> Result<LlmConfig, String> {
-    let config = state.config.lock().map_err(|e| e.to_string())?;
-    let db = state.db.lock().map_err(|e| e.to_string())?;
+    let config = state.config.lock().map_err(|e| {
+        log::error!("RS::ERR::E1001 | db_lock_fail | conv={}", conversation_id);
+        e.to_string()
+    })?;
+    let db = state.db.lock().map_err(|e| {
+        log::error!("RS::ERR::E1001 | db_lock_fail | conv={}", conversation_id);
+        e.to_string()
+    })?;
     let conv = store::get_conversation(&db, conversation_id)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            log::error!("RS::ERR::E1002 | db_query_fail | conv={}", conversation_id);
+            e.to_string()
+        })?;
 
     let (provider, conv_model) = match conv {
         Some(ref c) if !c.provider_id.is_empty() => {
@@ -223,10 +244,10 @@ pub async fn execute_stream(
     match result {
         Ok(stream_result) => Ok(Some((stream_result.content, stream_result.thinking, stream_result.tokens))),
         Err(e) => {
-            if e.contains("请求已取消") {
-                log::warn!("RS::CMD::chat | stream cancelled | conv={}", conversation_id);
+            if e.contains("cancelled") {
+                log::warn!("RS::ERR::E3001 | stream_cancelled | conv={}", conversation_id);
             } else {
-                log::error!("RS::CMD::chat | stream failed | err={}", e);
+                log::error!("RS::ERR::E3002 | stream_failed | conv={} err={}", conversation_id, e);
             }
             let _ = app.emit(
                 "chat:error",
@@ -251,7 +272,7 @@ pub fn finalize_response(
         content: params.full_text,
         created_at: std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
+            .unwrap_or(std::time::Duration::ZERO)
             .as_secs() as i64,
         token_count: params.usage_tokens,
         search_results: params.search_results,
@@ -259,8 +280,14 @@ pub fn finalize_response(
         attachments: None,
     };
     {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        store::create_message(&db, &assistant_msg).map_err(|e| e.to_string())?;
+        let db = state.db.lock().map_err(|e| {
+            log::error!("RS::ERR::E1001 | db_lock_fail | msg_id={}", params.message_id);
+            e.to_string()
+        })?;
+        store::create_message(&db, &assistant_msg).map_err(|e| {
+            log::error!("RS::ERR::E1003 | db_write_fail | msg_id={}", params.message_id);
+            e.to_string()
+        })?;
     }
     log::info!(
         "RS::CMD::chat | assistant msg saved | msg_id={} chars={}",
@@ -270,7 +297,10 @@ pub fn finalize_response(
 
     // Clean up the cancellation token.
     {
-        let mut c = state.cancel.lock().map_err(|e| e.to_string())?;
+        let mut c = state.cancel.lock().map_err(|e| {
+            log::error!("RS::ERR::E1001 | db_lock_fail | cleanup_cancel");
+            e.to_string()
+        })?;
         *c = None;
     }
 

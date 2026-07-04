@@ -197,7 +197,7 @@ describe('settingsStore', () => {
       const result = await store.testConnection('non-existent')
 
       expect(result.ok).toBe(false)
-      expect(result.error).toBe('Provider 不存在')
+      expect(result.error).toBe('provider_not_found')
     })
   })
 
@@ -232,7 +232,7 @@ describe('settingsStore', () => {
       const result = await store.verifyModel('non-existent', 'gpt-4o')
 
       expect(result.ok).toBe(false)
-      expect(result.error).toBe('Provider 不存在')
+      expect(result.error).toBe('provider_not_found')
     })
   })
 
