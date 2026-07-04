@@ -32,8 +32,8 @@ where
     G: Fn(String) + Send + 'static,
 {
     if cancel.is_cancelled() {
-        log::warn!("RS::llm | cancelled");
-        return Err("请求已取消".to_string());
+        log::warn!("RS::ERR::E3001 | stream_cancelled");
+        return Err("cancelled".to_string());
     }
 
     let has_system = messages.first().is_some_and(|m| m.role == "system");
@@ -71,7 +71,10 @@ where
     });
 
     let body_str =
-        serde_json::to_string(&body).map_err(|e| format!("序列化请求体失败: {}", e))?;
+        serde_json::to_string(&body).map_err(|e| {
+            log::error!("RS::ERR::E3004 | body_serialize_fail | err={}", e);
+            format!("serialize body failed: {}", e)
+        })?;
 
     let mut request = client
         .post(&url)
@@ -88,15 +91,15 @@ where
         .send()
         .await
         .map_err(|e| {
-            let msg = if e.is_timeout() {
-                "请求超时".to_string()
+            let (code, msg) = if e.is_timeout() {
+                ("E2001", "net_timeout")
             } else if e.is_connect() {
-                format!("无法连接到服务器: {}", e)
+                ("E2002", "net_connect_fail")
             } else {
-                format!("请求失败: {}", e)
+                ("E2003", "net_request_fail")
             };
-            log::error!("RS::llm | net err: {}", msg);
-            msg
+            log::error!("RS::ERR::{} | {} | err={}", code, msg, e);
+            format!("{}: {}", msg, e)
         })?;
 
     let status = response.status();
@@ -104,12 +107,10 @@ where
     if !status.is_success() {
         let err_body = response.text().await.unwrap_or_default();
         log::error!(
-            "RS::llm | HTTP error | status={} url={} key_len={} key_prefix={} body={}",
-            status, url, api_key.len(),
-            if api_key.len() >= 4 { &api_key[..4] } else { "***" },
-            err_body
+            "RS::ERR::E2004 | http_error | status={} url={} key_len={} body_len={}",
+            status, url, api_key.len(), err_body.len()
         );
-        return Err(format!("HTTP error: {} {}", status, err_body));
+        return Err(format!("http_error {} {}", status, err_body));
     }
 
     let mut accumulated = String::new();
@@ -119,18 +120,18 @@ where
 
     loop {
         if cancel.is_cancelled() {
-            log::warn!("RS::llm | cancelled");
-            return Err("请求已取消".to_string());
+            log::warn!("RS::ERR::E3001 | stream_cancelled");
+            return Err("cancelled".to_string());
         }
 
         let chunk = match tokio::time::timeout(
             std::time::Duration::from_secs(60),
             response.chunk()
         ).await {
-            Ok(result) => result.map_err(|e| format!("读取响应分块失败: {}", e))?,
+            Ok(result) => result.map_err(|e| format!("chunk_read_fail: {}", e))?,
             Err(_) => {
-                log::error!("RS::llm | chunk timeout (60s)");
-                return Err("读取响应超时 (60秒无数据)".to_string());
+                log::error!("RS::ERR::E3003 | stream_timeout | ms=60000");
+                return Err("stream_timeout: 60s no data".to_string());
             }
         };
         let chunk = match chunk {

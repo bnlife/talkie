@@ -10,7 +10,10 @@ pub fn get_settings(
     state: State<'_, AppState>,
 ) -> Result<models::Settings, String> {
     log::debug!("RS::CMD::settings | read");
-    let config = state.config.lock().map_err(|e| e.to_string())?;
+    let config = state.config.lock().map_err(|e| {
+        log::error!("RS::ERR::E1001 | db_lock_fail");
+        e.to_string()
+    })?;
     Ok(config.clone())
 }
 
@@ -29,11 +32,17 @@ pub fn update_settings(
     let mut decrypted = settings.clone();
     config::decrypt_provider_keys(&mut decrypted);
     {
-        let mut config = state.config.lock().map_err(|e| e.to_string())?;
+        let mut config = state.config.lock().map_err(|e| {
+            log::error!("RS::ERR::E1001 | db_lock_fail");
+            e.to_string()
+        })?;
         *config = decrypted;
     }
     // Save to disk with encrypted keys
-    config::save(state.config_path.clone(), &settings).map_err(|e| e.to_string())
+    config::save(state.config_path.clone(), &settings).map_err(|e| {
+        log::error!("RS::ERR::E6003 | config_write_fail | err={}", e);
+        e.to_string()
+    })
 }
 
 /// Verify LLM API connectivity by sending a POST request to the chat completions endpoint.
@@ -51,8 +60,8 @@ pub async fn verify_connection(client: &reqwest::Client, base_url: &str, api_key
 
     let body_str =
         serde_json::to_string(&body).map_err(|e| {
-            log::error!("RS::CMD::verify | body ser fail: {}", e);
-            format!("序列化请求体失败: {}", e)
+            log::error!("RS::ERR::E3004 | body_serialize_fail | err={}", e);
+            format!("serialize_body_fail: {}", e)
         })?;
 
     let mut request = client
@@ -70,33 +79,33 @@ pub async fn verify_connection(client: &reqwest::Client, base_url: &str, api_key
         .await
         .map_err(|e| {
             if e.is_timeout() {
-                log::error!("RS::CMD::verify | timeout");
-                "连接超时，请检查网络或 API 地址".to_string()
+                log::error!("RS::ERR::E2001 | net_timeout | url={}", url);
+                "net_timeout: check network or api address".to_string()
             } else if e.is_connect() {
-                log::error!("RS::CMD::verify | connect fail: {}", e);
-                format!("无法连接到服务器，请检查 API 地址: {}", e)
+                log::error!("RS::ERR::E2002 | net_connect_fail | url={}", url);
+                format!("net_connect_fail: {}", e)
             } else {
-                log::error!("RS::CMD::verify | request fail: {}", e);
-                format!("网络请求失败: {}", e)
+                log::error!("RS::ERR::E2003 | net_request_fail | url={}", url);
+                format!("net_request_fail: {}", e)
             }
         })?;
 
     let status = response.status();
     let body_text = response.text().await.unwrap_or_default();
-    log::debug!("RS::CMD::verify | resp | status={} body={}", status, body_text);
+    log::debug!("RS::CMD::verify | resp | status={} body_len={}", status, body_text.len());
     match status.as_u16() {
-        200 => Ok("连接成功".to_string()),
+        200 => Ok("connect_ok".to_string()),
         401 => {
-            log::error!("RS::CMD::verify | 401 auth fail | body={}", body_text);
-            Err(format!("API Key 认证失败: {}", body_text))
+            log::error!("RS::ERR::E5001 | auth_fail | body_len={}", body_text.len());
+            Err(format!("auth_fail: {}", body_text))
         }
         404 => {
-            log::error!("RS::CMD::verify | 404 addr err | body={}", body_text);
-            Err(format!("API 地址错误: {}", body_text))
+            log::error!("RS::ERR::E5002 | model_not_found | body_len={}", body_text.len());
+            Err(format!("addr_err: {}", body_text))
         }
         _ => {
-            log::error!("RS::CMD::verify | status={} body={}", status, body_text);
-            Err(format!("服务器返回异常状态码 {}: {}", status, body_text))
+            log::error!("RS::ERR::E2004 | http_error | status={} body_len={}", status, body_text.len());
+            Err(format!("http_error {}: {}", status, body_text))
         }
     }
 }
@@ -141,20 +150,20 @@ pub async fn fetch_provider_models(
     }
 
     let response = request.send().await.map_err(|e| {
-        log::error!("RS::CMD::models | request fail: {}", e);
-        format!("请求失败: {}", e)
+        log::error!("RS::ERR::E2003 | net_request_fail | provider={}", provider.name);
+        format!("net_request_fail: {}", e)
     })?;
 
     let status = response.status();
     if !status.is_success() {
         let body = response.text().await.unwrap_or_default();
-        log::error!("RS::CMD::models | HTTP {} | body={}", status, body);
-        return Err(format!("HTTP error {}: {}", status, body));
+        log::error!("RS::ERR::E2004 | http_error | provider={} status={}", provider.name, status);
+        return Err(format!("http_error {}: {}", status, body));
     }
 
     let body: serde_json::Value = response.json().await.map_err(|e| {
-        log::error!("RS::CMD::models | parse fail: {}", e);
-        format!("解析响应失败: {}", e)
+        log::error!("RS::ERR::E6002 | parse_fail | provider={}", provider.name);
+        format!("parse_fail: {}", e)
     })?;
 
     let models: Vec<String> = body

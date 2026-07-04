@@ -5,3 +5,14 @@ src-tauri/target/
 .DS_Store
 
 .slim/deepwork/
+
+# 安全
+.env
+.env.*
+
+# 日志目录
+logs/
+
+# 密钥文件
+*.pem
+*.key
